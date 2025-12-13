@@ -1,0 +1,107 @@
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  background-color: #fff;
+  padding: 30px 40px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.heading {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 25px;
+  color: #222;
+  border-bottom: 2px solid #0077ff;
+  display: inline-block;
+  padding-bottom: 4px;
+}
+
+/* Avatar */
+.avatarSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #0077ff;
+  margin-bottom: 10px;
+}
+
+.avatarLabel {
+  font-size: 0.9rem;
+  color: #0077ff;
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.3s;
+}
+
+.avatarLabel:hover {
+  color: #005fcc;
+}
+
+.fileInput {
+  display: none;
+}
+
+/* Form Fields */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 18px;
+}
+
+.formGroup label {
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.formGroup input {
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.formGroup input:focus {
+  border-color: #0077ff;
+}
+
+/* Button */
+.saveBtn {
+  margin-top: 10px;
+  background-color: #0077ff;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.saveBtn:hover {
+  background-color: #005fcc;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .container {
+    padding: 20px;
+  }
+
+  .avatar {
+    width: 70px;
+    height: 70px;
+  }
+}

@@ -1,0 +1,189 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+.pageWrapper {
+  width: 100%;
+  height: 80vh;
+  background-image: url('../assets/Header.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  flex-direction: column;
+}
+
+/* content area */
+.homeMain {
+  flex: 1;               /* take remaining space below navbar */
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: white;
+}
+.text{
+  font-size: 58px;
+  /* font-weight: bold; */
+}
+.homeMain p{
+  font-size: 17px;
+}
+
+
+.searchBox {
+  position: relative;
+  width: 620px;
+  height: 50px;
+}
+
+.searchIcon {
+  position: absolute;
+  top: 50%;
+  left: 15px;           /* 👈 ensures it sits inside input nicely */
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  pointer-events: none; /* prevents clicking icon instead of input */
+}
+
+.input {
+  width: 100%;
+  height: 100%;
+  border-radius: 30px;
+  border: none;
+  padding: 0 60px 0 45px; /* left padding leaves room for icon */
+  font-size: 16px;
+  outline: none;
+}
+.input::placeholder {
+  color: #09707d;
+  font-size: 16px;
+  /* font-weight: 400; */
+}
+.searchBtn {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: #09707d;
+  border: none;
+  border-radius: 50%;
+  height: 40px;
+  width: 40px;
+  display: flex;              /* centers arrow icon inside button */
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.searchBtn img {
+  width: 18px;
+  height: 18px;
+}
+
+.getStartedBtn{
+  margin-top: 20px;
+  padding: 12px 25px;
+  font-size: 18px;
+  color: #fff;
+  background-color: #09707d;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+.getStartedBtn:hover {
+  background-color: #fff;
+  color: #09707d;
+}
+
+.starsSection {
+  width: 100%;
+  display: flex;
+  justify-content: left;
+  padding: 40px 0;
+  background: #fff; /* or transparent if you don't want background */
+}
+
+.starsSection img {
+  max-width: 150px;
+}
+.infoSection {
+  /* width: 100%; */
+  display: flex;
+  /* margin-left: 50px; */
+  /* justify-content: center; */
+  align-items: center;
+  margin-top: 45px;
+  /* background-color: #f9f9f9; */
+  flex-wrap: wrap; /*allows wrapping on smaller screens */
+  gap: 20px;       /* space between cards */
+}
+
+ .infoCard {
+  width: 450px;
+  height: 250px;
+  text-align: left;
+  padding: 20px 30px;
+  border: 1px solid #eee;
+  border-radius: 15px;
+  background-color: #fff;
+  margin: 10px;
+  transition: all 0.35s ease;   /* smoother transition */
+  cursor: pointer;             /* make it feel interactive */
+}
+
+.infoCard:hover {
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-8px) scale(1.05); /* more lift */
+  border-color: #09707d;                   /* subtle highlight */
+}
+
+
+
+.infoCard img {
+  width: 32px;
+  height: 32px;
+  margin-top: 10px;
+}
+.infoCard h2 {
+  font-size: 24px;
+  margin: 15px 0 10px 0;
+  font-weight: 700;
+  padding-top: 20px;
+}
+.infoCard p {
+  font-size: 18px;
+  color: #555;
+  margin-bottom: 20px;
+}
+
+
+.links {
+  text-decoration: none;
+  color: #09707d;
+  font-weight: 600;
+  font-size: 18px;
+  transition: color 0.3s ease;
+  display: inline-flex;    /* 👈 keeps link + icon aligned */
+  align-items: center;
+}
+
+.links:hover {
+  color: #065a63;          /* optional: darken text on hover */
+}
+
+.links:hover .solid {
+  transform: translateX(5px);
+}
+
+.solid {
+  margin-left: 5px;
+  margin-top: 5px;
+  display: inline-block;
+  transition: transform 0.3s ease; /* 👈 animate movement */
+}

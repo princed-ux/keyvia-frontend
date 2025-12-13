@@ -1,0 +1,325 @@
+/* src/styles/profile.module.css */
+
+/* --- Variables --- */
+:root {
+  --primary: #09707d;       /* TEAL */
+  --primary-dark: #075661;
+  --primary-light: #e0f2f4; /* Very light teal */
+  --text-main: #1e293b;
+  --text-gray: #64748b;
+  --bg-color: #f8fafc;
+  --white: #ffffff;
+  --border: #e2e8f0;
+}
+
+.container {
+  padding: 20px;
+  background-color: var(--bg-color);
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* --- Header --- */
+.header {
+  background: linear-gradient(135deg, var(--primary) 0%, #054850 100%);
+  border-radius: 16px;
+  padding: 40px 30px;
+  color: var(--white);
+  margin-bottom: 30px;
+  box-shadow: 0 10px 25px -5px rgba(9, 112, 125, 0.25);
+}
+
+.headerContent h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.headerContent p {
+  margin: 5px 0 0;
+  opacity: 0.9;
+  font-size: 1.05rem;
+}
+
+/* --- THE 2-COLUMN LAYOUT --- */
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr; /* Sidebar Fixed | Content Flexible */
+  gap: 30px;
+  align-items: start;
+}
+
+/* --- Left Sidebar --- */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.avatarCard {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 35px 25px;
+  text-align: center;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 20px;
+}
+
+.avatarWrapper {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 20px;
+}
+
+.avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid var(--primary-light);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.avatar:hover {
+  transform: scale(1.02);
+}
+
+.cameraBtn {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background: var(--primary);
+  color: var(--white);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 3px solid var(--white);
+  transition: background 0.2s;
+}
+
+.cameraBtn:hover {
+  background: var(--primary-dark);
+}
+
+.userName {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 5px;
+}
+
+.userRole {
+  color: var(--text-gray);
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  margin-bottom: 20px;
+}
+
+.locationTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 25px;
+}
+
+/* Sidebar Buttons */
+.editBtn, .cancelBtn, .saveBtn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  transition: all 0.2s;
+  font-size: 0.95rem;
+}
+
+.editBtn {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+.editBtn:hover { background: #d3eff2; }
+
+.cancelBtn {
+  background: #f1f5f9;
+  color: var(--text-gray);
+  margin-bottom: 10px;
+}
+.cancelBtn:hover { background: #e2e8f0; }
+
+.saveBtn {
+  background: var(--primary);
+  color: var(--white);
+  box-shadow: 0 4px 10px rgba(9, 112, 125, 0.3);
+}
+.saveBtn:hover { background: var(--primary-dark); }
+
+/* --- Right Content --- */
+.content {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 40px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 15px;
+  border-bottom: 2px solid #f1f5f9;
+  margin-bottom: 30px;
+}
+
+.tab {
+  background: none;
+  border: none;
+  padding: 15px 10px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-gray);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  top: 2px;
+  transition: color 0.2s;
+}
+
+.tab:hover {
+  color: var(--primary);
+}
+
+.activeTab {
+  color: var(--primary);
+  font-weight: 700;
+  border-bottom: 2px solid var(--primary);
+}
+
+/* Forms */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 25px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputGroupFull {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Icons inside labels should be Teal */
+.label svg {
+  color: var(--primary);
+}
+
+.input, .select, .textarea {
+  padding: 12px 15px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  background: var(--white);
+  transition: border-color 0.2s;
+}
+
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(9, 112, 125, 0.1);
+}
+
+.input:disabled, .select:disabled, .textarea:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.errorBorder {
+  border-color: #ef4444;
+}
+
+.errorText {
+  color: #ef4444;
+  font-size: 0.85rem;
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.3s;
+}
+
+.modalContent img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 8px;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .avatarCard {
+    position: static;
+  }
+}

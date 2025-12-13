@@ -1,0 +1,105 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  text-align: center;
+  background: #f9f9f9;
+}
+
+.lottieContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: auto;
+  margin-bottom: 20px;
+}
+
+.lotties {
+  width: 85vw;
+  max-width: 700px;
+  height: auto;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .lotties {
+    width: 95vw;
+    max-width: 700px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .lotties {
+    width: 100vw;
+    max-width: 500px;
+  }
+}
+
+.title {
+  font-size: 4rem;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: #666;
+  margin: 8px 0 18px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.primary,
+.secondary {
+  padding: 10px 22px;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: 0.3s;
+}
+
+.primary {
+  background: #09707d;
+  color: #fff;
+}
+
+.primary:hover {
+  background: #095c67;
+}
+
+.secondary {
+  background: #ccc;
+  color: #333;
+  border: none;
+}
+
+.secondary:hover {
+  background: #bbb;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 600px) {
+  .title {
+    font-size: 3rem;
+  }
+  .subtitle {
+    font-size: 1rem;
+  }
+  .primary,
+  .secondary {
+    width: 100%;
+    text-align: center;
+  }
+}

@@ -1,0 +1,237 @@
+*{
+    margin: 0;
+  padding: 0;
+}
+.navbar {
+  width: 100%;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
+  background-color: transparent;
+}
+.logo {
+  width: 120px;
+}
+.navlinks {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+  justify-content: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-weight: 500;
+  font-size: 17px;
+}
+.navlinks li {
+    cursor: pointer;
+    color: #fff;
+  transition: color 0.3s ease;
+}
+.link{
+    text-decoration: none;
+    color: #fff;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+/* ------------------- LOGIN BUTTON ------------------- */
+.login {
+  position: relative;
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid #09707d;
+  background-color: #fff;
+  color: #09707d;
+  cursor: pointer;
+  overflow: hidden;
+  transition: color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 0;
+}
+
+/* Animated overlay */
+.login::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #09707d;
+  border-radius: 8px;
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.3s cubic-bezier(.2, .9, .2, 1);
+  z-index: -1; /* keep behind text */
+}
+
+/* Text always on top */
+.login > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hover effect */
+.login:hover,
+.login:focus {
+  color: #fff;
+  border-color: #09707d;
+}
+
+.login:hover::before,
+.login:focus::before {
+  transform: scaleX(1);
+}
+
+/* Pressed effect */
+.login:active {
+  transform: translateY(1px);
+}
+
+/* Optional full-width variant */
+.login.full {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+/* ------------------- SIGNUP BUTTON ------------------- */
+.signup {
+  position: relative;
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid #09707d;
+  background-color: #09707d;
+  color: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  transition: color 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 0;
+}
+
+/* White overlay animation */
+.signup::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  border-radius: 8px;
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.3s cubic-bezier(.2, .9, .2, 1);
+  z-index: -1; /* 🟢 behind text so teal text shows */
+}
+
+/* Ensure text sits above overlay */
+.signup > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hover/focus */
+.signup:hover,
+.signup:focus {
+  border-color: #09707d;
+  color: #09707d !important;
+}
+
+.signup:hover::before,
+.signup:focus::before {
+  transform: scaleX(1);
+}
+
+/* Pressed effect */
+.signup:active {
+  transform: translateY(1px);
+}
+
+/* Full-width variant */
+.signup.full {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+.buttons{
+    display: flex;
+    gap: 10px;
+}
+
+/* Profile Section */
+.profileWrapper {
+  position: relative;
+}
+
+.profileSection {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  background-color: #f9f9f9;
+  padding: 6px 10px;
+  border-radius: 20px;
+  transition: background-color 0.2s ease;
+}
+
+.profileSection:hover {
+  background-color: #f0f0f0;
+}
+
+.profileImage {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.username {
+  font-weight: 500;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.dropdownArrow {
+  font-size: 0.8rem;
+  color: #555;
+  transition: transform 0.2s ease;
+}
+
+/* Rotate arrow when open */
+.rotate {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Menu */
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: 110%;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  padding: 8px 0;
+  z-index: 200;
+  min-width: 160px;
+}
+
+.dropdownItem {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  color: #333;
+  text-decoration: none;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.dropdownItem:hover {
+  background-color: #f5f5f5;
+}

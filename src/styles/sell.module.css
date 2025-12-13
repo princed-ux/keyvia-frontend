@@ -1,0 +1,102 @@
+.homeMain{
+    padding: 50px;
+}
+.homeMain h1{
+    font-size: 50px;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+.getStartedBtn{
+    margin-top: 30px;
+    padding: 12px 20px;
+    background-color: #09707d;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.getStartedBtn:hover{
+    background-color: #095c67;
+}
+.howItWorksSection{
+    margin-top: 55px;
+    text-align: left;
+}
+.howItWorksSection h2{
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+.stepsContainer{
+    display: flex;
+    flex-direction: column;
+    /* margin-top: 20px; */
+    gap: 30px;
+}
+.step{
+    border: 1px solid lightgray;
+    border-left: 4px solid #095c67;
+    padding: 10px;
+    /* border-radius: 8px; */
+    width: 550px;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-left 0.2s ease;
+}
+.step:hover{
+    background-color: #f9f9f9;
+    border-left: 5px solid #09707D;
+}
+.step span{
+    font-weight: 500;
+    font-size: 18px;
+    color: #09707D;
+}
+.step h4{
+    margin-top: 8px;
+    font-size: 20px;
+    color: #333;
+    line-height: 1.4;
+}
+.mainContainer{
+    display: flex;
+    gap: 70px;
+}
+
+.mainSteps{
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+}
+.whySellMain{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+    margin-top: 40px;
+}
+.whySellContainer{
+    border: 1px solid lightgray;
+    display: flex;
+    gap: 30px;
+    border-radius: 8px;
+    padding: 25px;
+    /* margin-top: 10px; */
+    justify-content: left;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: transform 0.2s ease;
+    cursor: pointer;
+}
+.whySellContainer:hover{
+    transform: translateY(5px);
+
+}
+.whySellItem{
+    display: flex;
+    flex-direction: column;
+    /* margin-top: 10px; */
+}

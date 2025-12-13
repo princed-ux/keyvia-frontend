@@ -1,0 +1,490 @@
+/* SideNav.module.css */
+.allcontainer {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  background: #f3f4f6;
+  position: absolute;
+  bottom: 0px;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  overflow: hidden; /* prevent double scrollbars */
+}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+/* Sidebar */
+.side {
+  width: 210px;
+  background: #181818;
+  margin: 20px;
+  border-radius: 12px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  overflow-y: auto;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.12);
+}
+
+.side::-webkit-scrollbar {
+  width: 6px;
+}
+.side::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+}
+.side::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* profile area inside sidebar */
+.logo {
+  padding: 18px 16px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  position: relative; /* ✅ ensures cameraIcon positions correctly */
+}
+
+/* circular avatar wrapper */
+.avatarWrap {
+  width: 95px;
+  height: 95px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 3px solid #09707d;
+  /* box-shadow: 0 2px 6px rgba(2, 6, 23, 0.12); */
+  position: relative;
+  cursor: pointer;
+  z-index: 10;
+
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  /* overflow: hidden; */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.avatarWrap:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* actual image */
+.avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* camera overlay button */
+.cameraIcon {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(57, 55, 55, 0.6);
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10000;
+  transition: background 0.3s ease;
+}
+.cameraIcon:hover {
+  background: rgba(57, 55, 55, 0.85);
+}
+
+/* hidden file input */
+.fileInput {
+  display: none;
+}
+
+/* text block */
+.agentInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.agentName {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+  text-align: center;
+}
+
+.agentTitle {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+}
+
+/* smaller sidebar / mobile */
+@media (max-width: 900px) {
+  .avatarWrap {
+    width: 56px;
+    height: 56px;
+  }
+  .agentName {
+    font-size: 13px;
+    max-width: 120px;
+  }
+  .agentTitle {
+    font-size: 11px;
+  }
+}
+
+/* nav links */
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  flex: 1;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+}
+
+.link i {
+  width: 20px;
+  text-align: center;
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.link:hover {
+  color: #c7cbcf;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.active {
+  color: #fff;
+  font-weight: 500;
+  border-right: 3px solid #00b578; /* ✅ active indicator */
+  background: rgba(0, 181, 120, 0.08);
+}
+
+.footer {
+  padding: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.logout {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+}
+
+.logout:hover {
+  background: #dc2626;
+}
+
+/* Main container: topnav + page area */
+.mainContainer {
+  flex: 1;
+  margin: 20px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden; /* important: hide outer overflow so inner .main handles scrolling */
+  min-width: 0; /* allow children to shrink properly */
+}
+
+/* Top nav */
+.topnav {
+  height: 64px;
+  flex: 0 0 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.topTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.userSection {
+  display: flex;
+  gap: 14px;
+  font-size: 18px;
+  color: #374151;
+}
+
+.main {
+  flex: 1 1 auto; /* grow & shrink */
+  min-height: 0; /* critical for nested flex scroll to work correctly */
+  padding: 28px;
+  background: #f8fafc;
+  overflow-y: auto; /* single scroll container for page content (Outlet) */
+  overflow-x: hidden;
+}
+
+/* Page wrapper keeps content centered */
+.pageWrapper {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  min-height: 0; /* also allow shrinking if needed */
+  /* remove any forced min-height here (avoid calc(100vh - ...)) */
+}
+
+/* hide main scrollbar visually if you prefer, but keep scrolling working */
+.allcontainer::-webkit-scrollbar {
+  display: none;
+} /* Chrome/Safari */
+.allcontainer {
+  scrollbar-width: none;
+}
+/* utility */
+@media (max-width: 900px) {
+  .side {
+    display: none;
+  }
+  .mainContainer {
+    margin: 12px;
+  }
+}
+
+/* Modal Overlay */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+/* Modal Box */
+.modal {
+  background: #fff;
+  padding: 1.8rem 2rem;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 360px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+.modal h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.modal p {
+  color: #555;
+  margin-bottom: 1.2rem;
+}
+
+.modalButtons {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cancelBtn,
+.confirmBtn {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s ease;
+}
+
+.cancelBtn {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.cancelBtn:hover {
+  background: #d5d5d5;
+}
+
+.confirmBtn {
+  background: #e63946;
+  color: #fff;
+}
+
+.confirmBtn:hover {
+  background: #d62839;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdownItem {
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.uniqueBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.uniqueValue {
+  font-family: monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #111827;
+}
+
+.eyeBtn,
+.copyBtn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.2s ease;
+}
+
+.eyeBtn:hover,
+.copyBtn:hover {
+  color: #111827;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Add this rule or update the existing .userSection */
+.userSection {
+  position: relative; /* ✅ make it the dropdown’s reference */
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 18px;
+  color: #374151;
+  cursor: pointer;
+  overflow: visible; /* ✅ allow dropdown to be visible */
+}
+
+/* override global overflow if needed */
+.allcontainer {
+  overflow: visible; /* ✅ dropdowns need room outside container */
+}
+
+.dropdown {
+  position: absolute;
+  top: 120%;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  width: 300px;
+  padding: 10px 0;
+  z-index: 10000; /* ⬅ increase from 100 */
+  opacity: 0;
+  transform: translateY(-5px);
+  animation: dropdownFade 0.25s ease forwards;
+}
+
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+
+.ceo{
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 16px;
+  color: red;
+}
+.roleValue{
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 16px;
+  color: red;
+}
+

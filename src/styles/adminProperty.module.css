@@ -1,0 +1,438 @@
+/**************************************
+ DASHBOARD WRAPPER
+**************************************/
+.dashboardContainer {
+  padding: 30px;
+  background: #f5f5f5;
+  min-height: 100vh;
+  font-family: "Inter", sans-serif;
+}
+
+.subtitle {
+  margin-bottom: 20px;
+  color: #6b7280;
+}
+
+.loading,
+.empty {
+  text-align: center;
+  color: #6b7280;
+  margin-top: 50px;
+  font-size: 1.1rem;
+}
+
+
+/**************************************
+ PROPERTY CARDS GRID
+**************************************/
+.cardsContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+}
+
+.cardImage {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.cardContent {
+  padding: 15px;
+}
+
+.cardContent h3 {
+  font-size: 1.1rem;
+  margin-bottom: 6px;
+}
+
+.cardContent p {
+  color: #4b5563;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Status badges */
+.status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 8px;
+  text-transform: capitalize;
+}
+
+.status.pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.status.approved {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.status.rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+
+/**************************************
+ SLIDE MODAL OVERLAY
+**************************************/
+.slideModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+/**************************************
+ MAIN SLIDE MODAL
+**************************************/
+.slideModal {
+  width: 95%;
+  max-width: 1200px;
+  height: 90vh;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.35s ease-in-out;
+  transform: translateX(0);
+}
+
+.toProfile {
+  transform: translateX(-50%);
+}
+
+/**************************************
+ MODAL HEADER
+**************************************/
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.headerLeft .iconBtn {
+  background: transparent;
+  border: none;
+  font-size: 1.6rem;
+  cursor: pointer;
+}
+
+.headerTitle h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.headerRight .goToProfileBtn {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.9rem;
+  gap: 6px;
+}
+
+.goToProfileBtn:hover {
+  text-decoration: underline;
+}
+
+/**************************************
+ MODAL BODY WRAPPER
+ (Two panels: left = listing, right = profile)
+**************************************/
+.modalBodyContainer {
+  flex: 1;
+  display: flex;
+  width: 200%; /* Both panels in same container */
+  transition: transform 0.35s ease-in-out;
+}
+
+.slideModal.toProfile .modalBodyContainer {
+  transform: translateX(-50%);
+}
+
+/**************************************
+ PANEL: LISTING
+**************************************/
+.panelListing {
+  width: 50%;
+  padding: 20px;
+  display: flex;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.leftColumn {
+  flex: 2;
+}
+
+.rightColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/**** Gallery ****/
+.mainMedia {
+  margin-bottom: 20px;
+}
+
+.mainImage {
+  width: 100%;
+  height: 320px;
+  object-fit: cover;
+  border-radius: 10px;
+  cursor: zoom-in;
+}
+
+.thumbRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.thumb {
+  width: 70px;
+  height: 55px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.7;
+  border: 2px solid transparent;
+}
+
+.thumbActive {
+  opacity: 1;
+  border-color: #2563eb;
+}
+
+.noImage {
+  padding: 30px;
+  background: #f3f4f6;
+  text-align: center;
+  border-radius: 10px;
+}
+
+/**** Property Details ****/
+.propertyDetails p {
+  margin: 5px 0;
+  color: #374151;
+}
+
+.features ul {
+  padding-left: 22px;
+  margin-top: 6px;
+}
+
+/**** Meta Box ****/
+.metaBox {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 15px;
+  line-height: 1.6;
+}
+
+/**** Action Buttons ****/
+.actionBox button {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  color: white;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.approveBtn {
+  background: #10b981;
+}
+
+.approveBtn:hover {
+  background: #059669;
+}
+
+.rejectBtn {
+  background: #ef4444;
+}
+
+.rejectBtn:hover {
+  background: #b91c1c;
+}
+
+.deleteBtn {
+  background: #6b7280;
+}
+
+.deleteBtn:hover {
+  background: #4b5563;
+}
+
+.paymentBtn {
+  background: #2563eb;
+}
+
+.paymentBtn:hover {
+  background: #1e40af;
+}
+
+.profileLinkBtn {
+  background: #111827;
+}
+
+.profileLinkBtn:hover {
+  background: #000;
+}
+
+
+/**************************************
+ PANEL: PROFILE
+**************************************/
+.panelProfile {
+  width: 50%;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.profileInner {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/**** Header ****/
+.profileHeader {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.profileAvatar {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.username {
+  color: #6b7280;
+}
+
+.agency {
+  font-weight: 500;
+}
+
+.location {
+  color: #4b5563;
+}
+
+/**** Bio ****/
+.profileBio {
+  margin: 15px 0;
+  color: #374151;
+}
+
+/**** Contact ****/
+.contactBlock p {
+  margin: 4px 0;
+}
+
+/**** Social Links ****/
+.socials a {
+  display: inline-block;
+  margin-right: 12px;
+  font-size: 0.9rem;
+  color: #2563eb;
+}
+
+.socials a:hover {
+  text-decoration: underline;
+}
+
+/**** Footer ****/
+.openProfilePage {
+  margin-top: 20px;
+  padding: 10px 14px;
+  background: #2563eb;
+  color: white;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.openProfilePage:hover {
+  background: #1e40af;
+}
+
+
+/**************************************
+ LIGHTBOX
+**************************************/
+.lightboxOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.lightboxInner {
+  position: relative;
+  max-width: 90%;
+  max-height: 90%;
+}
+
+.lightboxImage {
+  width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.lightboxClose {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(255,255,255,0.8);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.2rem;
+}

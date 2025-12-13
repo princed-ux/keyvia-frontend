@@ -1,0 +1,330 @@
+*{
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+}
+
+.left {
+  flex: 1;
+  background-color: #f5f5f5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.sideImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.right {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #ffffff;
+}
+
+.form {
+  width: 80%;
+  max-width: 450px;
+  padding: 30px;
+  /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); */
+  background: #fff;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+
+.inputContainer {
+  padding: 20px 0;
+  width: 100%;
+}
+
+.label {
+  font-size: 18px;
+  font-weight: 500;
+  color: #000;
+  margin-bottom: 5px;
+  display: block;
+}
+
+/* Wrapper should fill form width */
+.inputWrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* Input should match wrapper width */
+.emailInput {
+  width: 100%;
+  height: 50px;
+  padding-left: 45px; /* space for icon */
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 18px;
+  color: #333;
+  outline: none;
+  background-color: #fff;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Placeholder styling */
+.emailInput::placeholder {
+  color: #aaa;
+  font-size: 18px;
+}
+
+/* Focus effect */
+.emailInput:focus {
+  border-color: #4a90e2;
+  box-shadow: 0 0 8px rgba(74, 144, 226, 0.4);
+}
+
+/* Hover effect */
+.emailInput:hover {
+  border-color: #bbb;
+}
+
+/* Icon inside input */
+.inputIcon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+}
+
+
+.button{
+  width: 100%;
+  height: 50px;
+  background-color: #09707D;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: background-color 0.3s ease;
+}
+
+.options{
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #333;
+  margin-top: 15px;
+}
+.options a{
+  color: red;
+  text-decoration: none;
+  font-weight: 600;
+}
+.options a:hover{
+  text-decoration: underline;
+}
+/* Hide default */
+.options input[type="checkbox"] {
+  display: none;
+}
+
+/* Custom box */
+.options label {
+  position: relative;
+  padding-left: 25px;
+  cursor: pointer;
+}
+
+.options label::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 15px;
+  height: 15px;
+  border: 1px solid #000;
+  border-radius: 2px;
+  background: transparent;
+}
+
+/* Checkmark when checked */
+.options input[type="checkbox"]:checked + label::before {
+  background: #09707D url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6.00016 10.2001L3.30016 7.50008L2.3335 8.46675L6.00016 12.1334L14.0002 4.13341L13.0335 3.16675L6.00016 10.2001Z'/%3E%3C/svg%3E") center/12px no-repeat;
+}
+
+
+.login{
+  text-align: center;
+  margin-top: 20px;
+  font-size: 14px;
+  color: #000;
+}
+.login a{
+  padding-left: 2px;
+  color: #09707D;
+  text-decoration: none;
+  font-weight: 600;
+}
+.login a:hover{
+  text-decoration: underline;
+}
+
+
+.inputWrapper {
+  position: relative;
+}
+.emailInput {
+  padding-right: 45px; /* space for eye icon */
+}
+
+
+.eyeToggle {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #777;
+}
+
+
+.eyeToggle:hover {
+  color: #000;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* --- EXISTING STYLES --- */
+/* Keep your .container, .left, .right, .inputContainer, etc... */
+
+/* --- ADD THESE NEW STYLES --- */
+
+/* OTP STYLES */
+.otpContainer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.otpBox {
+  width: 50px;
+  height: 50px;
+  text-align: center;
+  font-size: 24px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-weight: bold;
+}
+
+.otpBox:focus {
+  border-color: #007bff; /* Change to your brand color */
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.1);
+}
+
+.timerSection {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: #666;
+}
+
+.highlight {
+  font-weight: bold;
+  color: #333;
+}
+
+.resendButton {
+  background: none;
+  border: none;
+  color: #007bff;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-top: 15px;
+  width: 100%;
+}
+
+.resendButton:disabled {
+  color: #ccc;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* ROLE SELECTION CARDS */
+.roleWrapper {
+  width: 100%;
+  max-width: 800px; /* Wider for the grid */
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.roleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.roleCard {
+  background: #fff;
+  border: 2px solid #eee;
+  border-radius: 12px;
+  padding: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.roleCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+}
+
+.activeCard {
+  border-color: #007bff;
+  background-color: #f8fbff;
+  box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.1);
+}
+
+.roleIcon {
+  color: #007bff;
+  margin-bottom: 15px;
+}
+
+.roleCard h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.roleCard p {
+  font-size: 13px;
+  color: #666;
+}

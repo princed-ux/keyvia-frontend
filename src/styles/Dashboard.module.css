@@ -1,0 +1,17 @@
+.dashboardContainer {
+  padding: 2rem;
+  background: #f9f9f9;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.dashboardContainer h2 {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.dashboardContainer p {
+  font-size: 1rem;
+  color: #555;
+}

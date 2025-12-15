@@ -1,7 +1,6 @@
-// src/pages/Login.jsx
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthProvider";
-import client from "../api/axios"; // 👈 Import client for Forgot Password
+import client from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
 import Swal from "sweetalert2";
 import style from "../styles/login.module.css";
@@ -14,7 +13,6 @@ import house from "../assets/tallbuildings.jpg";
 
 const Login = () => {
   const navigate = useNavigate();
-  // 1️⃣ FIX: Use 'loginStart' instead of 'login'
   const { loginStart } = useAuth();
 
   const [form, setForm] = useState({ email: "", password: "" });
@@ -42,11 +40,21 @@ const Login = () => {
 
     setSubmitting(true);
     try {
-      // 2️⃣ FIX: Call loginStart (Sends OTP)
+      // 1. Send Credentials to Backend (Trigger OTP)
       await loginStart(form.email.trim().toLowerCase(), form.password);
+      
+      // 2. Save email temporarily for the next step
+      sessionStorage.setItem("loginEmail", form.email.trim().toLowerCase());
+
+      // 3. Navigate to OTP Page
+      navigate("/login/verify");
+      
     } catch (error) {
-       // loginStart handles its own errors in AuthProvider, but just in case:
        console.error(error);
+       // Error alert is usually handled in AuthProvider, but safe fallback:
+       if(error.response) {
+         Swal.fire({ icon: 'error', title: 'Login Failed', text: error.response.data.message });
+       }
     } finally {
       setSubmitting(false);
     }
@@ -63,7 +71,6 @@ const Login = () => {
     }
 
     try {
-      // 3️⃣ FIX: Use client directly here (Safety fix)
       await client.post("/api/auth/forgot-password", { 
         email: form.email.trim().toLowerCase() 
       });
@@ -85,8 +92,6 @@ const Login = () => {
 
   return (
     <div className={style.container}>
-      
-      {/* LEFT SIDE IMAGE */}
       <div className={style.left}>
         <img src={house} alt="house" className={style.sideImage} />
       </div>
@@ -97,12 +102,11 @@ const Login = () => {
         </button>
       </div>
 
-      {/* RIGHT SIDE FORM */}
       <div className={style.right}>
         <form onSubmit={handleSubmit} className={style.form} noValidate>
 
           <div className={style.header}>
-            <h2 className="text-center">Welcome back to Keyvia!!</h2>
+            <h2 className="text-center">Welcome back to KeyVia!!</h2>
             <p className="text-center">Please login to your account</p>
           </div>
 
@@ -137,7 +141,6 @@ const Login = () => {
                 required
                 className={style.emailInput}
               />
-              {/* Eye toggle */}
               <button
                 type="button"
                 className={style.eyeToggle}

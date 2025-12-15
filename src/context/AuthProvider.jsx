@@ -76,7 +76,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // STEP 2 — VERIFY OTP
   // STEP 2 — VERIFY OTP (Updated to prevent "Session Expired" error)
   const signupVerifyOtp = async (code) => {
     try {
@@ -175,9 +174,12 @@ export const AuthProvider = ({ children }) => {
     try {
       await client.post("/api/auth/login/start", { email, password });
       sessionStorage.setItem("loginEmail", email);
-      navigate("/login/verify");
+      
+      // We return the promise here so the Login page can await it if needed
+      return true; 
     } catch (err) {
-      showError("Login Failed", extractError(err));
+      // Re-throw so component can stop loading spinner
+      throw err;
     }
   };
 
@@ -204,18 +206,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("user", JSON.stringify(u));
       }
 
-      showSuccess("Login Successful", "Welcome back!");
+      showSuccess("Login Successful", `Welcome back, ${u.name}!`);
 
-      // 🛑 FIX: Do NOT clear sessionStorage here. 
-      // It causes the OTP page to think the session expired before redirecting.
-      // sessionStorage.clear(); <--- DELETED THIS LINE
-      
-      // Instead, just remove the specific keys if you want, 
-      // or leave them (they die when browser closes anyway).
+      // 🛑 FIX: Do NOT clear sessionStorage here to avoid loop issues
       sessionStorage.removeItem("loginEmail"); 
 
-      // 2. ROLE BASED REDIRECT
-      if (u.role === "agent") {
+      // 2. INTELLIGENT REDIRECT (Updated for Super Admin)
+      if (u.is_super_admin) {
+        navigate("/super-admin/dashboard"); // 🚀 CEO Redirect
+      } else if (u.role === "admin") {
+        navigate("/admin/dashboard");       // Standard Admin
+      } else if (u.role === "agent") {
         navigate("/dashboard");
       } else if (u.role === "owner") {
         navigate("/owner");
@@ -223,14 +224,16 @@ export const AuthProvider = ({ children }) => {
         navigate("/buyer");
       } else if (u.role === "developer") {
         navigate("/developer");
-      } else if (u.role === "admin") {
-        navigate("/admin/dashboard");
       } else {
         navigate("/"); 
       }
 
+      // Return data in case component needs it
+      return res.data;
+
     } catch (err) {
-      showError("OTP Failed", extractError(err));
+      // Throw error so component handles UI
+      throw err;
     }
   };
 
@@ -261,7 +264,7 @@ export const AuthProvider = ({ children }) => {
     // SIGNUP
     signupStart,
     signupVerifyOtp,
-    signupResendOtp, // Added this
+    signupResendOtp, 
     setRole,
 
     // LOGIN

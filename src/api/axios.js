@@ -1,52 +1,63 @@
-// src/api/axios.js
 import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const client = axios.create({
   baseURL: API_BASE,
-  withCredentials: true, // ✅ Allow cookies (refresh token)
+  withCredentials: true, // ✅ IMPORTANT: This allows cookies (refresh tokens) to be sent
 });
 
-// ✅ Attach Authorization header automatically if token exists
+// 1. Automatically add the Access Token to every request
 client.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("accessToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      delete config.headers.Authorization;
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// =============== AUTO REFRESH & RETRY FAILED REQUESTS ===============
+// 2. Smart Error Handling (Auto-Refresh)
 client.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const original = error.config;
+    const originalRequest = error.config;
 
-    if (
-      error.response?.status === 401 &&
-      !original._retry
-    ) {
-      original._retry = true;
+    // If error is 401 (Unauthorized) and we haven't retried yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true; // Mark as retried so we don't loop forever
 
       try {
-        const res = await client.post("/api/auth/refresh", {}, { withCredentials: true });
+        console.log("🔄 Token expired. Attempting to refresh...");
+        
+        // Call your backend refresh endpoint
+        // 'withCredentials: true' handles sending the cookie automatically
+        const res = await client.post("/api/auth/refresh");
 
-        const newToken = res.data?.accessToken;
-        if (newToken) {
-          localStorage.setItem("accessToken", newToken);
-          client.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
-          original.headers["Authorization"] = `Bearer ${newToken}`;
+        const newAccessToken = res.data.accessToken;
+
+        if (newAccessToken) {
+          console.log("✅ Token refreshed!");
+          
+          // 1. Save new token
+          localStorage.setItem("accessToken", newAccessToken);
+          
+          // 2. Update default headers
+          client.defaults.headers.common["Authorization"] = `Bearer ${newAccessToken}`;
+          originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
+
+          // 3. Retry the original failed request
+          return client(originalRequest);
         }
-
-        return client(original);
-      } catch (err) {
-        console.log("Auto refresh failed.");
+      } catch (refreshError) {
+        console.error("❌ Session expired. Please login again.");
+        
+        // Refresh failed (or refresh token expired) -> Force Logout
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        window.location.href = "/login";
       }
     }
 
@@ -54,8 +65,7 @@ client.interceptors.response.use(
   }
 );
 
-
-// ✅ Manual update for newly received tokens
+// ✅ RESTORED: This is needed by AuthProvider.jsx
 export const attachToken = (token) => {
   if (token) {
     client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -65,5 +75,3 @@ export const attachToken = (token) => {
 };
 
 export default client;
-
-

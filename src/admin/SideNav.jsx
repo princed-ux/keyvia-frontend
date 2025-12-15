@@ -1,16 +1,14 @@
-// src/components/AdminSideNav.jsx
 import React, { useRef, useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  Users,
   Building2,
   MessageSquare,
   Bell,
   Settings,
   LogOut,
   Camera,
-} from "lucide-react";
+} from "lucide-react"; // Removed 'Users' icon since they can't manage users
 import Swal from "sweetalert2";
 import style from "../styles/SideNav.module.css";
 import { useAuth } from "../context/AuthProvider.jsx";
@@ -133,8 +131,8 @@ const AdminSideNav = () => {
 
           {/* Admin Info */}
           <div className={style.agentInfo}>
-            <h4 className={style.agentName}>{user?.name || "Admin User"}</h4>
-            <p className={style.agentTitle}>Administrator</p>
+            <h4 className={style.agentName}>{user?.name || "Admin"}</h4>
+            <p className={style.agentTitle}>Moderator</p>
           </div>
         </div>
 
@@ -150,14 +148,7 @@ const AdminSideNav = () => {
             <LayoutDashboard size={18} /> Dashboard
           </NavLink>
 
-          <NavLink
-            to="/admin/users"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <Users size={18} /> Manage Users
-          </NavLink>
+          {/* REMOVED: Manage Users (Only for Super Admin) */}
 
           <NavLink
             to="/admin/properties"
@@ -165,7 +156,7 @@ const AdminSideNav = () => {
               isActive ? `${style.link} ${style.active}` : style.link
             }
           >
-            <Building2 size={18} /> Properties
+            <Building2 size={18} /> Review Properties
           </NavLink>
 
           <NavLink
@@ -174,7 +165,7 @@ const AdminSideNav = () => {
               isActive ? `${style.link} ${style.active}` : style.link
             }
           >
-            <MessageSquare size={18} /> Messages
+            <MessageSquare size={18} /> Support Messages
           </NavLink>
 
           <NavLink
@@ -206,7 +197,7 @@ const AdminSideNav = () => {
       {/* Main Content */}
       <div className={style.mainContainer}>
         <div className={style.topnav}>
-          <h2 className={style.topTitle}>Admin Dashboard</h2>
+          <h2 className={style.topTitle}>Dashboard</h2>
 
           {/* Email + Dropdown */}
           <div className={style.userSection} ref={dropdownRef}>
@@ -216,7 +207,7 @@ const AdminSideNav = () => {
               role="button"
               tabIndex={0}
             >
-              {user?.email || "user@example.com"}
+              {user?.email || "admin@keyvia.com"}
               <i
                 className={`fas fa-chevron-${showDropdown ? "up" : "down"} ml-2`}
               />
@@ -227,7 +218,8 @@ const AdminSideNav = () => {
                 <div className={style.dropdownItem}>
                   <strong>Role:</strong>
                   <span className={style.roleValue}>
-                    <span className={style.ceo}>CEO OF KEYVIA REAL ESTATE</span>
+                    {/* Dynamic Role instead of Hardcoded CEO */}
+                    <span className={style.ceo}>{user?.role?.toUpperCase() || "ADMIN"}</span>
                   </span>
                 </div>
 
@@ -242,20 +234,14 @@ const AdminSideNav = () => {
                     <button
                       onClick={() => setShowSpecialId(!showSpecialId)}
                       className={style.eyeBtn}
-                      title={
-                        showSpecialId ? "Hide Special ID" : "Show Special ID"
-                      }
+                      title={showSpecialId ? "Hide" : "Show"}
                     >
-                      <i
-                        className={`fas ${
-                          showSpecialId ? "fa-eye" : "fa-eye-slash"
-                        }`}
-                      />
+                      <i className={`fas ${showSpecialId ? "fa-eye" : "fa-eye-slash"}`} />
                     </button>
                     <button
                       onClick={copySpecialId}
                       className={style.copyBtn}
-                      title="Copy Special ID"
+                      title="Copy"
                     >
                       <i className="fas fa-copy" />
                     </button>

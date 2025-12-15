@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import style from "../styles/signup.module.css"; 
 import { Timer, ShieldCheck, ArrowLeft } from "lucide-react";
 import Swal from "sweetalert2";
+import { toast } from "react-toastify";
 
 const LoginVerifyOtp = () => {
   const { loginVerifyOtp } = useAuth();
@@ -18,22 +19,20 @@ const LoginVerifyOtp = () => {
 
   // 🚨 Guard
   useEffect(() => {
-    // If we are already verifying or logged in, don't kick the user out
     if (verifying) return; 
-
     if (!email) {
       Swal.fire({
         icon: "warning",
         title: "Session Expired",
         text: "Please login again.",
-        timer: 20000,
+        timer: 2000,
         showConfirmButton: false
       });
       navigate("/login");
     }
-  }, [email, navigate, verifying]); // Add verifying to dependencies
+  }, [email, navigate, verifying]);
 
-  // Timer Logic
+  // Timer
   useEffect(() => {
     let interval = null;
     if (timer > 0) {
@@ -42,23 +41,17 @@ const LoginVerifyOtp = () => {
     return () => clearInterval(interval);
   }, [timer]);
 
-  // ----------------- CHANGED HERE -----------------
-  // Handle Input (Alphanumeric Support)
+  // Input Handling
   const handleChange = (index, e) => {
     const value = e.target.value;
-    
-    // 1. Allow only alphanumeric chars (A-Z, 0-9)
-    // If it's empty (backspace handled elsewhere), let it pass
     if (value && !/^[a-zA-Z0-9]$/.test(value.slice(-1))) return;
 
     const newOtp = [...otp];
-    // 2. Convert to Uppercase immediately
     newOtp[index] = value.slice(-1).toUpperCase(); 
     setOtp(newOtp);
 
     if (value && index < 5) inputRefs.current[index + 1].focus();
   };
-  // ------------------------------------------------
 
   const handleKeyDown = (index, e) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
@@ -66,16 +59,46 @@ const LoginVerifyOtp = () => {
     }
   };
 
-  // Submit
+  // ----------------- SUBMIT & REDIRECT LOGIC -----------------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setVerifying(true);
     const code = otp.join("");
     
     try {
-      await loginVerifyOtp(code); 
+      // 1. Verify and get User Data response
+      const res = await loginVerifyOtp(code); 
+      
+      // 2. Intelligent Redirect based on Role & Flags
+      // Note: res needs to be the response object returned by apiRequest in AuthProvider
+      const user = res?.user || res; // Handle if wrapper returns just user or full response
+
+      if (user) {
+        toast.success(`Welcome, ${user.name}`);
+
+        if (user.is_super_admin) {
+          navigate("/super-admin/dashboard");
+        } else if (user.role === "admin") {
+          navigate("/admin/dashboard");
+        } else if (user.role === "agent") {
+          navigate("/dashboard");
+        } else if (user.role === "owner") {
+          navigate("/owner/dashboard");
+        } else if (user.role === "buyer") {
+          navigate("/buyer/dashboard");
+        } else if (user.role === "developer") {
+          navigate("/developer/dashboard");
+        } else {
+          navigate("/");
+        }
+      }
     } catch (err) {
       setVerifying(false);
+      Swal.fire({
+        icon: "error",
+        title: "Verification Failed",
+        text: err?.response?.data?.message || "Invalid Code"
+      });
     }
   };
 
@@ -110,7 +133,7 @@ const LoginVerifyOtp = () => {
                 key={index}
                 ref={(el) => (inputRefs.current[index] = el)}
                 type="text"
-                maxLength="1" // HTML attribute just in case
+                maxLength="1"
                 value={digit}
                 onChange={(e) => handleChange(index, e)}
                 onKeyDown={(e) => handleKeyDown(index, e)}

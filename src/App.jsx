@@ -61,14 +61,25 @@ import DeveloperProjects from "./developer/Projects.jsx";
 import DeveloperMessages from "./developer/Messages.jsx";
 import DeveloperSettings from "./developer/Settings.jsx";
 
-// ---------- Admin Pages ----------
+// ---------- Admin Pages (Standard) ----------
 import AdminSideNav from "./admin/SideNav.jsx";
 import AdminDashboard from "./admin/Dashboard.jsx";
-import AdminUsers from "./admin/Users.jsx";
+// import AdminUsers from "./admin/Users.jsx"; // Removed for Standard Admin
 import AdminProperties from "./admin/Properties.jsx";
 import AdminMessages from "./admin/Messages.jsx";
 import AdminNotifications from "./admin/Notifications.jsx";
 import AdminSettings from "./admin/Settings.jsx";
+
+// ---------- Super Admin Pages (CEO) ----------
+import SuperAdminSideNav from "./admin-super/SideNav.jsx";
+import SuperAdminDashboard from "./admin-super/Dashboard.jsx"; // Ensure this file exists
+import SuperAdminUsers from "./admin-super/Users.jsx";         // Ensure this file exists
+import SuperAdminAdmins from "./admin-super/ManageAdmins.jsx"; // Ensure this file exists
+import SuperAdminProperties from "./admin-super/Properties.jsx"; // Or reuse AdminProperties
+import SuperAdminPayments from "./admin-super/Payments.jsx";     // Ensure this file exists
+import SuperAdminMessages from "./admin-super/Messages.jsx";     // Or reuse AdminMessages
+import SuperAdminNotifications from "./admin-super/Notifications.jsx";
+import SuperAdminSettings from "./admin-super/Settings.jsx";
 
 // ---------- Protected Route ----------
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
@@ -83,19 +94,17 @@ function App() {
       <Route path="/sell" element={<Sell />} />
 
       {/* ---------- Auth Flow ---------- */}
-<Route path="/signup" element={<Signup />} />
-<Route path="/signup/verify" element={<SignupVerifyOtp />} />
-<Route path="/signup/role" element={<SignupRole />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/signup/verify" element={<SignupVerifyOtp />} />
+      <Route path="/signup/role" element={<SignupRole />} />
 
-<Route path="/login" element={<Login />} />
-<Route path="/login/verify" element={<LoginVerifyOtp />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/login/verify" element={<LoginVerifyOtp />} />
 
-<Route path="/reset-password/:token" element={<ResetPassword />} />
-<Route path="/verify-email/:token" element={<VerifyEmail />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
+      <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
-
-<Route path="/profile/:unique_id" element={<AgentProfiles />} />
-
+      <Route path="/profile/:unique_id" element={<AgentProfiles />} />
 
       {/* ---------- Agent Dashboard ---------- */}
       <Route
@@ -172,7 +181,7 @@ function App() {
         <Route path="settings" element={<DeveloperSettings />} />
       </Route>
 
-      {/* ---------- Admin Dashboard ---------- */}
+      {/* ---------- Standard Admin Dashboard ---------- */}
       <Route
         path="/admin"
         element={
@@ -181,12 +190,33 @@ function App() {
           </ProtectedRoute>
         }
       >
+        <Route index element={<AdminDashboard />} />
         <Route path="dashboard" element={<AdminDashboard />} />
-        <Route path="users" element={<AdminUsers />} />
+        {/* Removed Users Route for Standard Admin */}
         <Route path="properties" element={<AdminProperties />} />
         <Route path="messages" element={<AdminMessages />} />
         <Route path="notifications" element={<AdminNotifications />} />
         <Route path="settings" element={<AdminSettings />} />
+      </Route>
+
+      {/* ---------- Super Admin Dashboard (CEO) ---------- */}
+      <Route
+        path="/super-admin"
+        element={
+          <ProtectedRoute requiredRole="super_admin"> {/* Custom Role Check needed in ProtectedRoute */}
+            <SuperAdminSideNav />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<SuperAdminDashboard />} />
+        <Route path="dashboard" element={<SuperAdminDashboard />} />
+        <Route path="users" element={<SuperAdminUsers />} />
+        <Route path="admins" element={<SuperAdminAdmins />} />
+        <Route path="properties" element={<SuperAdminProperties />} />
+        <Route path="payments" element={<SuperAdminPayments />} />
+        <Route path="messages" element={<SuperAdminMessages />} />
+        <Route path="notifications" element={<SuperAdminNotifications />} />
+        <Route path="settings" element={<SuperAdminSettings />} />
       </Route>
 
       {/* ---------- 404 ---------- */}

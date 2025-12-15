@@ -262,7 +262,7 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
 
     setLoading(true);
     try {
-      await submitListing(form, initialData?.id || initialData?.product_id);
+      await submitListing(form, initialData?.product_id || initialData?.id);
     } catch (err) {
       console.error(err);
       toast.error("Submission failed.");

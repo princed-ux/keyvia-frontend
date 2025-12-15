@@ -1,135 +1,150 @@
-/* ===========================
-   PAGE WRAPPER
-=========================== */
 .paymentsPage {
-  width: 100%;
-  padding: 25px;
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  font-family: "Segoe UI", Roboto, sans-serif;
-  color: #222;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  font-family: 'Inter', sans-serif;
+  color: #1f2937;
+  min-height: 80vh;
 }
 
-/* Page title */
 .pageTitle {
-  font-size: 26px;
-  font-weight: 600;
-  margin-bottom: 15px;
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+  color: #111827;
 }
 
-/* Section styling */
 .section {
+  margin-top: 40px;
   background: #fff;
   border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  padding: 25px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .section h3 {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 10px;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+  color: #111827;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 15px;
 }
 
-/* Empty state */
 .empty {
-  color: #666;
-  font-size: 14px;
-  padding: 10px 0;
+  color: #9ca3af;
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
 }
 
-/* ===========================
-   Listing Cards
-=========================== */
+/* --- Listing Grid --- */
 .listingGrid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
 }
 
 .listingCard {
-  background: #fefefe;
-  border-radius: 12px;
-  padding: 15px 18px;
-  min-width: 250px;
-  flex: 1;
-  border: 1px solid #ececec;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  transition: all 0.25s ease;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: #f9fafb;
 }
 
 .listingCard:hover {
   transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+  border-color: #d1d5db;
 }
 
 .listingHeader {
+  background: white;
+  padding: 15px;
+  border-bottom: 1px solid #f3f4f6;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
 }
 
 .listingTitle {
   font-weight: 600;
-  font-size: 16px;
-  color: #111;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+.statusBadge {
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .listingPrice {
   font-weight: 700;
-  font-size: 15px;
-  color: #0b57d0;
+  color: #09707d;
 }
 
 .listingBody {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  padding: 15px;
 }
 
 .listingMeta {
-  font-size: 13px;
-  color: #666;
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-bottom: 15px;
 }
 
-/* Actions */
-.listingActions {
-  margin-top: 5px;
-}
-
+/* --- Buttons --- */
 .payNowBtn {
-  padding: 10px 18px;
-  background: #0b57d0;
-  color: #fff;
-  font-weight: 600;
-  font-size: 14px;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
   width: 100%;
-  transition: background 0.2s ease-in-out;
+  padding: 10px;
+  background-color: #09707d; /* Teal */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.payNowBtn:hover {
+  background-color: #075661;
 }
 
 .payNowBtn:disabled {
-  background: #7a9edc;
+  background-color: #9ca3af;
   cursor: not-allowed;
 }
 
-.payNowBtn:hover:not(:disabled) {
-  background: #0847ac;
+.inlinePayWrapper {
+  display: flex;
+  gap: 10px;
 }
 
-/* ===========================
-   Payment History Table
-=========================== */
+.cancelBtn {
+  padding: 10px;
+  background: white;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.cancelBtn:hover {
+  background: #fef2f2;
+}
+
+/* --- History Table --- */
 .historyTableWrapper {
   overflow-x: auto;
 }
@@ -137,41 +152,46 @@
 .historyTable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
-}
-
-.historyTable th,
-.historyTable td {
-  padding: 10px 12px;
-  text-align: left;
-  border-bottom: 1px solid #ececec;
+  font-size: 0.95rem;
 }
 
 .historyTable th {
-  background: #f5f5f5;
+  text-align: left;
+  padding: 12px;
+  background: #f9fafb;
+  color: #6b7280;
   font-weight: 600;
-  font-size: 13px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.historyTable td {
+  padding: 12px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
 }
 
 .success {
-  color: green;
+  color: #059669;
   font-weight: 600;
+  background: #ecfdf5;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 0.85rem;
 }
 
 .failed {
-  color: red;
+  color: #dc2626;
   font-weight: 600;
+  background: #fef2f2;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 0.85rem;
 }
 
-/* ===========================
-   Responsive
-=========================== */
-@media (max-width: 820px) {
+@media (max-width: 640px) {
   .listingGrid {
-    flex-direction: column;
-  }
-
-  .listingCard {
-    width: 100%;
+    grid-template-columns: 1fr;
   }
 }

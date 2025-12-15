@@ -1,438 +1,391 @@
-/**************************************
- DASHBOARD WRAPPER
-**************************************/
+/* src/styles/adminProperty.module.css */
+
 .dashboardContainer {
   padding: 30px;
-  background: #f5f5f5;
+  max-width: 1400px;
+  margin: 0 auto;
   min-height: 100vh;
-  font-family: "Inter", sans-serif;
+  background-color: #f9fafb;
+  font-family: 'Inter', sans-serif;
+}
+
+/* --- Header Section --- */
+.header {
+  margin-bottom: 30px;
+}
+
+.header h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 5px;
 }
 
 .subtitle {
-  margin-bottom: 20px;
   color: #6b7280;
-}
-
-.loading,
-.empty {
-  text-align: center;
-  color: #6b7280;
-  margin-top: 50px;
-  font-size: 1.1rem;
-}
-
-
-/**************************************
- PROPERTY CARDS GRID
-**************************************/
-.cardsContainer {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.card {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  overflow: hidden;
-}
-
-.card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-}
-
-.cardImage {
-  width: 100%;
-  height: 180px;
-  object-fit: cover;
-}
-
-.cardContent {
-  padding: 15px;
-}
-
-.cardContent h3 {
-  font-size: 1.1rem;
-  margin-bottom: 6px;
-}
-
-.cardContent p {
-  color: #4b5563;
-  margin: 0;
   font-size: 0.95rem;
 }
 
-/* Status badges */
-.status {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  margin-top: 8px;
-  text-transform: capitalize;
-}
-
-.status.pending {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-.status.approved {
-  background: #d1fae5;
-  color: #047857;
-}
-
-.status.rejected {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-
-/**************************************
- SLIDE MODAL OVERLAY
-**************************************/
-.slideModalOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-}
-
-/**************************************
- MAIN SLIDE MODAL
-**************************************/
-.slideModal {
-  width: 95%;
-  max-width: 1200px;
-  height: 90vh;
-  background: #fff;
-  border-radius: 12px;
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.35s ease-in-out;
-  transform: translateX(0);
-}
-
-.toProfile {
-  transform: translateX(-50%);
-}
-
-/**************************************
- MODAL HEADER
-**************************************/
-.modalHeader {
+/* --- Filters Bar --- */
+.filterBar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
-  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 25px;
+  background: white;
+  padding: 10px 15px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border: 1px solid #e5e7eb;
 }
 
-.headerLeft .iconBtn {
-  background: transparent;
-  border: none;
-  font-size: 1.6rem;
-  cursor: pointer;
-}
-
-.headerTitle h3 {
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.headerRight .goToProfileBtn {
-  background: transparent;
-  border: none;
-  color: #2563eb;
+.tabs {
   display: flex;
-  align-items: center;
+  gap: 5px;
+}
+
+.tab {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.tabActive {
+  background: #e0f2f4; /* Light Teal */
+  color: #09707d;     /* Primary Teal */
+  font-weight: 600;
+}
+
+.searchContainer {
+  position: relative;
+  width: 300px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 10px 10px 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   font-size: 0.9rem;
-  gap: 6px;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
-.goToProfileBtn:hover {
-  text-decoration: underline;
+.searchInput:focus {
+  border-color: #09707d;
+  box-shadow: 0 0 0 3px rgba(9, 112, 125, 0.1);
 }
 
-/**************************************
- MODAL BODY WRAPPER
- (Two panels: left = listing, right = profile)
-**************************************/
-.modalBodyContainer {
-  flex: 1;
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+}
+
+/* --- Grid Layout --- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 24px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 60px;
+  color: #9ca3af;
+}
+
+/* --- Property Card --- */
+.card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
   display: flex;
-  width: 200%; /* Both panels in same container */
-  transition: transform 0.35s ease-in-out;
+  flex-direction: column;
 }
 
-.slideModal.toProfile .modalBodyContainer {
-  transform: translateX(-50%);
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-/**************************************
- PANEL: LISTING
-**************************************/
-.panelListing {
-  width: 50%;
-  padding: 20px;
-  display: flex;
-  gap: 20px;
-  overflow-y: auto;
+.cardImage {
+  height: 200px;
+  width: 100%;
+  object-fit: cover;
+  background: #f3f4f6;
 }
 
-.leftColumn {
-  flex: 2;
-}
-
-.rightColumn {
+.cardBody {
+  padding: 16px;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 18px;
 }
 
-/**** Gallery ****/
-.mainMedia {
-  margin-bottom: 20px;
-}
-
-.mainImage {
-  width: 100%;
-  height: 320px;
-  object-fit: cover;
-  border-radius: 10px;
-  cursor: zoom-in;
-}
-
-.thumbRow {
+.cardHeader {
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
 }
 
-.thumb {
-  width: 70px;
-  height: 55px;
-  object-fit: cover;
-  border-radius: 6px;
-  cursor: pointer;
-  opacity: 0.7;
-  border: 2px solid transparent;
+.title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  line-height: 1.4;
 }
 
-.thumbActive {
-  opacity: 1;
-  border-color: #2563eb;
+.price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #09707d;
+  margin-top: 5px;
 }
 
-.noImage {
-  padding: 30px;
-  background: #f3f4f6;
-  text-align: center;
-  border-radius: 10px;
-}
-
-/**** Property Details ****/
-.propertyDetails p {
-  margin: 5px 0;
-  color: #374151;
-}
-
-.features ul {
-  padding-left: 22px;
-  margin-top: 6px;
-}
-
-/**** Meta Box ****/
-.metaBox {
-  background: #f9fafb;
-  border-radius: 10px;
-  padding: 15px;
-  line-height: 1.6;
-}
-
-/**** Action Buttons ****/
-.actionBox button {
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  color: white;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
-}
-
-.approveBtn {
-  background: #10b981;
-}
-
-.approveBtn:hover {
-  background: #059669;
-}
-
-.rejectBtn {
-  background: #ef4444;
-}
-
-.rejectBtn:hover {
-  background: #b91c1c;
-}
-
-.deleteBtn {
-  background: #6b7280;
-}
-
-.deleteBtn:hover {
-  background: #4b5563;
-}
-
-.paymentBtn {
-  background: #2563eb;
-}
-
-.paymentBtn:hover {
-  background: #1e40af;
-}
-
-.profileLinkBtn {
-  background: #111827;
-}
-
-.profileLinkBtn:hover {
-  background: #000;
-}
-
-
-/**************************************
- PANEL: PROFILE
-**************************************/
-.panelProfile {
-  width: 50%;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.profileInner {
-  max-width: 500px;
-  margin: 0 auto;
-}
-
-/**** Header ****/
-.profileHeader {
+.metaRow {
   display: flex;
   gap: 15px;
-  align-items: center;
+  font-size: 0.85rem;
+  color: #6b7280;
   margin-bottom: 15px;
 }
 
-.profileAvatar {
-  width: 70px;
-  height: 70px;
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* --- Status Badges --- */
+.badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pending { background: #fef3c7; color: #92400e; }
+.approved { background: #dcfce7; color: #166534; }
+.rejected { background: #fee2e2; color: #991b1b; }
+.active { background: #dcfce7; color: #166534; border: 1px solid #166534; }
+
+.agentRow {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.miniAvatar {
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   object-fit: cover;
 }
 
-.username {
+/* --- SLIDE-OVER DRAWER --- */
+.overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+
+.drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 600px; /* Wide drawer */
+  background: white;
+  box-shadow: -5px 0 25px rgba(0,0,0,0.15);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.drawerHeader {
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 5px;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.closeBtn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.drawerContent {
+  padding: 24px;
+}
+
+/* Drawer Sections */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.galleryMain {
+  grid-column: 1 / -1;
+  height: 250px;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #f3f4f6;
+}
+
+.galleryThumb {
+  height: 70px;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.galleryThumb:hover { opacity: 1; }
+
+.sectionTitle {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  font-weight: 700;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 5px;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 24px;
+}
+
+.infoItem label {
+  display: block;
+  font-size: 0.8rem;
   color: #6b7280;
 }
 
-.agency {
+.infoItem p {
+  font-size: 0.95rem;
+  color: #111827;
   font-weight: 500;
 }
 
-.location {
-  color: #4b5563;
-}
-
-/**** Bio ****/
-.profileBio {
-  margin: 15px 0;
-  color: #374151;
-}
-
-/**** Contact ****/
-.contactBlock p {
-  margin: 4px 0;
-}
-
-/**** Social Links ****/
-.socials a {
-  display: inline-block;
-  margin-right: 12px;
-  font-size: 0.9rem;
-  color: #2563eb;
-}
-
-.socials a:hover {
-  text-decoration: underline;
-}
-
-/**** Footer ****/
-.openProfilePage {
-  margin-top: 20px;
-  padding: 10px 14px;
-  background: #2563eb;
-  color: white;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-}
-
-.openProfilePage:hover {
-  background: #1e40af;
-}
-
-
-/**************************************
- LIGHTBOX
-**************************************/
-.lightboxOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.85);
+/* Agent Card in Drawer */
+.agentCard {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  gap: 15px;
+  background: #f9fafb;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 24px;
 }
 
-.lightboxInner {
-  position: relative;
-  max-width: 90%;
-  max-height: 90%;
+.agentAvatarLarge {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
-.lightboxImage {
-  width: 100%;
-  max-height: 90vh;
-  object-fit: contain;
-  border-radius: 10px;
+.agentInfo h4 { margin: 0; color: #111827; }
+.agentInfo p { margin: 0; font-size: 0.85rem; color: #6b7280; }
+
+/* Action Footer */
+.drawerFooter {
+  padding: 20px;
+  border-top: 1px solid #e5e7eb;
+  background: white;
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
-.lightboxClose {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background: rgba(255,255,255,0.8);
-  border: none;
-  padding: 8px 12px;
-  border-radius: 6px;
+.btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 1.2rem;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.btnApprove { background: #10b981; color: white; }
+.btnApprove:hover { background: #059669; }
+
+.btnReject { background: white; border: 1px solid #ef4444; color: #ef4444; }
+.btnReject:hover { background: #fef2f2; }
+
+.btnDelete { background: #ef4444; color: white; }
+.btnDelete:hover { background: #dc2626; }
+
+@media (max-width: 768px) {
+  .drawer { width: 100%; }
+  .filterBar { flex-direction: column; gap: 15px; align-items: stretch; }
+  .searchContainer { width: 100%; }
 }

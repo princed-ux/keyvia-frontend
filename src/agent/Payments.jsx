@@ -6,77 +6,82 @@ import Swal from "sweetalert2";
 import { useAuth } from "../context/AuthProvider.jsx";
 import style from "../styles/Payments.module.css";
 
-/**
- * Payments page — fixed activation fee $60 (USD).
- * Backend endpoints (this file expects):
- *  - GET  /api/agents/:agentId/listings?status=inactive
- *  - POST /api/payments/initialize   { listingId }
- *  - POST /api/payments/verify       { tx_ref, transaction_id? }
- *  - GET  /api/agents/:agentId/payments
- *
- * Make sure you set FLW public key server-side and return it from initialize.
- */
+// Use your environment variable
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-const ACTIVATION_FEE_USD = 60; // fixed amount
+// ✅ FIXED: Changed from 60 to 10
+const ACTIVATION_FEE_USD = 10; 
 
 const Payments = () => {
   const { user } = useAuth();
-  const agentId = user?.unique_id || user?.id || user?.user_id;
+  // Ensure we have the user ID
+  const agentId = user?.unique_id || user?.id;
+
   const [inactiveListings, setInactiveListings] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loadingListings, setLoadingListings] = useState(false);
   const [loadingPayments, setLoadingPayments] = useState(false);
+  
   const [initializing, setInitializing] = useState(false);
   const [currentPaymentData, setCurrentPaymentData] = useState(null);
   const [selectedListing, setSelectedListing] = useState(null);
 
+  // Helper for Auth Headers
+  const authHeader = () => ({
+    headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` }
+  });
+
   useEffect(() => {
-    if (!agentId) return;
-    fetchInactiveListings();
-    fetchPaymentHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (agentId) {
+      fetchInactiveListings();
+      fetchPaymentHistory();
+    }
   }, [agentId]);
 
+  // ✅ Use correct backend route (/api/listings/agent)
   async function fetchInactiveListings() {
     setLoadingListings(true);
     try {
-      // expects the server to return only approved + unpaid listings
-      const res = await axios.get(`/api/agents/${agentId}/listings?status=inactive`);
-      setInactiveListings(Array.isArray(res.data) ? res.data : []);
+      // 1. Fetch ALL agent listings
+      const res = await axios.get(`${API_BASE}/api/listings/agent`, authHeader());
+      
+      const allListings = Array.isArray(res.data) ? res.data : [];
+
+      // 2. Filter on Frontend: We need Approved but NOT Active
+      const unpaid = allListings.filter(l => 
+        l.status === 'approved' && l.is_active === false
+      );
+
+      setInactiveListings(unpaid);
     } catch (err) {
-      console.error("Failed to fetch inactive listings:", err?.response?.data || err);
-      Swal.fire("Error", "Could not load inactive listings. Try again later.", "error");
+      console.error("Failed to fetch listings:", err);
     } finally {
       setLoadingListings(false);
     }
   }
 
+  // ✅ Ensure this route exists in your backend
   async function fetchPaymentHistory() {
     setLoadingPayments(true);
     try {
-      const res = await axios.get(`/api/agents/${agentId}/payments`);
+      const res = await axios.get(`${API_BASE}/api/payments/history`, authHeader());
       setPayments(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Failed to fetch payments:", err?.response?.data || err);
-      Swal.fire("Error", "Could not load payment history.", "error");
+      console.warn("Payment history fetch failed:", err);
     } finally {
       setLoadingPayments(false);
     }
   }
 
   const initiatePayment = async (listing) => {
-    if (!agentId) {
-      Swal.fire("Not authenticated", "Please login and try again.", "warning");
-      return;
-    }
-
     setInitializing(true);
     setSelectedListing(listing);
 
     try {
-      // We pass a stable identifier: product_id (or id)
-      const payload = { listingId: listing.product_id || listing.product_id || listing.id };
-      const res = await axios.post("/api/payments/initialize", payload);
+      const payload = { listingId: listing.product_id };
+      
+      const res = await axios.post(`${API_BASE}/api/payments/initialize`, payload, authHeader());
+      
       const paymentData = res.data;
 
       if (!paymentData || !paymentData.tx_ref || !paymentData.public_key) {
@@ -84,88 +89,71 @@ const Payments = () => {
       }
 
       setCurrentPaymentData(paymentData);
-      // FlutterWaveButton is rendered for this listing below
     } catch (err) {
-      console.error("Payment initialization failed:", err?.response?.data || err);
-      Swal.fire("Error", "Could not initialize payment. Try again.", "error");
+      console.error("Payment init failed:", err);
+      Swal.fire("Error", "Could not initialize payment.", "error");
       setCurrentPaymentData(null);
-      setSelectedListing(null);
     } finally {
       setInitializing(false);
     }
   };
 
   const handlePaymentSuccess = async (response) => {
-    closePaymentModal();
+    closePaymentModal(); 
 
-    const tx_ref = response?.tx_ref || response?.data?.tx_ref;
-    const transaction_id = response?.transaction_id || response?.data?.id || null;
-
-    if (!tx_ref) {
-      Swal.fire("Payment Error", "Transaction reference missing.", "error");
-      return;
-    }
+    const tx_ref = response?.tx_ref || currentPaymentData?.tx_ref;
+    const transaction_id = response?.transaction_id;
 
     Swal.fire({
-      title: "Verifying payment",
-      text: "Please wait while we confirm the transaction.",
+      title: "Verifying...",
+      text: "Please wait while we confirm your payment.",
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading(),
     });
 
     try {
-      const verifyRes = await axios.post("/api/payments/verify", { tx_ref, transaction_id });
-      const verifyData = verifyRes.data;
+      const verifyRes = await axios.post(
+        `${API_BASE}/api/payments/verify`, 
+        { tx_ref, transaction_id }, 
+        authHeader()
+      );
 
-      // server returns { status: 'success', payment: {...} }
-      if (verifyData?.status === "success" || verifyData?.payment?.status === "successful") {
-        Swal.fire("Payment successful", "Listing has been activated.", "success");
+      if (verifyRes.data?.success || verifyRes.data?.status === "success") {
+        Swal.fire("Success!", "Your listing is now ACTIVE.", "success");
+        // Refresh lists
         fetchInactiveListings();
         fetchPaymentHistory();
       } else {
-        console.warn("Verification response:", verifyData);
-        Swal.fire("Verification failed", "We could not confirm payment. Contact support.", "error");
+        throw new Error(verifyRes.data?.message || "Verification failed");
       }
     } catch (err) {
-      console.error("Verification failed:", err?.response?.data || err);
-      Swal.fire("Error", "Verification failed. Please contact support.", "error");
+      console.error(err);
+      Swal.fire("Error", "Payment verification failed. Contact support.", "error");
     } finally {
       setCurrentPaymentData(null);
       setSelectedListing(null);
     }
   };
 
-  const handlePaymentClose = () => {
-    setCurrentPaymentData(null);
-    setSelectedListing(null);
-  };
-
   const renderPayButton = (listing) => {
-    const activeInit =
-      currentPaymentData &&
-      selectedListing &&
-      (selectedListing.product_id || selectedListing.id) === (listing.product_id || listing.id);
+    const isReady = currentPaymentData && selectedListing?.product_id === listing.product_id;
 
-    if (activeInit && currentPaymentData) {
-      const cfg = {
+    if (isReady) {
+      const config = {
         public_key: currentPaymentData.public_key,
         tx_ref: currentPaymentData.tx_ref,
-        amount: currentPaymentData.amount ?? ACTIVATION_FEE_USD,
-        currency: currentPaymentData.currency || "USD",
-        payment_options: "card,banktransfer,ussd",
+        amount: currentPaymentData.amount || ACTIVATION_FEE_USD,
+        currency: "USD",
+        payment_options: "card,mobilemoney,ussd",
         customer: {
-          email: (user && (user.email || user.contact_email)) || (currentPaymentData.customer?.email || ""),
-          phonenumber:
-            (user && (user.phone || user.contact_phone)) || (currentPaymentData.customer?.phonenumber || ""),
-          name: (user && (user.full_name || user.name)) || (currentPaymentData.customer?.name || ""),
+          email: user?.email,
+          phonenumber: user?.phone,
+          name: user?.full_name || user?.name,
         },
         customizations: {
           title: "Activate Listing",
-          description: listing.title || "Listing activation fee ($60)",
-        },
-        meta: {
-          listingId: listing.product_id || listing.id,
-          agentId,
+          description: `Activation fee for ${listing.title}`,
+          logo: "https://yoursite.com/logo.png",
         },
       };
 
@@ -173,20 +161,14 @@ const Payments = () => {
         <div className={style.inlinePayWrapper}>
           <FlutterWaveButton
             className={style.payNowBtn}
+            {...config}
+            text={`Proceed to Pay $${ACTIVATION_FEE_USD}`}
             callback={handlePaymentSuccess}
-            onClose={handlePaymentClose}
-            disabled={false}
-            flutterWaveConfig={cfg}
-          >
-            Pay $60
-          </FlutterWaveButton>
-
-          <button
-            className={style.cancelBtn}
-            onClick={() => {
-              setCurrentPaymentData(null);
-              setSelectedListing(null);
-            }}
+            onClose={() => {}}
+          />
+          <button 
+            className={style.cancelBtn} 
+            onClick={() => setCurrentPaymentData(null)}
           >
             Cancel
           </button>
@@ -200,43 +182,37 @@ const Payments = () => {
         onClick={() => initiatePayment(listing)}
         disabled={initializing}
       >
-        {initializing && selectedListing?.product_id === listing.product_id ? "Preparing..." : `Pay $60`}
+        {initializing && selectedListing?.product_id === listing.product_id 
+          ? "Loading..." 
+          : `Pay $${ACTIVATION_FEE_USD}`}
       </button>
     );
   };
 
   return (
     <div className={style.paymentsPage}>
-      <h2 className={style.pageTitle}>Payments</h2>
-
-      <p style={{ color: "#374151" }}>
-        To make your listing visible to buyers you must pay an activation fee of <strong>$60 USD</strong>.
-        After successful payment the listing will be activated and will appear on the appropriate page:
-        <code>/sell</code> for sale listings and <code>/rent</code> for rentals.
+      <h2 className={style.pageTitle}>Payments & Activation</h2>
+      <p style={{ color: "#6b7280", marginBottom: 30 }}>
+        Approved listings require a one-time activation fee of <strong>${ACTIVATION_FEE_USD} USD</strong> to go live on the public map.
       </p>
 
       <section className={style.section}>
-        <h3>Listings Requiring Activation</h3>
-
-        {loadingListings ? (
-          <div>Loading listings...</div>
-        ) : inactiveListings.length === 0 ? (
-          <div className={style.empty}>You have no inactive listings that need payment.</div>
+        <h3>🛑 Pending Activation</h3>
+        {loadingListings ? <p>Loading...</p> : inactiveListings.length === 0 ? (
+          <div className={style.empty}>No listings waiting for payment.</div>
         ) : (
           <div className={style.listingGrid}>
-            {inactiveListings.map((listing) => (
-              <div key={listing.product_id || listing.id} className={style.listingCard}>
+            {inactiveListings.map(listing => (
+              <div key={listing.product_id} className={style.listingCard}>
                 <div className={style.listingHeader}>
-                  <div className={style.listingTitle}>{listing.title || "Untitled listing"}</div>
-                  <div className={style.listingPrice}>$60 USD</div>
+                  <span className={style.listingTitle}>{listing.title}</span>
+                  <span className={style.statusBadge}>Approved</span>
                 </div>
-
                 <div className={style.listingBody}>
-                  <p className={style.listingMeta}>
-                    Type: {listing.listing_type || listing.property_type || "—"} • Location:{" "}
-                    {listing.city || listing.country || "—"}
-                  </p>
-                  <div className={style.listingActions}>{renderPayButton(listing)}</div>
+                   <p className={style.listingMeta}>{listing.address}, {listing.city}</p>
+                   <div className={style.listingActions}>
+                      {renderPayButton(listing)}
+                   </div>
                 </div>
               </div>
             ))}
@@ -244,34 +220,28 @@ const Payments = () => {
         )}
       </section>
 
-      <section className={style.section}>
-        <h3>Payment History</h3>
-        {loadingPayments ? (
-          <div>Loading payments...</div>
-        ) : payments.length === 0 ? (
-          <div className={style.empty}>No payments yet.</div>
+      <section className={style.section} style={{marginTop: 40}}>
+        <h3>📜 Payment History</h3>
+        {loadingPayments ? <p>Loading...</p> : payments.length === 0 ? (
+          <div className={style.empty}>No payment history found.</div>
         ) : (
           <div className={style.historyTableWrapper}>
             <table className={style.historyTable}>
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Listing</th>
-                  <th>Amount</th>
                   <th>Reference</th>
+                  <th>Amount</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {payments.map((p) => (
-                  <tr key={p.id || p.tx_ref}>
-                    <td>{new Date(p.created_at || p.createdAt || Date.now()).toLocaleString()}</td>
-                    <td>{p.listing_title || p.listing?.title || p.listingId || "—"}</td>
-                    <td>{p.currency || "USD"} {p.amount}</td>
-                    <td>{p.tx_ref || p.reference || p.transaction_id || "—"}</td>
-                    <td className={p.status === "successful" || p.status === "paid" ? style.success : style.failed}>
-                      {p.status}
-                    </td>
+                {payments.map(p => (
+                  <tr key={p.id}>
+                    <td>{new Date(p.created_at).toLocaleDateString()}</td>
+                    <td>{p.tx_ref}</td>
+                    <td>${p.amount}</td>
+                    <td className={style.success}>Paid</td>
                   </tr>
                 ))}
               </tbody>

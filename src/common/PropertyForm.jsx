@@ -1,25 +1,28 @@
-// src/common/PropertyForm.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import style from "../styles/Listings.module.css";
-import uploadIcon from "../assets/uploadIcon.png";
+import { 
+  X, 
+  UploadCloud, 
+  Video, 
+  Globe, 
+  CheckCircle 
+} from "lucide-react";
 import { useAuth } from "../context/AuthProvider.jsx";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
+// --- HELPERS & INITIAL STATE ---
 const initialState = {
   title: "",
   price: "",
   pricePeriod: "month",
   priceCurrency: "USD",
-  address: "",
-  city: "",
-  state: "",
   country: "",
+  state: "",
+  city: "",
+  address: "",
   propertyType: "",
   listingType: "",
-  category: "",
   bedrooms: "",
   yearBuilt: "",
   bathrooms: "",
@@ -40,133 +43,101 @@ const initialState = {
   },
   description: "",
   photos: [],
-
-  // Updated: NOT URLs anymore — file uploads
   video: null,
   virtualTour: null,
-
   contactName: "",
   contactEmail: "",
   contactPhone: "",
-  contactMethod: "",
+  contactMethod: "email",
 };
 
-const keyMap = {
-  // Basic Info
-  title: "title",
-  price: "price",
-  priceCurrency: "price_currency",
-  pricePeriod: "price_period",
-  address: "address",
-  city: "city",
-  state: "state",
-  country: "country",
-  propertyType: "property_type",
-  listingType: "listing_type",
-  category: "category",
+const validateEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
+const validatePhone = (v) => v && String(v).replace(/\D/g, "").length >= 7;
 
-  // Property Details
-  bedrooms: "bedrooms",
-  yearBuilt: "year_built",
-  bathrooms: "bathrooms",
-  parking: "parking",
-  squareFootage: "square_footage",
-  furnishing: "furnishing",
-  lotSize: "lot_size",
-
-  // Features & Description
-  features: "features",
-  description: "description",
-
-  // Media (updated)
-  photos: "photos",
-  video: "video_file",
-  virtualTour: "virtual_file",
-
-  // Contact Info
-  contactName: "contact_name",
-  contactEmail: "contact_email",
-  contactPhone: "contact_phone",
-  contactMethod: "contact_method",
-};
-
-const validateEmail = (v) =>
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
-
-const validatePhone = (v) => {
-  if (!v) return true;
-  const digits = String(v).replace(/\D/g, "");
-  return digits.length >= 7;
-};
-
-function getAuthHeader() {
-  const token = localStorage.getItem("accessToken");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-function mapInitialToForm(initial = {}, profile = {}) {
+function mapInitialToForm(initial = {}) {
   const f = { ...initialState };
+  if (!initial) return f;
 
-  f.title = initial?.title || "";
-  f.price = initial?.price ?? "";
-  f.pricePeriod = initial?.pricePeriod || initial?.price_period || "month";
-  f.priceCurrency = initial?.priceCurrency || initial?.price_currency || "USD";
-  f.address = initial?.address || "";
-  f.city = initial?.city || profile?.city || "";
-  f.country = initial?.country || profile?.country || "";
-  f.propertyType = initial?.propertyType || initial?.property_type || "";
-  f.listingType = initial?.listingType || initial?.listing_type || "";
-  f.bedrooms = initial?.bedrooms || "";
-  f.bathrooms = initial?.bathrooms || "";
-  f.yearBuilt = initial?.yearBuilt || initial?.year_built || "";
-  f.parking = initial?.parking || "";
-  f.squareFootage = initial?.squareFootage || initial?.square_footage || "";
-  f.furnishing = initial?.furnishing || "";
-  f.lotSize = initial?.lotSize || initial?.lot_size || "";
+  f.title = initial.title || "";
+  f.price = initial.price ?? "";
+  f.pricePeriod = initial.price_period || initial.pricePeriod || "month";
+  f.priceCurrency = initial.price_currency || initial.priceCurrency || "USD";
+  
+  f.country = initial.country || "";
+  f.state = initial.state || "";
+  f.city = initial.city || "";
+  f.address = initial.address || "";
+
+  f.propertyType = initial.property_type || initial.propertyType || "";
+  f.listingType = initial.listing_type || initial.listingType || "";
+  f.bedrooms = initial.bedrooms || "";
+  f.bathrooms = initial.bathrooms || "";
+  f.yearBuilt = initial.year_built || initial.yearBuilt || "";
+  f.parking = initial.parking || "";
+  f.squareFootage = initial.square_footage || initial.squareFootage || "";
+  f.furnishing = initial.furnishing || "";
+  f.lotSize = initial.lot_size || initial.lotSize || "";
+  
   f.features = {
     ...f.features,
-    ...(typeof initial?.features === "string"
-      ? JSON.parse(initial.features)
-      : initial?.features || {}),
+    ...(typeof initial.features === "string" ? JSON.parse(initial.features) : initial.features || {}),
   };
 
-  f.description = initial?.description || "";
-  f.photos = Array.isArray(initial?.photos) ? initial.photos : [];
-
-  // Updated fields: not URLs anymore
-  f.video = null;
-  f.virtualTour = null;
-
-  f.contactName =
-    initial?.contactName || initial?.contact_name || profile?.full_name || "";
-  f.contactEmail =
-    initial?.contactEmail || initial?.contact_email || profile?.email || "";
-  f.contactPhone =
-    initial?.contactPhone || initial?.contact_phone || profile?.phone || "";
-  f.contactMethod = initial?.contactMethod || initial?.contact_method || "";
-  f.agent_unique_id =
-    initial?.agent_unique_id || profile?.unique_id || "";
+  f.description = initial.description || "";
+  f.photos = Array.isArray(initial.photos) ? initial.photos : [];
+  
+  f.contactName = initial.contact_name || initial.contactName || "";
+  f.contactEmail = initial.contact_email || initial.contactEmail || "";
+  f.contactPhone = initial.contact_phone || initial.contactPhone || "";
+  f.contactMethod = initial.contact_method || initial.contactMethod || "email";
 
   return f;
 }
 
-const PropertyForm = ({
-  closeBtn,
-  onCreated,
-  onUpdated,
-  initialData,
-  submitListing,
-}) => {
+// ✅ MOVED OUTSIDE: Defines component once, preventing re-render focus loss
+const InputGroup = ({ id, label, type = "text", placeholder, options, value, onChange, error, disabled, ...props }) => (
+  <div className={style.formGroup}>
+    <label htmlFor={id} className={style.label}>{label}</label>
+    {options ? (
+      <select
+        id={id}
+        className={style.select}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        {...props}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value} disabled={o.disabled}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    ) : (
+      <input
+        id={id}
+        type={type}
+        className={`${style.input} ${error ? style.inputError : ""}`}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        {...props}
+      />
+    )}
+    {error && <span className={style.errorText}>{error}</span>}
+  </div>
+);
+
+// --- MAIN COMPONENT ---
+const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
   const { user } = useAuth();
   const [form, setForm] = useState(initialState);
-
-  const [profile, setProfile] = useState({});
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // Previews
   const [photoPreviews, setPhotoPreviews] = useState([]);
-
-  // VIDEO & VIRTUAL PREVIEWS
   const [videoPreview, setVideoPreview] = useState(null);
   const [virtualPreview, setVirtualPreview] = useState(null);
 
@@ -176,32 +147,35 @@ const PropertyForm = ({
   const virtualInputRef = useRef(null);
 
   useEffect(() => {
-    if (initialData || Object.keys(profile).length) {
-      const mapped = mapInitialToForm(initialData || {}, profile);
+    if (initialData) {
+      const mapped = mapInitialToForm(initialData);
       setForm(mapped);
 
-      if (initialData?.photos) {
+      if (initialData.photos) {
         const previews = initialData.photos.map((p) =>
           typeof p === "string" ? p : p.url
         );
         setPhotoPreviews(previews);
       }
-
-      setErrors({});
+    } else if (user) {
+      setForm(prev => ({
+        ...prev,
+        contactName: user.name || "",
+        contactEmail: user.email || "",
+        contactPhone: user.phone || ""
+      }));
     }
-  }, [initialData, profile]);
+  }, [initialData, user]);
 
-  useEffect(
-    () =>
-      () =>
-        photoPreviews.forEach(
-          (url) => typeof url === "string" && URL.revokeObjectURL(url)
-        ),
-    [photoPreviews]
-  );
+  useEffect(() => {
+    return () => {
+      photoPreviews.forEach(url => { if (typeof url === "string" && url.startsWith("blob:")) URL.revokeObjectURL(url) });
+      if (videoPreview && videoPreview.startsWith("blob:")) URL.revokeObjectURL(videoPreview);
+      if (virtualPreview && virtualPreview.startsWith("blob:")) URL.revokeObjectURL(virtualPreview);
+    };
+  }, [photoPreviews, videoPreview, virtualPreview]);
 
-  const update = (key, value) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const toggleFeature = (key) =>
     setForm((prev) => ({
@@ -209,13 +183,7 @@ const PropertyForm = ({
       features: { ...prev.features, [key]: !prev.features[key] },
     }));
 
-  const photoPic = () => fileInputRef.current?.click();
-
-  const handleListingTypeChange = (value) => {
-    update("listingType", value);
-    if (value !== "rent") update("pricePeriod", "");
-  };
-
+  // --- Photo Logic ---
   const handlePhotoPick = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -228,9 +196,8 @@ const PropertyForm = ({
     setPhotoPreviews((prev) =>
       [...prev, ...files.map((f) => URL.createObjectURL(f))].slice(0, 15)
     );
-
     setErrors((prev) => ({ ...prev, photos: undefined }));
-    fileInputRef.current.value = "";
+    if(fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removePhotoAt = (i) => {
@@ -239,7 +206,6 @@ const PropertyForm = ({
       copy.splice(i, 1);
       return { ...prev, photos: copy };
     });
-
     setPhotoPreviews((prev) => {
       const copy = [...prev];
       copy.splice(i, 1);
@@ -247,925 +213,368 @@ const PropertyForm = ({
     });
   };
 
-  // VIDEO UPLOAD HANDLER
+  // --- Video/Virtual Logic ---
   const handleVideoPick = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     update("video", file);
     setVideoPreview(URL.createObjectURL(file));
-
-    videoInputRef.current.value = "";
+    if(videoInputRef.current) videoInputRef.current.value = "";
   };
+  const removeVideo = () => { update("video", null); setVideoPreview(null); };
 
-  const removeVideo = () => {
-    update("video", null);
-    setVideoPreview(null);
-  };
-
-  // VIRTUAL TOUR HANDLER
   const handleVirtualPick = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     update("virtualTour", file);
     setVirtualPreview(URL.createObjectURL(file));
-
-    virtualInputRef.current.value = "";
+    if(virtualInputRef.current) virtualInputRef.current.value = "";
   };
+  const removeVirtual = () => { update("virtualTour", null); setVirtualPreview(null); };
 
-  const removeVirtual = () => {
-    update("virtualTour", null);
-    setVirtualPreview(null);
-  };
-
+  // --- Validation ---
   const validateAll = () => {
     const next = {};
+    if (!form.title || form.title.trim().length < 3) next.title = "Title too short.";
+    if (!form.price || Number(form.price) <= 0) next.price = "Invalid price.";
+    if (!form.listingType) next.listingType = "Required.";
+    if (form.listingType === "rent" && !form.pricePeriod) next.pricePeriod = "Required.";
+    if (!form.propertyType) next.propertyType = "Required.";
+    
+    if (!form.country) next.country = "Required.";
+    if (!form.city) next.city = "Required.";
 
-    if (!form.title || form.title.trim().length < 3)
-      next.title = "Title must be at least 3 characters.";
-
-    if (!form.price || Number(form.price) <= 0)
-      next.price = "Enter a price greater than 0.";
-
-    if (!form.listingType) next.listingType = "Select listing type.";
-
-    if (form.listingType === "rent" && !form.pricePeriod)
-      next.pricePeriod = "Select price period for rent.";
-
-    if (!form.propertyType) next.propertyType = "Select property type.";
-
-    if (!form.contactEmail || !validateEmail(form.contactEmail))
-      next.contactEmail = "Enter a valid email.";
-
-    if (!form.contactPhone || !validatePhone(form.contactPhone))
-      next.contactPhone = "Enter a valid phone.";
-
-    if (!form.photos.length) next.photos = "Upload at least one photo.";
+    if (!form.contactEmail || !validateEmail(form.contactEmail)) next.contactEmail = "Invalid email.";
+    if (!form.contactPhone || !validatePhone(form.contactPhone)) next.contactPhone = "Invalid phone.";
+    if (!form.photos.length) next.photos = "Min 1 photo required.";
 
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
-  const buildPayload = () => ({ ...form });
-
-  const internalSubmit = async (payload) => {
-  const formData = new FormData();
-
-  for (const [key, value] of Object.entries(payload)) {
-    if (value == null) continue;
-
-    const fieldKey = keyMap[key] || key;
-
-    if (key === "features") {
-      formData.append(fieldKey, JSON.stringify(value));
-    } else if (key === "photos" && Array.isArray(value)) {
-      value.forEach((p) => {
-        if (p instanceof File) formData.append("photos", p);
-      });
-    } else if (key === "video" && value instanceof File) {
-      formData.append("video_file", value);
-    } else if (key === "virtualTour" && value instanceof File) {
-      formData.append("virtual_file", value);
-    } else if (
-      (key === "video" || key === "virtualTour") &&
-      !(value instanceof File)
-    ) {
-      // skip invalid video/virtualTour values
-      continue;
-    } else {
-      formData.append(fieldKey, value);
-    }
-  }
-
-  // Append existing photos URLs separately
-  const existing = photoPreviews.filter((p) => typeof p === "string");
-  if (existing.length)
-    formData.append("existingPhotos", JSON.stringify(existing));
-
-  const headers = getAuthHeader();
-  const url = initialData?.product_id
-    ? `${API_BASE}/api/listings/product/${initialData.product_id}`
-    : `${API_BASE}/api/listings`;
-
-  const method = initialData?.product_id ? "PUT" : "POST";
-
-  const res = await fetch(url, {
-    method,
-    headers, // only auth header
-    body: formData, // browser sets Content-Type automatically
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(
-      body.error || body.message || `Request failed (${res.status})`
-    );
-  }
-
-  return res.json();
-};
-
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!validateAll()) {
+      toast.error("Please fix errors.");
       window.scrollTo({ top: 0, behavior: "smooth" });
-      toast.error("Please fix errors before submitting.");
       return;
     }
 
     setLoading(true);
-
     try {
-      const payload = buildPayload();
-      const submitFn =
-        typeof submitListing === "function" ? submitListing : internalSubmit;
-
-      const result = await submitFn(payload);
-
-      if (initialData?.id) {
-        onUpdated?.(result);
-        toast.success("Listing updated ✨");
-      } else {
-        onCreated?.(result);
-        toast.success("Listing created 🎉");
-      }
-
-      setForm(initialState);
-      setPhotoPreviews([]);
-      setVideoPreview(null);
-      setVirtualPreview(null);
-
-      closeBtn?.();
+      await submitListing(form, initialData?.id || initialData?.product_id);
     } catch (err) {
-      console.error("Submit error:", err);
-      toast.error(`Submission failed: ${err.message}`);
-      setErrors((prev) => ({
-        ...prev,
-        submit: err.message || "Failed to submit",
-      }));
+      console.error(err);
+      toast.error("Submission failed.");
     } finally {
       setLoading(false);
     }
   };
 
-  
+
   return (
-    <>
-      <div id="formSection" className={style.formSection}>
-        <form onSubmit={handleSubmit} noValidate>
-          {/* Form Header */}
-          <div className={style.formHeader}>
-            <h2>{initialData ? "Edit Property" : "List Your Property"}</h2>
-            <span
-              onClick={closeBtn}
-              style={{ cursor: "pointer", fontSize: 22 }}
-              aria-hidden="true"
-            >
-              &times;
-            </span>
-          </div>
+    <div className={style.formContainer}>
+      <form onSubmit={handleSubmit}>
+        
+        <div className={style.formHeader}>
+          <h2>{initialData ? "Edit Property" : "Add New Listing"}</h2>
+          <button type="button" onClick={closeBtn} className={style.closeBtn}>
+            <X size={24} />
+          </button>
+        </div>
 
-          {/* Submission Error */}
-          {errors.submit && (
-            <div style={{ color: "#b91c1c", marginBottom: 10 }}>
-              {errors.submit}
-            </div>
-          )}
-
-          {/* Basic Information Section */}
-          <h5>Basic Information</h5>
+        {/* --- 1. Basic Info --- */}
+        <div className={style.section}>
+          <h3>Basic Information</h3>
+          
           <div className={style.formGrid}>
-            {/* Title */}
-            <div className={style.formGroup}>
-              <label className={style.label} htmlFor="title">
-                Property Title
-              </label>
-              <input
-                id="title"
-                type="text"
-                placeholder="e.g., 'Modern 3BR Townhouse in Midtown Atlanta'"
-                className="form-control mt-1 p-3"
-                value={form.title}
-                onChange={(e) => update("title", e.target.value)}
-                onBlur={() => {
-                  if (!form.title || form.title.trim().length < 3)
-                    setErrors((s) => ({
-                      ...s,
-                      title: "Please enter a title (min 3 characters).",
-                    }));
-                }}
-              />
-              {errors.title && (
-                <small style={{ color: "#b91c1c" }}>{errors.title}</small>
-              )}
+            {/* 1. Property Title (Full Width) */}
+            <div className={style.fullWidth}>
+                <InputGroup
+                  id="title"
+                  label="Property Title"
+                  placeholder="e.g. Modern Apartment in City Center"
+                  value={form.title}
+                  onChange={(e) => update("title", e.target.value)}
+                  error={errors.title}
+                />
             </div>
 
-            {/* Price + Currency + Period */}
-            <div className={style.formGroup}>
-              <label className={style.label} htmlFor="price">
-                Price
-              </label>
-              <div style={{ display: "flex", width: "100%" }}>
-                <input
-                  id="price"
-                  type="number"
-                  placeholder="e.g., 2500000"
-                  className="form-control mt-1 p-3"
-                  value={form.price}
-                  onChange={(e) => update("price", e.target.value)}
-                  onBlur={() => {
-                    if (form.price === "" || Number(form.price) <= 0)
-                      setErrors((s) => ({
-                        ...s,
-                        price: "Enter a price greater than 0.",
-                      }));
-                  }}
-                  style={{
-                    borderTopRightRadius: 0,
-                    borderBottomRightRadius: 0,
-                  }}
-                />
-                {/* Currency */}
-                <select
-                  id="priceCurrency"
-                  className="form-select mt-1 p-3"
-                  value={form.priceCurrency}
-                  onChange={(e) => update("priceCurrency", e.target.value)}
-                  style={{
-                    maxWidth: "120px",
-                    borderRadius: 0,
-                    borderLeft: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  <option value="USD">USD $</option>
-                  <option value="EUR">EUR €</option>
-                  <option value="GBP">GBP £</option>
-                  <option value="CHF">CHF ₣</option>
-                  <option value="JPY">JPY ¥</option>
-                  <option value="AUD">AUD A$</option>
-                  <option value="CAD">CAD C$</option>
-                  <option value="RUB">RUB ₽</option>
-                </select>
+            {/* 2. Listing Type */}
+            <InputGroup
+              id="listingType"
+              label="Listing Type"
+              options={[
+                { value: "", label: "Select Type", disabled: true },
+                { value: "sale", label: "For Sale" },
+                { value: "rent", label: "For Rent" },
+              ]}
+              value={form.listingType}
+              onChange={(e) => {
+                update("listingType", e.target.value);
+                if(e.target.value === "sale") update("pricePeriod", "");
+              }}
+              error={errors.listingType}
+            />
 
-                {/* Price Period */}
-                <select
-                  id="pricePeriod"
-                  className="form-select mt-1 p-3"
+            {/* 3. Property Type */}
+            <InputGroup
+              id="propertyType"
+              label="Property Type"
+              options={[
+                { value: "", label: "Select Type", disabled: true },
+                { value: "Apartment", label: "Apartment" },
+                { value: "House", label: "House" },
+                { value: "Villa", label: "Villa" },
+                { value: "Condo", label: "Condo" },
+                { value: "Land", label: "Land" },
+                { value: "Commercial", label: "Commercial" },
+              ]}
+              value={form.propertyType}
+              onChange={(e) => update("propertyType", e.target.value)}
+              error={errors.propertyType}
+            />
+
+            {/* 4. Price Group (Full Width Row) */}
+            <div className={style.priceGroup}>
+              <InputGroup
+                id="price"
+                label="Price"
+                type="number"
+                placeholder="0.00"
+                value={form.price}
+                onChange={(e) => update("price", e.target.value)}
+                error={errors.price}
+              />
+              <InputGroup
+                id="currency"
+                label="Currency"
+                options={[
+                  { value: "USD", label: "USD ($)" },
+                  { value: "EUR", label: "EUR (€)" },
+                  { value: "GBP", label: "GBP (£)" },
+                  { value: "NGN", label: "NGN (₦)" },
+                  { value: "CNY", label: "CNY (¥)" },
+                  { value: "RUB", label: "RUB (₽)" },
+                  { value: "JPY", label: "JPY (¥)" },
+                  { value: "AUD", label: "AUD (A$)" },
+                  { value: "CAD", label: "CAD (C$)" },
+                  { value: "CHF", label: "CHF (Fr)" },
+                  { value: "INR", label: "INR (₹)" },
+                  { value: "ZAR", label: "ZAR (R)" },
+                ]}
+                value={form.priceCurrency}
+                onChange={(e) => update("priceCurrency", e.target.value)}
+              />
+              {form.listingType === "rent" && (
+                <InputGroup
+                  id="period"
+                  label="Period"
+                  options={[
+                    { value: "month", label: "/ Month" },
+                    { value: "year", label: "/ Year" },
+                    { value: "week", label: "/ Week" },
+                    { value: "day", label: "/ Day" },
+                  ]}
                   value={form.pricePeriod}
                   onChange={(e) => update("pricePeriod", e.target.value)}
-                  disabled={form.listingType !== "rent"}
-                  style={{
-                    maxWidth: "140px",
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
-                    cursor:
-                      form.listingType === "rent" ? "pointer" : "not-allowed",
-                    backgroundColor:
-                      form.listingType === "rent" ? "" : "#f3f4f6",
-                  }}
-                >
-                  <option value="month">/Month</option>
-                  <option value="week">/Week</option>
-                  <option value="year">/Year</option>
-                  <option value="day">/Day</option>
-                </select>
+                />
+              )}
+            </div>
+
+            {/* 5. Location Row (3 Columns: Country | State | City) */}
+            <div className={style.locationRow}>
+                <InputGroup
+                  id="country"
+                  label="Country"
+                  placeholder="e.g. USA"
+                  value={form.country}
+                  onChange={(e) => update("country", e.target.value)}
+                  error={errors.country}
+                />
+                <InputGroup
+                  id="state"
+                  label="State/Province"
+                  placeholder="e.g. California"
+                  value={form.state}
+                  onChange={(e) => update("state", e.target.value)}
+                />
+                <InputGroup
+                  id="city"
+                  label="City"
+                  placeholder="e.g. Los Angeles"
+                  value={form.city}
+                  onChange={(e) => update("city", e.target.value)}
+                  error={errors.city}
+                />
+            </div>
+
+            {/* 6. Address (Full Width) */}
+            <div className={style.fullWidth}>
+                <InputGroup
+                  id="address"
+                  label="Full Address (Street, Unit)"
+                  placeholder="e.g. 123 Sunset Blvd, Apt 4B"
+                  value={form.address}
+                  onChange={(e) => update("address", e.target.value)}
+                />
+            </div>
+
+          </div>
+        </div>
+
+        {/* --- 2. Details --- */}
+        <div className={style.section}>
+          <h3>Property Details</h3>
+          <div className={style.formGrid}>
+            <InputGroup id="bed" label="Bedrooms" type="number" value={form.bedrooms} onChange={e => update("bedrooms", e.target.value)} />
+            <InputGroup id="bath" label="Bathrooms" type="number" value={form.bathrooms} onChange={e => update("bathrooms", e.target.value)} />
+            <InputGroup id="sqft" label="Sq Ft" type="number" value={form.squareFootage} onChange={e => update("squareFootage", e.target.value)} />
+            <InputGroup id="year" label="Year Built" type="number" value={form.yearBuilt} onChange={e => update("yearBuilt", e.target.value)} />
+            
+            <InputGroup
+              id="parking"
+              label="Parking"
+              options={[
+                { value: "", label: "Select", disabled: true },
+                { value: "Garage", label: "Garage" },
+                { value: "Street", label: "Street" },
+                { value: "None", label: "None" },
+              ]}
+              value={form.parking}
+              onChange={e => update("parking", e.target.value)}
+            />
+            
+            <InputGroup
+              id="furnishing"
+              label="Furnishing"
+              options={[
+                { value: "", label: "Select", disabled: true },
+                { value: "Furnished", label: "Furnished" },
+                { value: "Unfurnished", label: "Unfurnished" },
+              ]}
+              value={form.furnishing}
+              onChange={e => update("furnishing", e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* --- 3. Features --- */}
+        <div className={style.section}>
+          <h3>Features & Amenities</h3>
+          <div className={style.featuresGrid}>
+            {Object.keys(form.features).map((key) => (
+              <label key={key} className={style.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={form.features[key]}
+                  onChange={() => toggleFeature(key)}
+                />
+                <span className={style.checkText}>
+                  {key.charAt(0).toUpperCase() + key.slice(1)}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* --- 4. Description --- */}
+        <div className={style.section}>
+          <h3>Description</h3>
+          <textarea
+            className={style.textarea}
+            rows="5"
+            placeholder="Describe the property in detail..."
+            value={form.description}
+            onChange={(e) => update("description", e.target.value)}
+          />
+        </div>
+
+        {/* --- 5. Media --- */}
+        <div className={style.section}>
+          <h3>Photos & Media</h3>
+          <div className={style.uploadArea} onClick={() => fileInputRef.current.click()}>
+            <UploadCloud size={32} />
+            <p><strong>Click to upload photos</strong> (Max 15)</p>
+            <input 
+              ref={fileInputRef} type="file" multiple accept="image/*" hidden 
+              onChange={handlePhotoPick}
+            />
+          </div>
+          {errors.photos && <span className={style.errorText}>{errors.photos}</span>}
+
+          <div className={style.previewGrid}>
+            {photoPreviews.map((src, i) => (
+              <div key={i} className={style.previewItem}>
+                <img src={src} alt="Preview" />
+                <button type="button" onClick={() => removePhotoAt(i)}><X size={14} /></button>
               </div>
-              {errors.price && (
-                <small style={{ color: "#b91c1c" }}>{errors.price}</small>
-              )}
-              {errors.pricePeriod && (
-                <small style={{ color: "#b91c1c" }}>{errors.pricePeriod}</small>
-              )}
-            </div>
-
-            {/* Address */}
-            <div className={style.formGroup}>
-              <label className={style.label} htmlFor="address">
-                Property Address
-              </label>
-              <input
-                id="address"
-                type="text"
-                placeholder="street, city, state, zip"
-                className="form-control mt-1 p-3"
-                value={form.address}
-                onChange={(e) => update("address", e.target.value)}
-                onBlur={() => {
-                  const addr = form.address.toLowerCase();
-
-                  // Set currency based on region keywords
-                  if (addr.includes("russia")) update("priceCurrency", "RUB");
-                  else if (
-                    addr.includes("europe") ||
-                    addr.includes("france") ||
-                    addr.includes("germany")
-                  )
-                    update("priceCurrency", "EUR");
-                  else if (addr.includes("uk") || addr.includes("england"))
-                    update("priceCurrency", "GBP");
-                  else if (addr.includes("switzerland"))
-                    update("priceCurrency", "CHF");
-                  else if (addr.includes("japan"))
-                    update("priceCurrency", "JPY");
-                  else if (addr.includes("australia"))
-                    update("priceCurrency", "AUD");
-                  else if (addr.includes("canada"))
-                    update("priceCurrency", "CAD");
-                  else update("priceCurrency", "USD"); // default
-                }}
-              />
-            </div>
-
-            {/* Property Type */}
-            <div className={style.formGroup}>
-              <label className={style.label} htmlFor="propertyType">
-                Property Type
-              </label>
-              <select
-                id="propertyType"
-                className={`form-select mt-1 p-3 ${style.select}`}
-                value={form.propertyType}
-                onChange={(e) => update("propertyType", e.target.value)}
-              >
-                <option value="" disabled>
-                  Select a property type
-                </option>
-                <option value="Single-Family">Single-Family</option>
-                <option value="Townhouse">Townhouse</option>
-                <option value="Apartment">Apartment</option>
-                <option value="Condo">Condo</option>
-                <option value="Duplex">Duplex</option>
-                <option value="Studio">Studio</option>
-                <option value="Villa">Villa</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Bungalow">Bungalow</option>
-                <option value="Land">Land</option>
-                <option value="Commercial">Commercial</option>
-              </select>
-              {errors.propertyType && (
-                <small style={{ color: "#b91c1c" }}>
-                  {errors.propertyType}
-                </small>
-              )}
-            </div>
-
-            {/* Listing Type */}
-            <div className={style.formGroup}>
-              <label className={style.label} htmlFor="listingType">
-                Listing Type
-              </label>
-              <select
-                id="listingType"
-                className={`form-select mt-1 p-3 ${style.select}`}
-                value={form.listingType}
-                onChange={(e) => handleListingTypeChange(e.target.value)}
-              >
-                <option value="" disabled>
-                  For Sale | For Rent
-                </option>
-                <option value="sale">For Sale</option>
-                <option value="rent">For Rent</option>
-              </select>
-              {errors.listingType && (
-                <small style={{ color: "#b91c1c" }}>{errors.listingType}</small>
-              )}
-            </div>
+            ))}
           </div>
 
-          {/* Property Details Section */}
-          <div style={{ marginTop: 30 }}>
-            <h5>Property Details</h5>
-            <div className={style.formGrid}>
-              {/* Bedrooms */}
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="bedrooms">
-                  Number of Bedrooms
-                </label>
-                <input
-                  id="bedrooms"
-                  type="number"
-                  placeholder="e.g., 3"
-                  className="form-control mt-1 p-3"
-                  value={form.bedrooms}
-                  onChange={(e) => update("bedrooms", e.target.value)}
-                />
-              </div>
-
-              {/* Year Built */}
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="yearBuilt">
-                  Year Built
-                </label>
-                <input
-                  id="yearBuilt"
-                  type="number"
-                  placeholder="e.g., 2015"
-                  className="form-control mt-1 p-3"
-                  value={form.yearBuilt}
-                  onChange={(e) => update("yearBuilt", e.target.value)}
-                />
-              </div>
-
-              {/* Bathrooms */}
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="bathrooms">
-                  Number of Bathrooms
-                </label>
-                <input
-                  id="bathrooms"
-                  type="number"
-                  placeholder="e.g., 2.5"
-                  className="form-control mt-1 p-3"
-                  value={form.bathrooms}
-                  onChange={(e) => update("bathrooms", e.target.value)}
-                />
-              </div>
-
-              {/* Parking */}
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="parking">
-                  Parking Type / Spaces
-                </label>
-                <select
-                  id="parking"
-                  className={`form-select mt-1 p-3 ${style.select}`}
-                  value={form.parking}
-                  onChange={(e) => update("parking", e.target.value)}
-                >
-                  <option value="" disabled>
-                    Select Parking
-                  </option>
-                  <option value="Street">Street Parking</option>
-                  <option value="Driveway">Driveway</option>
-                  <option value="Garage-1">1-Car Garage</option>
-                  <option value="Garage-2">2-Car Garage</option>
-                  <option value="Garage-3">3-Car Garage</option>
-                  <option value="Garage-Attached">Attached Garage</option>
-                  <option value="Garage-Detached">Detached Garage</option>
-                  <option value="Carport">Carport</option>
-                  <option value="Underground">Underground Parking</option>
-                  <option value="Covered">Covered Parking</option>
-                  <option value="Shared">Shared Parking</option>
-                  <option value="None">No Parking</option>
-                </select>
-              </div>
-
-              {/* Square Footage */}
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="squareFootage">
-                  Square Footage
-                </label>
-                <input
-                  id="squareFootage"
-                  type="number"
-                  placeholder="e.g., 1,750 sq ft"
-                  className="form-control mt-1 p-3"
-                  value={form.squareFootage}
-                  onChange={(e) => update("squareFootage", e.target.value)}
-                />
-              </div>
-
-              {/* Furnishing */}
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="furnishing">
-                  Furnishing (optional)
-                </label>
-                <select
-                  id="furnishing"
-                  className={`form-select mt-1 p-3 ${style.select}`}
-                  value={form.furnishing}
-                  onChange={(e) => update("furnishing", e.target.value)}
-                >
-                  <option value="" disabled>
-                    Select furnishing
-                  </option>
-                  <option value="Fully Furnished">Fully Furnished</option>
-                  <option value="Semi-Furnished">Semi-Furnished</option>
-                  <option value="Unfurnished">Unfurnished</option>
-                  <option value="Partially Furnished">
-                    Partially Furnished
-                  </option>
-                  <option value="Furnished with Appliances">
-                    Furnished with Appliances
-                  </option>
-                  <option value="Customizable">Customizable</option>
-                </select>
-              </div>
-
-              {/* Lot Size */}
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="lotSize">
-                  Lot Size (optional)
-                </label>
-                <input
-                  id="lotSize"
-                  type="text"
-                  placeholder="e.g., 0.25 acres or 10,890 sq ft"
-                  className="form-control mt-1 p-3"
-                  value={form.lotSize}
-                  onChange={(e) => update("lotSize", e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Key Features */}
-          <div className={style.key} style={{ marginTop: 40 }}>
-            <h5>Key Features</h5>
-            <div className={style.features}>
-              {[
-                ["ac", "Air Conditioning"],
-                ["laundry", "In-unit Laundry"],
-                ["balcony", "Balcony / Patio"],
-                ["pets", "Pet Friendly"],
-                ["pool", "Pool"],
-                ["fireplace", "Fireplace"],
-                ["smart", "Smart Home Features"],
-                ["closet", "Walk-in Closet"],
-                ["security", "Security System"],
-              ].map(([key, label]) => (
-                <div className={style.box} key={key}>
-                  <input
-                    type="checkbox"
-                    id={key}
-                    className={style.checkbox}
-                    checked={!!form.features[key]}
-                    onChange={() => toggleFeature(key)}
-                  />
-                  <label htmlFor={key}>{label}</label>
+          <div className={style.mediaRow}>
+            <div className={style.mediaCol}>
+              <label>Property Video</label>
+              {!form.video ? (
+                <button type="button" className={style.mediaBtn} onClick={() => videoInputRef.current.click()}>
+                  <Video size={18} /> Upload Video
+                </button>
+              ) : (
+                <div className={style.mediaPreview}>
+                  <span>Video Added</span>
+                  <button type="button" onClick={removeVideo}><X size={14}/></button>
                 </div>
-              ))}
+              )}
+              <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={handleVideoPick} />
             </div>
-          </div>
 
-          {/* Property Description */}
-          <div style={{ marginTop: 40 }}>
-            <h5>Property Description</h5>
-            <div style={{ marginTop: 20 }}>
-              <textarea
-                id="description"
-                name="description"
-                rows="5"
-                placeholder="Describe layout, neighborhood, amenities, unique features, recent upgrades, etc."
-                className="form-control mt-4 p-3"
-                style={{ resize: "vertical" }}
-                value={form.description}
-                onChange={(e) => update("description", e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Photo & Media Upload */}
-          <div style={{ marginTop: 40 }}>
-            <h5>Photo & Media Upload</h5>
-            <div className={style.uploadSection}>
-              <div
-                onClick={photoPic}
-                className={style.uploadBox}
-                role="button"
-                tabIndex={0}
-              >
-                <img src={uploadIcon} alt="upload" />
-              </div>
-              <div>
-                <p className={style.bid}>
-                  <span style={{ fontWeight: "bold", fontSize: "23px" }}>
-                    Upload Photos
-                  </span>{" "}
-                  (Max 15 photos, min 1 required)
-                </p>
-                <p style={{ fontSize: "18px" }}>
-                  Drag & drop or click to upload
-                </p>
-
-                <input
-                  ref={fileInputRef}
-                  id="handlePhoto"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handlePhotoPick}
-                  style={{ marginTop: 8, display: "none" }}
-                />
-                {errors.photos && (
-                  <div style={{ color: "#b91c1c", marginTop: 6 }}>
-                    {errors.photos}
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    marginTop: 10,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {form.photos.map((p, i) => {
-                    const src = typeof p === "string" ? p : photoPreviews[i];
-                    return (
-                      <div key={i} style={{ position: "relative" }}>
-                        <img
-                          src={src}
-                          alt={`photo-${i}`}
-                          style={{
-                            width: 96,
-                            height: 64,
-                            objectFit: "cover",
-                            borderRadius: 6,
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removePhotoAt(i)}
-                          style={{
-                            position: "absolute",
-                            top: -8,
-                            right: -8,
-                            background: "#ef4444",
-                            color: "#fff",
-                            border: "none",
-                            width: 22,
-                            height: 22,
-                            borderRadius: "50%",
-                            cursor: "pointer",
-                          }}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    );
-                  })}
+            <div className={style.mediaCol}>
+              <label>Virtual Tour</label>
+              {!form.virtualTour ? (
+                <button type="button" className={style.mediaBtn} onClick={() => virtualInputRef.current.click()}>
+                  <Globe size={18} /> Upload 360° Tour
+                </button>
+              ) : (
+                <div className={style.mediaPreview}>
+                  <span>Tour Added</span>
+                  <button type="button" onClick={removeVirtual}><X size={14}/></button>
                 </div>
-              </div>
+              )}
+              <input ref={virtualInputRef} type="file" accept="video/*" hidden onChange={handleVirtualPick} />
             </div>
           </div>
+        </div>
 
-          {/* Video Upload (max 1) */}
-<div style={{ marginTop: 38 }}>
-  <h6 style={{ fontSize: "16px" }}>Upload Video (optional)</h6>
+        {/* --- 6. Contact --- */}
+        <div className={style.section}>
+          <h3>Contact Information</h3>
+          <div className={style.formGrid}>
+            <InputGroup id="cName" label="Name" value={form.contactName} onChange={e => update("contactName", e.target.value)} />
+            <InputGroup id="cEmail" label="Email" type="email" value={form.contactEmail} onChange={e => update("contactEmail", e.target.value)} error={errors.contactEmail} />
+            <InputGroup id="cPhone" label="Phone" type="tel" value={form.contactPhone} onChange={e => update("contactPhone", e.target.value)} error={errors.contactPhone} />
+            <InputGroup 
+              id="cMethod" 
+              label="Preferred Method" 
+              options={[
+                { value: "email", label: "Email" },
+                { value: "phone", label: "Phone" },
+                { value: "text", label: "Text" },
+              ]}
+              value={form.contactMethod} 
+              onChange={e => update("contactMethod", e.target.value)} 
+            />
+          </div>
+        </div>
 
-  <div className={style.uploadSection}>
-    <div
-      onClick={() => videoInputRef.current.click()}
-      className={style.uploadBox}
-      role="button"
-      tabIndex={0}
-    >
-      <img src={uploadIcon} width={40} alt="upload" />
-    </div>
-
-    <div style={{ marginLeft: 15 }}>
-      <p className={style.bid}>
-        <span style={{ fontWeight: "bold", fontSize: "20px" }}>
-          Upload Video
-        </span>{" "}
-        (Max 1)
-      </p>
-
-      <input
-        ref={videoInputRef}
-        id="videoUpload"
-        type="file"
-        accept="video/*"
-        onChange={handleVideoPick}
-        style={{ display: "none" }}
-      />
-
-      {form.video && (
-        <div style={{ marginTop: 10, position: "relative" }}>
-          <video
-            width={180}
-            height={120}
-            controls
-            style={{ borderRadius: 8 }}
-            src={typeof form.video === "string" ? form.video : videoPreview}
-          ></video>
-
-          <button
-            type="button"
-            onClick={removeVideo}
-            style={{
-              position: "absolute",
-              top: -8,
-              right: -8,
-              background: "#ef4444",
-              color: "#fff",
-              border: "none",
-              width: 22,
-              height: 22,
-              borderRadius: "50%",
-              cursor: "pointer",
-            }}
-          >
-            ×
+        <div className={style.footerActions}>
+          <button type="button" onClick={closeBtn} className={style.cancelBtn}>Cancel</button>
+          <button type="submit" className={style.submitBtn} disabled={loading}>
+            {loading ? "Processing..." : (initialData ? "Save Changes" : "Publish Listing")} <CheckCircle size={18} />
           </button>
         </div>
-      )}
+
+      </form>
     </div>
-  </div>
-</div>
-
-
-{/* Virtual Tour Upload (max 1) */}
-<div style={{ marginTop: 38 }}>
-  <h6 style={{ fontSize: "16px" }}>Virtual Tour (optional)</h6>
-
-  <div className={style.uploadSection}>
-    <div
-      onClick={() => virtualInputRef.current.click()}
-      className={style.uploadBox}
-      role="button"
-      tabIndex={0}
-    >
-      <img src={uploadIcon} width={40} alt="upload" />
-    </div>
-
-    <div style={{ marginLeft: 15 }}>
-      <p className={style.bid}>
-        <span style={{ fontWeight: "bold", fontSize: "20px" }}>
-          Upload Virtual Tour
-        </span>{" "}
-        (Max 1)
-      </p>
-
-      <input
-        ref={virtualInputRef}
-        id="virtualUpload"
-        type="file"
-        accept="video/*,.mp4,.mov,.webm"
-        onChange={handleVirtualPick}
-        style={{ display: "none" }}
-      />
-
-      {form.virtualTour && (
-        <div style={{ marginTop: 10, position: "relative" }}>
-          <video
-            width={180}
-            height={120}
-            controls
-            style={{ borderRadius: 8 }}
-            src={
-              typeof form.virtualTour === "string"
-                ? form.virtualTour
-                : virtualPreview
-            }
-          ></video>
-
-          <button
-            type="button"
-            onClick={removeVirtual}
-            style={{
-              position: "absolute",
-              top: -8,
-              right: -8,
-              background: "#ef4444",
-              color: "#fff",
-              border: "none",
-              width: 22,
-              height: 22,
-              borderRadius: "50%",
-              cursor: "pointer",
-            }}
-          >
-            ×
-          </button>
-        </div>
-      )}
-    </div>
-  </div>
-</div>
-
-          {/* Contact Info */}
-          <div className={style.key} style={{ marginTop: 40 }}>
-            <h5>Contact Info</h5>
-            <div className={style.formGrid}>
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="contactName">
-                  Full Name
-                </label>
-                <input
-                  id="contactName"
-                  type="text"
-                  className="form-control p-3"
-                  placeholder="e.g., Samantha Lee"
-                  value={form.contactName}
-                  onChange={(e) => update("contactName", e.target.value)}
-                />
-              </div>
-
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="contactEmail">
-                  Email Address
-                </label>
-                <input
-                  id="contactEmail"
-                  type="email"
-                  className="form-control p-3"
-                  placeholder="e.g., samantha@example.com"
-                  value={form.contactEmail}
-                  onChange={(e) => update("contactEmail", e.target.value)}
-                  onBlur={() => {
-                    if (form.contactEmail && !validateEmail(form.contactEmail))
-                      setErrors((s) => ({
-                        ...s,
-                        contactEmail: "Enter a valid email.",
-                      }));
-                  }}
-                />
-                {errors.contactEmail && (
-                  <small style={{ color: "#b91c1c" }}>
-                    {errors.contactEmail}
-                  </small>
-                )}
-              </div>
-
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="contactPhone">
-                  Phone Number
-                </label>
-                <input
-                  id="contactPhone"
-                  type="tel"
-                  className="form-control p-3"
-                  placeholder="e.g., (404) 555-1234"
-                  value={form.contactPhone}
-                  onChange={(e) => update("contactPhone", e.target.value)}
-                  onBlur={() => {
-                    if (form.contactPhone && !validatePhone(form.contactPhone))
-                      setErrors((s) => ({
-                        ...s,
-                        contactPhone:
-                          "Enter a valid phone number (min 7 digits).",
-                      }));
-                  }}
-                />
-                {errors.contactPhone && (
-                  <small style={{ color: "#b91c1c" }}>
-                    {errors.contactPhone}
-                  </small>
-                )}
-              </div>
-
-              <div className={style.formGroup}>
-                <label className={style.label} htmlFor="contactMethod">
-                  Preferred Contact Method
-                </label>
-                <select
-                  id="contactMethod"
-                  className="form-select p-3"
-                  style={{ cursor: "pointer" }}
-                  value={form.contactMethod}
-                  onChange={(e) => update("contactMethod", e.target.value)}
-                >
-                  <option value="" disabled>
-                    Call / Text / Email
-                  </option>
-                  <option value="call">Call</option>
-                  <option value="text">Text</option>
-                  <option value="email">Email</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Buttons */}
-<div className={style.buttonGroup}>
-  <div className={style.buttonForm}>
-    <button
-      type="button"
-      onClick={closeBtn}
-      className={style.cancel}
-      style={{ cursor: "pointer" }}
-      disabled={loading}
-    >
-      Cancel
-    </button>
-
-    <button
-      type="submit"
-      className={style.submitBtn}
-      disabled={loading}
-    >
-      {loading
-        ? initialData
-          ? "Saving..."
-          : "Publishing..."
-        : initialData
-        ? "Save Changes"
-        : "Publish Listing"}
-    </button>
-  </div>
-</div>
-
-        </form>
-      </div>
-    </>
   );
 };
 

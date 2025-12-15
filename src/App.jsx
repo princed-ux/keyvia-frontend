@@ -16,6 +16,7 @@ import LoginVerifyOtp from "./pages/LoginVerifyOtp.jsx";
 import SignupRole from "./pages/SignupRole.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
 import VerifyEmail from "./pages/VerifyEmail.jsx";
+import AgentProfiles from "./pages/AgentProfile";
 
 // ---------- Fallback ----------
 import NotFound from "./main/NotFound.jsx";
@@ -91,6 +92,9 @@ function App() {
 
 <Route path="/reset-password/:token" element={<ResetPassword />} />
 <Route path="/verify-email/:token" element={<VerifyEmail />} />
+
+
+<Route path="/profile/:unique_id" element={<AgentProfiles />} />
 
 
       {/* ---------- Agent Dashboard ---------- */}

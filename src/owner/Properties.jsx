@@ -1,124 +1,310 @@
 import React, { useEffect, useState } from "react";
-import client from "../api/axios"; // Adjust path if needed (e.g. "../api/axios")
-import { Link } from "react-router-dom";
-import { Trash2, Edit, MapPin } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { 
+  Plus, 
+  Edit, 
+  Trash2, 
+  MapPin, 
+  Home, 
+  CreditCard,
+  X,
+  AlertCircle,
+  CheckCircle2
+} from "lucide-react";
 
-const OwnerProperties = () => {
-  const [properties, setProperties] = useState([]);
-  const [loading, setLoading] = useState(true);
+import client from "../api/axios"; // Adjust path if needed
+import { useAuth } from "../context/AuthProvider";
+import style from "../styles/Listings.module.css"; // Reuse the consistent CSS
 
-  // Fetch properties belonging to the logged-in owner
-  const fetchProperties = async () => {
+export default function OwnerProperties() {
+  const navigate = useNavigate();
+  const { user } = useAuth(); 
+
+  // State
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState(null); 
+  
+  // Preview Modal State
+  const [previewListing, setPreviewListing] = useState(null);
+
+  const lottieUrl = "https://lottie.host/37a0df00-47f6-43d0-873c-01acfb5d1e7d/wvtiKE3P1d.lottie";
+
+  // -------------------- Fetch Listings --------------------
+  useEffect(() => {
+    fetchListings();
+  }, []);
+
+  const fetchListings = async () => {
+    setLoading(true);
     try {
-      // Reusing the agent endpoint as it filters by 'created_by' / 'agent_unique_id'
+      // ✅ Reusing the agent endpoint (filters by logged-in user ID)
       const res = await client.get("/api/listings/agent"); 
-      setProperties(res.data);
+      setListings(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Error fetching properties:", err);
+      console.error("Fetch listings error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchProperties(); }, []);
-
-  // Handle Delete
-  const handleDelete = async (id) => {
-    const result = await Swal.fire({
-      title: 'Delete Property?',
-      text: "This cannot be undone.",
-      icon: 'warning',
+  // -------------------- Actions --------------------
+  
+  // 1. Activate / Pay Logic
+  const handleActivate = async (listing, e) => {
+    e.stopPropagation();
+    
+    const confirm = await Swal.fire({
+      title: "Activate Listing?",
+      text: "This simulates a successful payment of $50.",
+      icon: "info",
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      confirmButtonText: 'Yes, delete it!'
+      confirmButtonText: "Pay & Activate",
+      confirmButtonColor: "#10b981"
     });
 
-    if (result.isConfirmed) {
-      try {
-        await client.delete(`/api/listings/${id}`);
-        setProperties(prev => prev.filter(p => p.product_id !== id));
-        Swal.fire('Deleted!', 'Property has been removed.', 'success');
-      } catch (err) {
-        Swal.fire('Error', 'Failed to delete property.', 'error');
-      }
+    if (!confirm.isConfirmed) return;
+
+    setBusyId(listing.product_id);
+    try {
+      await client.put(`/api/listings/${listing.product_id}/activate`);
+      
+      // Update UI immediately
+      setListings(prev => prev.map(l => 
+        l.product_id === listing.product_id 
+          ? { ...l, is_active: true, payment_status: 'paid', status: 'approved' } 
+          : l
+      ));
+
+      Swal.fire("Success", "Your listing is now LIVE on the map!", "success");
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", "Payment failed", "error");
+    } finally {
+      setBusyId(null);
     }
   };
 
-  if (loading) return <div className="p-6">Loading properties...</div>;
+  // 2. Delete Logic
+  const handleDelete = async (listing, e) => {
+    e.stopPropagation(); 
+    
+    const confirm = await Swal.fire({
+      title: "Delete Listing?",
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Yes, delete it",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    setBusyId(listing.product_id);
+
+    try {
+      await client.delete(`/api/listings/${listing.product_id}`);
+      
+      setListings((prev) => prev.filter((l) => l.product_id !== listing.product_id));
+      
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Deleted',
+        showConfirmButton: false,
+        timer: 1500
+      });
+    } catch (err) {
+      Swal.fire("Error", "Could not delete listing.", "error");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // 3. Navigate to Edit Page
+  const handleEdit = (listing, e) => {
+    e.stopPropagation();
+    // Pass the listing object to the form page via state
+    navigate("/owner/add-property", { state: { editingListing: listing } });
+  };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">My Properties</h2>
-        <Link to="/owner/add-property" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-          + Add New
+    <div className={style.container}>
+      
+      {/* --- HEADER --- */}
+      <div className={style.header}>
+        <div>
+          <h1>My Properties</h1>
+          <p>Manage your rental portfolio and sales</p>
+        </div>
+        <Link to="/owner/add-property" className={style.addButton}>
+          <Plus size={20} /> Add New Property
         </Link>
       </div>
 
-      {properties.length === 0 ? (
-        <div className="text-center py-10 text-gray-500 bg-gray-50 rounded-lg border border-dashed">
-          <p className="mb-4">You haven't listed any properties yet.</p>
-          <Link to="/owner/add-property" className="text-blue-600 font-semibold hover:underline">
-            Create your first listing
-          </Link>
+      {/* --- LISTINGS GRID --- */}
+      {loading ? (
+        <div className={style.loadingContainer}>
+          <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 150, height: 150 }} />
+          <p>Loading your portfolio...</p>
+        </div>
+      ) : listings.length === 0 ? (
+        <div className={style.emptyState}>
+          <div>
+            <DotLottieReact 
+              src={lottieUrl} 
+              loop 
+              autoplay 
+              style={{ width: 250, height: 250, alignSelf: 'center' }} 
+            />
+          </div>
+          <div>
+            <h3>No Properties Yet</h3>
+            <p>List your first property to start finding tenants.</p>
+            <Link to="/owner/add-property" className={style.addButtonSecondary}>
+              Create Listing
+            </Link>
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {properties.map(p => (
-            <div key={p.product_id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition">
-              {/* Image */}
-              <img 
-                src={p.photos?.[0]?.url || "/placeholder.png"} 
-                alt={p.title} 
-                className="w-full h-48 object-cover"
-              />
-              
-              <div className="p-4">
-                {/* Status Badge & Price */}
-                <div className="flex justify-between items-start mb-2">
-                  <span className={`text-xs px-2 py-1 rounded font-medium ${
-                    p.status === 'approved' 
-                      ? 'bg-green-100 text-green-800' 
-                      : p.status === 'rejected' 
-                      ? 'bg-red-100 text-red-800' 
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
-                  </span>
-                  <span className="font-bold text-blue-600">
-                    {p.price_currency} {Number(p.price).toLocaleString()}
+        <div className={style.grid}>
+          {listings.map((listing) => {
+            // Determine Status Logic
+            let badgeClass = style.pending;
+            let statusText = "Pending";
+            let statusIcon = <AlertCircle size={12} />;
+
+            if (listing.status === 'rejected') {
+              badgeClass = style.rejected; 
+              statusText = "Rejected";
+              statusIcon = <X size={12} />;
+            } else if (listing.status === 'approved') {
+              if (listing.is_active) {
+                  badgeClass = style.active; 
+                  statusText = "Active";
+                  statusIcon = <CheckCircle2 size={12} />;
+              } else {
+                  badgeClass = style.pending; 
+                  statusText = "Approved (Unpaid)";
+              }
+            }
+
+            // Image Fallback
+            const photoUrl = listing.photos?.[0]?.url || listing.photos?.[0] || "/placeholder.png";
+
+            return (
+              <div 
+                key={listing.product_id} 
+                className={style.card}
+                onClick={() => setPreviewListing(listing)}
+              >
+                {/* Image Section */}
+                <div className={style.imageWrapper}>
+                  <img src={photoUrl} alt={listing.title} className={style.cardImage} />
+                  <span className={`${style.badge} ${badgeClass}`}>
+                    {statusIcon} {statusText}
                   </span>
                 </div>
 
-                {/* Title & Location */}
-                <h3 className="font-semibold text-lg truncate mb-1">{p.title}</h3>
-                <p className="text-gray-500 text-sm flex items-center mb-4">
-                  <MapPin size={14} className="mr-1" /> {p.city || "Unknown City"}
-                </p>
-                
-                {/* Actions */}
-                <div className="flex gap-2 border-t pt-3">
-                  <Link 
-                    to={`/owner/edit-property/${p.product_id}`} 
-                    className="flex-1 flex justify-center items-center gap-2 py-2 text-gray-700 hover:bg-gray-50 rounded transition"
-                  >
-                    <Edit size={16} /> Edit
-                  </Link>
-                  <button 
-                    onClick={() => handleDelete(p.product_id)} 
-                    className="flex-1 flex justify-center items-center gap-2 py-2 text-red-600 hover:bg-red-50 rounded transition"
-                  >
-                    <Trash2 size={16} /> Delete
-                  </button>
+                {/* Details Section */}
+                <div className={style.cardBody}>
+                  <h3 className={style.cardTitle}>{listing.title || "Untitled Property"}</h3>
+                  <p className={style.cardAddress}>
+                    <MapPin size={14} /> {listing.city}, {listing.country}
+                  </p>
+                  
+                  <div className={style.cardMeta}>
+                    <span><Home size={14}/> {listing.property_type}</span>
+                    <span className={style.price}>
+                      {Number(listing.price).toLocaleString()} <span style={{fontSize:'0.8em', color:'#666'}}>{listing.price_currency}</span>
+                    </span>
+                  </div>
+
+                  {/* ACTIONS ROW */}
+                  <div className={style.actions}>
+                    {/* PAY BUTTON (Only if Approved + Inactive) */}
+                    {listing.status === 'approved' && !listing.is_active && (
+                      <button 
+                        className={style.actionBtn} 
+                        style={{ backgroundColor: '#dcfce7', color: '#166534', borderColor: '#86efac' }}
+                        onClick={(e) => handleActivate(listing, e)}
+                        disabled={busyId === listing.product_id}
+                        title="Pay & Activate"
+                      >
+                        <CreditCard size={16} /> Pay
+                      </button>
+                    )}
+
+                    {/* EDIT BUTTON */}
+                    <button 
+                      className={style.actionBtn}
+                      onClick={(e) => handleEdit(listing, e)}
+                      title="Edit"
+                    >
+                      <Edit size={16} /> Edit
+                    </button>
+
+                    {/* DELETE BUTTON */}
+                    <button 
+                      className={`${style.actionBtn} ${style.deleteBtn}`}
+                      onClick={(e) => handleDelete(listing, e)}
+                      disabled={busyId === listing.product_id}
+                      title="Delete"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
+
+      {/* --- PREVIEW MODAL --- */}
+      {previewListing && (
+        <div className={style.modalOverlay} onClick={() => setPreviewListing(null)}>
+          <div className={style.modalContent} onClick={e => e.stopPropagation()}>
+            <button className={style.closeModal} onClick={() => setPreviewListing(null)}>
+              <X size={24} />
+            </button>
+            
+            <img 
+              src={previewListing.photos?.[0]?.url || previewListing.photos?.[0] || "/placeholder.png"} 
+              alt="Preview" 
+              className={style.modalImage} 
+            />
+            
+            <div className={style.modalDetails}>
+              <h2>{previewListing.title}</h2>
+              <p className={style.modalPrice}>
+                {Number(previewListing.price).toLocaleString()} {previewListing.price_currency}
+              </p>
+              
+              <div style={{display:'flex', gap:10, alignItems:'center', color:'#666', marginBottom:10}}>
+                 <MapPin size={16}/> 
+                 {previewListing.address}, {previewListing.city}
+              </div>
+
+              <div className={style.modalTags}>
+                <span>{previewListing.bedrooms} Beds</span>
+                <span>{previewListing.bathrooms} Baths</span>
+                <span>{previewListing.square_footage} sqft</span>
+                <span>{previewListing.category}</span>
+              </div>
+              
+              <hr style={{margin:'15px 0', borderTop:'1px solid #eee'}}/>
+              
+              <h4>Description</h4>
+              <p className={style.modalDesc}>{previewListing.description || "No description provided."}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
-};
-
-export default OwnerProperties;
+}

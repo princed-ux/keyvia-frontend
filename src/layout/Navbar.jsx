@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { FaChevronDown } from "react-icons/fa"; 
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { FaChevronDown, FaBell, FaUserCircle } from "react-icons/fa"; 
 import style from "../styles/navbar.module.css";
 import logo from "../assets/logoImg.png";
+// You might want a dark logo for white navbar if the current one is white text
+// import logoDark from "../assets/logoDark.png"; 
 import defaultProfile from "../assets/person.png";
 import { useAuth } from "../context/AuthProvider.jsx";
 
@@ -10,6 +12,11 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // ✅ Define which paths use the Transparent Navbar
+  const transparentPaths = ["/", "/sell"];
+  const isTransparent = transparentPaths.includes(location.pathname);
 
   // ✅ Logout
   const handleLogout = async () => {
@@ -17,29 +24,25 @@ const Navbar = () => {
     navigate("/"); 
   };
 
-  // ✅ Determine dashboard route based on ROLE STRING
+  // ✅ Dashboard Link Logic
   const getDashboardLink = () => {
     if (!user) return "/";
-    if (user.role === "admin") return "/admin/dashboard";
-    if (user.role === "agent") return "/dashboard";
-    if (user.role === "owner") return "/owner/dashboard";
-    if (user.role === "developer") return "/developer/dashboard";
-    if (user.role === "buyer") return "/buyer/dashboard";
-    return "/";
+    const roleMap = {
+      admin: "/admin/dashboard",
+      agent: "/dashboard",
+      owner: "/owner/dashboard",
+      developer: "/developer/dashboard",
+      buyer: "/buyer/dashboard"
+    };
+    return roleMap[user.role] || "/";
   };
 
-  // ✅ Determine settings link based on ROLE STRING
   const getSettingsLink = () => {
     if (!user) return "/";
-    if (user.role === "admin") return "/admin/settings";
-    if (user.role === "agent") return "/dashboard/settings/account";
-    if (user.role === "owner") return "/owner/settings";
-    if (user.role === "developer") return "/developer/settings";
-    if (user.role === "buyer") return "/buyer/settings";
-    return "/";
+    return user.role === "admin" ? "/admin/settings" : "/dashboard/settings/account";
   };
 
-  // ✅ Close dropdown when clicking outside
+  // ✅ Close dropdown logic
   useEffect(() => {
     const closeDropdown = (e) => {
       if (!e.target.closest(`.${style.profileWrapper}`)) {
@@ -50,13 +53,13 @@ const Navbar = () => {
     return () => document.removeEventListener("click", closeDropdown);
   }, []);
 
-  // ✅ Helper to check if user allows dropdown
   const isLoggedIn = user && user.role !== "pending";
+  const isActive = (path) => location.pathname === path;
 
   return (
-    <nav className={style.navbar}>
+    <nav className={`${style.navbar} ${isTransparent ? style.transparent : style.white}`}>
       {/* Logo */}
-      <div>
+      <div className={style.logoContainer}>
         <Link to="/">
           <img className={style.logo} src={logo} alt="keyvia-logo" />
         </Link>
@@ -64,23 +67,35 @@ const Navbar = () => {
 
       {/* Links */}
       <ul className={style.navlinks}>
-        <li><Link className={style.link} to="/">Home</Link></li>
-        <li><Link className={style.link} to="/buy">Buy</Link></li>
-        <li><Link className={style.link} to="/rent">Rent</Link></li>
-        <li><Link className={style.link} to="/sell">Sell</Link></li>
+        <li>
+          <Link to="/" className={`${style.link} ${isActive("/") ? style.activeLink : ""}`}>Home</Link>
+        </li>
+        <li>
+          <Link to="/buy" className={`${style.link} ${isActive("/buy") ? style.activeLink : ""}`}>Buy</Link>
+        </li>
+        <li>
+          <Link to="/rent" className={`${style.link} ${isActive("/rent") ? style.activeLink : ""}`}>Rent</Link>
+        </li>
+        <li>
+          <Link to="/sell" className={`${style.link} ${isActive("/sell") ? style.activeLink : ""}`}>Sell</Link>
+        </li>
       </ul>
 
       {/* Right Section */}
       <div className={style.buttons}>
         {isLoggedIn ? (
           <div className={style.profileWrapper}>
-            {/* Profile Section */}
+            {/* Icons */}
+            <button className={`${style.iconBtn} ${isTransparent ? style.iconTransparent : style.iconDark}`}>
+              <FaBell size={20} />
+            </button>
+
+            {/* Profile */}
             <div
               className={style.profileSection}
               onClick={() => setDropdownOpen((prev) => !prev)}
             >
               <img
-                // 🛑 FIX: Changed user.profileImage to user.avatar_url
                 src={user.avatar_url || defaultProfile} 
                 alt="profile"
                 className={style.profileImage}
@@ -89,37 +104,24 @@ const Navbar = () => {
                 {user.name?.split(" ")[0] || "User"}
               </span>
               <FaChevronDown
-                className={`${style.dropdownArrow} ${
-                  dropdownOpen ? style.rotate : ""
-                }`}
+                className={`${style.dropdownArrow} ${dropdownOpen ? style.rotate : ""}`}
               />
             </div>
 
-            {/* Dropdown Menu */}
+            {/* Dropdown */}
             {dropdownOpen && (
               <div className={style.dropdown}>
-                <Link to="/profile" className={style.dropdownItem}>
-                  My Profile
-                </Link>
-
-                {/* Dashboard & Settings Links */}
-                <Link to={getDashboardLink()} className={style.dropdownItem}>
-                  Dashboard
-                </Link>
-                <Link to={getSettingsLink()} className={style.dropdownItem}>
-                  Settings
-                </Link>
-
-                <button onClick={handleLogout} className={style.dropdownItem}>
-                  Logout
-                </button>
+                <Link to="/profile" className={style.dropdownItem}>My Profile</Link>
+                <Link to={getDashboardLink()} className={style.dropdownItem}>Dashboard</Link>
+                <Link to={getSettingsLink()} className={style.dropdownItem}>Settings</Link>
+                <button onClick={handleLogout} className={style.dropdownItem}>Logout</button>
               </div>
             )}
           </div>
         ) : (
           <>
             <Link to="/login">
-              <button className={style.login}>Login</button>
+              <button className={`${style.login} ${!isTransparent ? style.loginDark : ''}`}>Login</button>
             </Link>
             <Link to="/signup">
               <button className={style.signup}>Sign up</button>

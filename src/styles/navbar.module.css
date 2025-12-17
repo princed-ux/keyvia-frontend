@@ -1,237 +1,238 @@
-*{
-    margin: 0;
-  padding: 0;
-}
+/* --- SHARED BASE STYLES --- */
 .navbar {
   width: 100%;
   height: 80px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
-  background-color: transparent;
+  padding: 0 40px;
+  transition: all 0.3s ease;
+  z-index: 100;
 }
+
 .logo {
   width: 120px;
+  object-fit: contain;
 }
+
 .navlinks {
   display: flex;
-  gap: 30px;
-  align-items: center;
-  justify-content: center;
+  gap: 40px;
   list-style: none;
   margin: 0;
   padding: 0;
   font-weight: 500;
-  font-size: 17px;
+  font-size: 16px;
 }
-.navlinks li {
-    cursor: pointer;
-    color: #fff;
+
+.link {
+  text-decoration: none;
+  font-weight: 600;
   transition: color 0.3s ease;
-}
-.link{
-    text-decoration: none;
-    color: #fff;
-    font-weight: 600;
-    transition: color 0.3s ease;
+  padding: 10px 0;
+  border-bottom: 2px solid transparent;
 }
 
-/* ------------------- LOGIN BUTTON ------------------- */
+/* --- THEME 1: TRANSPARENT (Home / Sell) --- */
+.transparent {
+  background-color: transparent;
+  position: relative; /* Or absolute depending on HeaderWrapper */
+}
+
+.transparent .link {
+  color: #fff;
+}
+
+.transparent .link:hover,
+.transparent .activeLink {
+  color: #00e0ff; /* Light cyan highlight for dark bg */
+  border-bottom-color: #00e0ff;
+}
+
+.transparent .username {
+  color: #fff;
+}
+
+.transparent .dropdownArrow {
+  color: #fff;
+}
+
+.iconTransparent {
+  color: #fff;
+}
+
+/* --- THEME 2: WHITE (Buy / Rent) --- */
+.white {
+  background-color: white;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.white .link {
+  color: #374151; /* Dark Gray */
+}
+
+.white .link:hover,
+.white .activeLink {
+  color: #007983; /* Teal */
+  border-bottom-color: #007983;
+}
+
+.white .username {
+  color: #333;
+}
+
+.white .dropdownArrow {
+  color: #666;
+}
+
+.iconDark {
+  color: #374151;
+}
+
+/* --- BUTTONS --- */
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Login Button */
 .login {
-  position: relative;
-  display: inline-block;
-  padding: 10px 20px;
+  padding: 10px 24px;
   border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: white;
   border: 1px solid #09707d;
-  background-color: #fff;
   color: #09707d;
-  cursor: pointer;
-  overflow: hidden;
-  transition: color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
-  -webkit-tap-highlight-color: transparent;
-  z-index: 0;
+  transition: all 0.3s ease;
 }
 
-/* Animated overlay */
-.login::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: #09707d;
-  border-radius: 8px;
-  transform-origin: left center;
-  transform: scaleX(0);
-  transition: transform 0.3s cubic-bezier(.2, .9, .2, 1);
-  z-index: -1; /* keep behind text */
-}
-
-/* Text always on top */
-.login > * {
-  position: relative;
-  z-index: 1;
-}
-
-/* Hover effect */
-.login:hover,
-.login:focus {
-  color: #fff;
-  border-color: #09707d;
-}
-
-.login:hover::before,
-.login:focus::before {
-  transform: scaleX(1);
-}
-
-/* Pressed effect */
-.login:active {
-  transform: translateY(1px);
-}
-
-/* Optional full-width variant */
-.login.full {
-  display: block;
-  width: 100%;
-  text-align: center;
-}
-
-/* ------------------- SIGNUP BUTTON ------------------- */
-.signup {
-  position: relative;
-  display: inline-block;
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: 1px solid #09707d;
+.login:hover {
   background-color: #09707d;
-  color: #fff;
-  cursor: pointer;
-  overflow: hidden;
-  transition: color 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
-  z-index: 0;
+  color: white;
 }
 
-/* White overlay animation */
-.signup::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: #fff;
+/* Dark variant of Login button for White Navbar */
+.loginDark {
+  border-color: #374151;
+  color: #374151;
+}
+.loginDark:hover {
+  background-color: #374151;
+  color: white;
+  border-color: #374151;
+}
+
+/* Signup Button (Always Teal) */
+.signup {
+  padding: 10px 24px;
   border-radius: 8px;
-  transform-origin: left center;
-  transform: scaleX(0);
-  transition: transform 0.3s cubic-bezier(.2, .9, .2, 1);
-  z-index: -1; /* 🟢 behind text so teal text shows */
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #09707d;
+  border: 1px solid #09707d;
+  color: white;
+  transition: all 0.3s ease;
 }
 
-/* Ensure text sits above overlay */
-.signup > * {
-  position: relative;
-  z-index: 1;
+.signup:hover {
+  background-color: #005f6b;
+  border-color: #005f6b;
 }
 
-/* Hover/focus */
-.signup:hover,
-.signup:focus {
-  border-color: #09707d;
-  color: #09707d !important;
+/* --- PROFILE & ICONS --- */
+.iconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
 }
 
-.signup:hover::before,
-.signup:focus::before {
-  transform: scaleX(1);
-}
-
-/* Pressed effect */
-.signup:active {
-  transform: translateY(1px);
-}
-
-/* Full-width variant */
-.signup.full {
-  display: block;
-  width: 100%;
-  text-align: center;
-}
-
-.buttons{
-    display: flex;
-    gap: 10px;
-}
-
-/* Profile Section */
 .profileWrapper {
+  display: flex;
+  align-items: center;
+  gap: 15px;
   position: relative;
 }
 
 .profileSection {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
-  background-color: #f9f9f9;
-  padding: 6px 10px;
+  padding: 4px 10px;
   border-radius: 20px;
-  transition: background-color 0.2s ease;
+  transition: background 0.2s;
 }
 
 .profileSection:hover {
-  background-color: #f0f0f0;
+  background-color: rgba(128, 128, 128, 0.1);
 }
 
 .profileImage {
-  width: 35px;
-  height: 35px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid rgba(255,255,255,0.5);
 }
 
-.username {
-  font-weight: 500;
-  color: #333;
-  font-size: 0.95rem;
+.white .profileImage {
+  border: 1px solid #e5e7eb;
 }
 
-.dropdownArrow {
-  font-size: 0.8rem;
-  color: #555;
-  transition: transform 0.2s ease;
-}
-
-/* Rotate arrow when open */
 .rotate {
   transform: rotate(180deg);
 }
 
-/* Dropdown Menu */
+/* --- DROPDOWN --- */
 .dropdown {
   position: absolute;
+  top: 50px;
   right: 0;
-  top: 110%;
-  background-color: #fff;
-  border: 1px solid #ddd;
+  background: white;
   border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  width: 180px;
   padding: 8px 0;
+  display: flex;
+  flex-direction: column;
   z-index: 200;
-  min-width: 160px;
+  border: 1px solid #eee;
 }
 
 .dropdownItem {
-  display: block;
-  width: 100%;
-  padding: 10px 16px;
-  color: #333;
+  padding: 12px 16px;
   text-decoration: none;
+  color: #333;
+  font-size: 14px;
+  text-align: left;
   background: none;
   border: none;
-  text-align: left;
-  font-size: 0.95rem;
   cursor: pointer;
+  transition: background 0.2s;
+  width: 100%;
 }
 
 .dropdownItem:hover {
-  background-color: #f5f5f5;
+  background-color: #f9fafb;
+  color: #09707d;
+}
+
+/* --- MOBILE --- */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 20px;
+  }
+  .navlinks {
+    display: none; /* Hide links on mobile */
+  }
+  .username {
+    display: none;
+  }
 }

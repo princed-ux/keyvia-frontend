@@ -57,7 +57,7 @@ const SignupRole = () => {
         icon: "warning",
         title: "Session Expired",
         text: "Please sign up again.",
-        confirmButtonColor: "#2563eb",
+        confirmButtonColor: "#09707D",
       });
       navigate("/signup");
     }
@@ -88,7 +88,7 @@ const SignupRole = () => {
         title: "Welcome Aboard!",
         text: "Your account is fully set up.",
         confirmButtonText: "Go to Login",
-        confirmButtonColor: "#2563eb",
+        confirmButtonColor: "#09707D",
         allowOutsideClick: false,
         backdrop: `rgba(0,0,123,0.4)`,
       }).then(() => {
@@ -118,9 +118,9 @@ const SignupRole = () => {
         {/* Header Section */}
         <div className={style.header}>
           <div className={style.logoIcon}>
-            <Building2 size={40} color="#2563eb" />
+            <Building2 size={40} color="#09707D" />
           </div>
-          <h1 className={style.title}>How will you use EstateFlow?</h1>
+          <h1 className={style.title}>How will you use Keyvia?</h1>
           <p className={style.subtitle}>
             Select your primary role to customize your experience.
           </p>

@@ -5,7 +5,7 @@ import { useSocket } from "../context/SocketProvider";
 import { apiRequest } from "../utils/api";
 import {
   Loader2, Send, UserRound, ChevronLeft, Search, Moon, Sun, Smile,
-  Phone, Video, Info, X, Trash2, CheckCheck, Check, BellOff, ExternalLink, Ban, ChevronRight
+  Phone, Video, Info, X, Trash2, CheckCheck, Check, BellOff, ExternalLink, Ban, ChevronRight, Unlock
 } from "lucide-react";
 import debounce from "lodash.debounce";
 import style from "../styles/messages.module.css";
@@ -13,6 +13,7 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-toastify";
+import Swal from "sweetalert2"; 
 
 dayjs.extend(relativeTime);
 
@@ -30,6 +31,7 @@ export default function Messages() {
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState("");
+  const [isBlocked, setIsBlocked] = useState(false);
   
   // Search
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,9 +88,8 @@ export default function Messages() {
 
   const getDisplayUser = (u) => ({
     id: u.unique_id,
-    name: u.full_name || u.name || u.username || "Unknown User",
+    name: u.username || u.full_name || u.name || "Unknown User",
     avatar: u.avatar_url || u.avatar,
-    email: u.email || "No email"
   });
 
   const autoGrow = () => {
@@ -103,7 +104,8 @@ export default function Messages() {
     if (!user) return;
     const loadConvos = async () => {
       try {
-        const res = await apiRequest(`/messages/user/${user.unique_id}`, "GET");
+        // ✅ FIXED: Added /api prefix
+        const res = await apiRequest(`/api/messages/user/${user.unique_id}`, "GET");
         setConversations(Array.isArray(res) ? res : []);
       } catch (err) { console.error(err); }
     };
@@ -120,10 +122,12 @@ export default function Messages() {
           loadChatMessages(existing);
         } else {
           try {
-            const res = await apiRequest("/messages/conversation", "POST", {
+            // ✅ FIXED: Added /api prefix
+            const res = await apiRequest("/api/messages/conversation", "POST", {
               user1_id: user.unique_id, user2_id: startChatWith
             });
-            const updatedList = await apiRequest(`/messages/user/${user.unique_id}`, "GET");
+            // ✅ FIXED: Added /api prefix
+            const updatedList = await apiRequest(`/api/messages/user/${user.unique_id}`, "GET");
             setConversations(updatedList || []);
             const newChat = updatedList.find(c => c.conversation_id === res.conversation_id);
             loadChatMessages(newChat || res);
@@ -142,22 +146,19 @@ export default function Messages() {
     socket.emit("user_online", { userId: user.unique_id });
     socket.on("online_users", (users) => setOnlineUsers((users || []).map(String)));
     
-    // A. INCOMING MESSAGE
     const handleIncoming = (data) => {
       const convId = String(data.conversationId || data.conversation_id);
       const incomingSenderId = String(data.senderId);
       const myId = String(user.unique_id);
-      
       const isActive = selectedChatRef.current && String(selectedChatRef.current.conversation_id) === convId;
 
       if (isActive) {
-        // PREVENT DOUBLE BUBBLE: If I sent it, ignore socket echo
         if (incomingSenderId !== myId) {
           setMessages(prev => {
             if (prev.some(m => m.id === data.id)) return prev;
             return [...prev, {
               id: data.id,
-              sender_id: data.senderId, // Use camelCase from socket payload
+              sender_id: data.senderId, 
               message: data.message,
               created_at: data.created_at,
               seen: true, 
@@ -166,14 +167,12 @@ export default function Messages() {
           });
           socket.emit("message_seen", { conversationId: convId, messageId: data.id, userId: myId });
         } else {
-          // If it IS my message returning from server, update status/ID (don't add new bubble)
           setMessages(prev => prev.map(m => m.tempId === data.tempId ? { ...m, id: data.id, seen: false } : m));
         }
         scrollToBottom();
       }
     };
 
-    // B. SIDEBAR UPDATE
     const handleSidebarUpdate = (data) => {
       const convId = String(data.conversation_id);
       const isActive = selectedChatRef.current && String(selectedChatRef.current.conversation_id) === convId;
@@ -181,18 +180,12 @@ export default function Messages() {
       setConversations(prev => {
         const otherChats = prev.filter(c => String(c.conversation_id) !== convId);
         const existing = prev.find(c => String(c.conversation_id) === convId);
-        
         const unreadCount = isActive ? 0 : data.unread_messages;
-
-        const updated = existing 
-          ? { ...existing, ...data, unread_messages: unreadCount } 
-          : { ...data, unread_messages: unreadCount }; 
-
+        const updated = existing ? { ...existing, ...data, unread_messages: unreadCount } : { ...data, unread_messages: unreadCount }; 
         return [updated, ...otherChats];
       });
     };
 
-    // C. STATUS UPDATE
     const handleStatus = ({ messageId, conversationId, seen }) => {
       if (selectedChatRef.current && String(selectedChatRef.current.conversation_id) === String(conversationId) && seen) {
         if(messageId) setMessages(prev => prev.map(m => m.id === messageId ? {...m, seen: true} : m));
@@ -200,7 +193,6 @@ export default function Messages() {
       }
     };
 
-    // D. REACTION UPDATE
     const handleReactionUpdate = ({ messageId, userId, emoji, type }) => {
       setMessages(prev => prev.map(m => {
         if (m.id === messageId) {
@@ -229,15 +221,24 @@ export default function Messages() {
   // --- ACTIONS ---
   const loadChatMessages = async (chat) => {
     if (!chat) return;
-    setSelectedChat(chat);
-    selectedChatRef.current = chat;
+    
+    // 1. Reset States Immediately
+    setMessages([]); 
     setLoadingMessages(true);
     setShowProfile(false);
+    setIsBlocked(false); 
     
+    setSelectedChat(chat);
+    selectedChatRef.current = chat;
+    
+    // 2. Set Block Status safely
+    setIsBlocked(Boolean(chat.is_blocked)); 
+
     if(socket) socket.emit("join_conversation", { conversationId: chat.conversation_id });
 
     try {
-      const res = await apiRequest(`/messages/${chat.conversation_id}`, "GET");
+      // ✅ FIXED: Added /api prefix
+      const res = await apiRequest(`/api/messages/${chat.conversation_id}`, "GET");
       setMessages(res || []);
       
       setConversations(prev => prev.map(c => 
@@ -246,21 +247,22 @@ export default function Messages() {
       
       if(socket) socket.emit("message_seen", { conversationId: chat.conversation_id, userId: user.unique_id });
 
-    } catch (e) { setMessages([]); } 
-    finally { setLoadingMessages(false); scrollToBottom(); }
+    } catch (e) { 
+      setMessages([]); 
+    } finally { 
+      setLoadingMessages(false); 
+      scrollToBottom(); 
+    }
   };
 
-  // ✅ FIXED: Optimistic UI now uses 'sender_id' (snake_case) to match DB format
   const sendMessage = () => {
     if (!newMessage.trim() || !selectedChat) return;
     
     const tempId = `temp-${Date.now()}`;
-    
-    // 1. Prepare Object for UI (Must use sender_id)
     const optimisticMsg = {
       id: tempId,
       conversation_id: selectedChat.conversation_id,
-      sender_id: user.unique_id, // ✅ FIX: Use snake_case for UI render check
+      sender_id: user.unique_id, 
       message: newMessage.trim(),
       created_at: new Date().toISOString(),
       seen: false,
@@ -268,24 +270,20 @@ export default function Messages() {
       tempId: tempId
     };
 
-    // 2. Prepare Payload for Server (Must use senderId for socket)
     const serverPayload = {
       conversationId: selectedChat.conversation_id,
-      senderId: user.unique_id, // Server expects camelCase
+      senderId: user.unique_id, 
       message: newMessage.trim(),
       id: tempId
     };
 
-    // Optimistic Append
     setMessages(prev => [...prev, optimisticMsg]);
     setNewMessage("");
     if(textareaRef.current) textareaRef.current.style.height = "44px";
     scrollToBottom();
     
-    // Send to Server
     socket.emit("send_message", serverPayload);
     
-    // Sidebar Update
     setConversations(prev => prev.map(c => 
       c.conversation_id === selectedChat.conversation_id 
       ? { ...c, last_message: optimisticMsg.message, updated_at: optimisticMsg.created_at } 
@@ -313,37 +311,103 @@ export default function Messages() {
     setContextMenu({ visible: false, x: 0, y: 0, data: null });
   };
 
+  // ✅ DELETE CONVERSATION
   const deleteConversation = async () => {
     if (!selectedChat) return;
-    if (!window.confirm("Delete this conversation?")) return;
-    try {
-      await apiRequest(`/messages/conversation/${selectedChat.conversation_id}`, "DELETE");
-      setConversations(prev => prev.filter(c => c.conversation_id !== selectedChat.conversation_id));
-      setSelectedChat(null);
-      setShowProfile(false);
-      toast.success("Deleted");
-    } catch (e) { toast.error("Failed"); }
+
+    const result = await Swal.fire({
+      title: "Delete Conversation?",
+      text: "This action cannot be undone. The chat will be removed for you.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!"
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // ✅ FIXED: Added /api prefix
+        await apiRequest(`/api/messages/conversation/${selectedChat.conversation_id}`, "DELETE");
+        setConversations(prev => prev.filter(c => c.conversation_id !== selectedChat.conversation_id));
+        setSelectedChat(null);
+        setShowProfile(false);
+        Swal.fire("Deleted!", "Your conversation has been deleted.", "success");
+      } catch (e) {
+        toast.error("Failed to delete conversation");
+      }
+    }
   };
 
+  // ✅ BLOCK USER
   const blockUser = async () => {
     const other = getChatPartner(selectedChat);
-    if(window.confirm(`Block ${other.name}?`)) {
+    if (!other.unique_id) return;
+
+    const result = await Swal.fire({
+      title: `Block ${other.name}?`,
+      text: "They will not be able to send you messages.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, block them!"
+    });
+
+    if (result.isConfirmed) {
       try {
+        // Note: Assuming /users is mapped as /users in server.js (not /api/users). 
+        // If server.js has app.use("/api/users"), add /api here too.
         await apiRequest("/users/block", "POST", { blocker_id: user.unique_id, blocked_id: other.unique_id });
-        toast.success("Blocked");
-      } catch(e) { toast.error("Failed"); }
+        
+        setIsBlocked(true);
+        setConversations(prev => prev.map(c => 
+          c.conversation_id === selectedChat.conversation_id ? { ...c, is_blocked: true } : c
+        ));
+        
+        Swal.fire("Blocked!", `${other.name} has been blocked.`, "success");
+      } catch (e) {
+        toast.error("Failed to block user");
+      }
+    }
+  };
+
+  // ✅ UNBLOCK USER
+  const unblockUser = async () => {
+    const other = getChatPartner(selectedChat);
+    if (!other.unique_id) return;
+
+    try {
+      await apiRequest("/users/unblock", "POST", { blocker_id: user.unique_id, blocked_id: other.unique_id });
+      
+      setIsBlocked(false);
+      setConversations(prev => prev.map(c => 
+        c.conversation_id === selectedChat.conversation_id ? { ...c, is_blocked: false } : c
+      ));
+      
+      toast.success(`${other.name} unblocked`);
+    } catch (e) {
+      toast.error("Failed to unblock user");
     }
   };
 
   const createChat = async (u) => {
     setSearchQuery(""); setSearchResults([]);
     try {
-      const res = await apiRequest("/messages/conversation", "POST", { user1_id: user.unique_id, user2_id: u.id });
-      const fullList = await apiRequest(`/messages/user/${user.unique_id}`, "GET");
+      // ✅ FIXED: Added /api prefix
+      const res = await apiRequest("/api/messages/conversation", "POST", { user1_id: user.unique_id, user2_id: u.id });
+      
+      // ✅ FIXED: Added /api prefix
+      const fullList = await apiRequest(`/api/messages/user/${user.unique_id}`, "GET");
       setConversations(fullList || []);
+      
       const newChat = fullList.find(c => c.conversation_id === res.conversation_id);
-      loadChatMessages(newChat || res);
-    } catch(e) {}
+      
+      loadChatMessages(newChat || { ...res, is_blocked: false }); 
+
+    } catch(e) {
+      console.error(e);
+    }
   };
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -352,6 +416,7 @@ export default function Messages() {
     if(!q.trim()) { setSearchResults([]); return; }
     setSearchLoading(true);
     try {
+      // Note: Assuming /users is mapped as /users in server.js
       const res = await apiRequest(`/users/search?query=${q}`, "GET");
       setSearchResults(Array.isArray(res) ? res : []);
     } catch(e){} finally { setSearchLoading(false); }
@@ -377,17 +442,30 @@ export default function Messages() {
         <div className={style.searchWrapper}>
           <Search className={style.searchIcon}/>
           <input className={style.searchInput} placeholder="Search users..." value={searchQuery} onChange={e=>{setSearchQuery(e.target.value); startSearch(e.target.value);}}/>
-          {searchQuery && <div style={{position:'absolute', top:55, left:0, right:0, background:'var(--sidebar-bg)', borderBottom:'1px solid var(--border-color)', zIndex:20}}>
-             {searchLoading ? <div style={{padding:15}}>Searching...</div> : searchResults.map(u => {
-               const display = getDisplayUser(u);
-               return (
-                 <div key={display.id} onClick={()=>createChat(display)} style={{padding:12, cursor:'pointer', display:'flex', gap:10, alignItems:'center', borderBottom:'1px solid var(--border-color)'}}>
-                   <div className={style.avatarLarge} style={{width:30, height:30}}>{display.avatar ? <img src={display.avatar} className={style.avatarIMG}/> : <UserRound size={16}/>}</div>
-                   <div><div style={{fontWeight:600}}>{display.name}</div><div style={{fontSize:12, color:'gray'}}>{display.email}</div></div>
-                 </div>
-               )
-             })}
-          </div>}
+          {/* SEARCH RESULTS */}
+          {searchQuery && (
+            <div style={{position:'absolute', top:55, left:0, right:0, background:'var(--sidebar-bg)', borderBottom:'1px solid var(--border-color)', zIndex:20, boxShadow:'0 4px 6px rgba(0,0,0,0.1)'}}>
+              {searchLoading ? (
+                <div style={{padding:15, color:'gray', textAlign:'center'}}>Searching...</div>
+              ) : searchResults.length === 0 ? (
+                <div style={{padding:15, color:'gray', textAlign:'center'}}>No user found</div>
+              ) : (
+                searchResults.map(u => {
+                  const display = getDisplayUser(u);
+                  return (
+                    <div key={display.id} onClick={()=>createChat(display)} style={{padding:12, cursor:'pointer', display:'flex', gap:10, alignItems:'center', borderBottom:'1px solid var(--border-color)', background:'var(--sidebar-bg)'}}>
+                      <div className={style.avatarLarge} style={{width:30, height:30}}>
+                        {display.avatar ? <img src={display.avatar} className={style.avatarIMG}/> : <UserRound size={16}/>}
+                      </div>
+                      <div>
+                        <div style={{fontWeight:600, color:'var(--text-primary)'}}>{display.name}</div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          )}
         </div>
 
         <div className={style.chatList}>
@@ -403,7 +481,7 @@ export default function Messages() {
                   <div className={style.chatName}>{u.name}</div>
                   <div className={style.chatLastMessage}>
                     {String(c.last_message_sender) === String(user.unique_id) && "You: "}
-                    {c.last_message || "No messages"}
+                    {c.last_message || "Start a conversation"}
                   </div>
                 </div>
                 <div className={style.chatTime}>
@@ -447,14 +525,11 @@ export default function Messages() {
                   <div key={i} className={`${style.msgWrapper} ${mine ? style.msgRight : style.msgLeft}`}>
                     <div className={style.msgBubble} onContextMenu={(e)=>{e.preventDefault(); setContextMenu({visible:true, x:e.clientX, y:e.clientY, data:msg});}}>
                       {msg.message}
-                      
-                      {/* Reactions */}
                       {msg.reactions && Object.keys(msg.reactions).length > 0 && (
                         <div className={style.reactionBar}>
                           {Array.from(new Set(Object.values(msg.reactions))).map((r, ri) => <span key={ri}>{r}</span>)}
                         </div>
                       )}
-
                       <div className={style.msgMeta}>
                         <span>{formatTime(msg.created_at)}</span>
                         {mine && (msg.seen ? <CheckCheck size={14} color="#53bdeb"/> : <Check size={14} color="#8696a0"/>)}
@@ -466,12 +541,35 @@ export default function Messages() {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className={style.inputAreaWrapper} ref={inputAreaRef}>
-              {showEmojiPanel && <div className={style.emojiPanel}><EmojiPicker onEmojiClick={(e)=>setNewMessage(p=>p+e.emoji)} height={350}/></div>}
-              <button className={style.emojiBtn} onClick={()=>setShowEmojiPanel(!showEmojiPanel)}><Smile/></button>
-              <textarea ref={textareaRef} className={style.inputBox} rows={1} placeholder="Type a message..." value={newMessage} onChange={e=>{setNewMessage(e.target.value); autoGrow();}} onKeyDown={e=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault(); sendMessage();}}}/>
-              <button className={style.sendBtn} onClick={sendMessage}><Send/></button>
-            </div>
+            {/* ✅ CONDITIONAL RENDER: Input Area OR Unblock Button */}
+            {isBlocked ? (
+              <div className={style.inputAreaWrapper} style={{justifyContent: 'center', background: 'var(--bg-secondary)', flexDirection:'column', gap: 10}}>
+                <p style={{color:'gray', fontSize:14}}>You have blocked this user</p>
+                <button 
+                  onClick={unblockUser} 
+                  style={{
+                    padding: "10px 20px", 
+                    background: "var(--primary-color)", 
+                    color: "white", 
+                    border: "none", 
+                    borderRadius: "8px", 
+                    cursor: "pointer", 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "8px"
+                  }}
+                >
+                  <Unlock size={16} /> Unblock User
+                </button>
+              </div>
+            ) : (
+              <div className={style.inputAreaWrapper} ref={inputAreaRef}>
+                {showEmojiPanel && <div className={style.emojiPanel}><EmojiPicker onEmojiClick={(e)=>setNewMessage(p=>p+e.emoji)} height={350}/></div>}
+                <button className={style.emojiBtn} onClick={()=>setShowEmojiPanel(!showEmojiPanel)}><Smile/></button>
+                <textarea ref={textareaRef} className={style.inputBox} rows={1} placeholder="Type a message..." value={newMessage} onChange={e=>{setNewMessage(e.target.value); autoGrow();}} onKeyDown={e=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault(); sendMessage();}}}/>
+                <button className={style.sendBtn} onClick={sendMessage}><Send/></button>
+              </div>
+            )}
           </>
         ) : (
           <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', color:'var(--text-secondary)'}}>
@@ -492,7 +590,14 @@ export default function Messages() {
             <div className={style.section}>
               <div style={{display:'flex', flexDirection:'column', gap:10, marginTop:10}}>
                 <button onClick={()=>window.open(`/profile/${activePartner.unique_id}`)} style={{padding:10, border:'1px solid #09707d', color:'#09707d', background:'none', borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}><ExternalLink size={16}/> View Profile</button>
-                <button onClick={blockUser} style={{padding:10, border:'1px solid #ef4444', color:'#ef4444', background:'none', borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}><Ban size={16}/> Block User</button>
+                
+                {/* Block/Unblock toggle in Sidebar */}
+                {isBlocked ? (
+                   <button onClick={unblockUser} style={{padding:10, border:'1px solid #3b82f6', color:'#3b82f6', background:'none', borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}><Unlock size={16}/> Unblock User</button>
+                ) : (
+                   <button onClick={blockUser} style={{padding:10, border:'1px solid #ef4444', color:'#ef4444', background:'none', borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}><Ban size={16}/> Block User</button>
+                )}
+
                 <button onClick={deleteConversation} style={{padding:10, border:'1px solid #6b7280', color:'#6b7280', background:'none', borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}><Trash2 size={16}/> Delete Chat</button>
               </div>
             </div>

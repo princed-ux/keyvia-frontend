@@ -8,18 +8,16 @@ import {
   Trash2, 
   MapPin, 
   Home, 
-  DollarSign, 
-  X,
   CreditCard,
-  Eye
+  X
 } from "lucide-react";
 
-import client from "../api/axios"; // Your configured axios instance
+import client from "../api/axios"; // Adjust path if needed
 import { useAuth } from "../context/AuthProvider";
-import PropertyForm from "../common/PropertyForm";
-import style from "../styles/Listings.module.css"; // The CSS we perfected earlier
+import PropertyForm from "../common/PropertyForm"; // Ensure this path is correct
+import style from "../styles/Listings.module.css"; // Reusing the agent listings CSS
 
-export default function Listings() {
+export default function OwnerProperties() {
   const navigate = useNavigate();
   const { user } = useAuth(); 
 
@@ -45,12 +43,11 @@ export default function Listings() {
   const fetchListings = async () => {
     setLoading(true);
     try {
-      // ✅ Correct Endpoint for Agents
+      // ✅ Reusing the agent endpoint (filters by logged-in user ID)
       const res = await client.get("/api/listings/agent"); 
       setListings(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Fetch listings error:", err);
-      // toast.error("Could not load your listings");
     } finally {
       setLoading(false);
     }
@@ -62,7 +59,6 @@ export default function Listings() {
   const handleActivate = async (listing, e) => {
     e.stopPropagation();
     
-    // In a real app, this would open Stripe/Paystack
     const confirm = await Swal.fire({
       title: "Activate Listing?",
       text: "This simulates a successful payment of $50.",
@@ -76,7 +72,7 @@ export default function Listings() {
 
     setBusyId(listing.product_id);
     try {
-      const res = await client.put(`/api/listings/${listing.product_id}/activate`);
+      await client.put(`/api/listings/${listing.product_id}/activate`);
       
       // Update UI immediately
       setListings(prev => prev.map(l => 
@@ -171,7 +167,7 @@ export default function Listings() {
 
       // Handle existing photos (if editing)
       if (editingListing?.photos?.length) {
-        const existing = editingListing.photos; // Already normalized arrays
+        const existing = editingListing.photos; 
         formData.append("existingPhotos", JSON.stringify(existing));
       }
 
@@ -179,7 +175,7 @@ export default function Listings() {
       const url = product_id ? `/api/listings/${product_id}` : `/api/listings`;
       const method = product_id ? "put" : "post";
 
-      // ✅ Send Request
+      // Send Request
       const res = await client[method](url, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -216,11 +212,11 @@ export default function Listings() {
       {/* --- HEADER --- */}
       <div className={style.header}>
         <div>
-          <h1>My Listings</h1>
-          <p>Manage your properties and check their status</p>
+          <h1>My Properties</h1>
+          <p>Manage your rental portfolio and sales</p>
         </div>
         <button onClick={openCreateForm} className={style.addButton}>
-          <Plus size={20} /> Add New Listing
+          <Plus size={20} /> Add New Property
         </button>
       </div>
 
@@ -239,24 +235,24 @@ export default function Listings() {
           {loading ? (
             <div className={style.loadingContainer}>
               <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 150, height: 150 }} />
-              <p>Loading your portfolio...</p>
+              <p>Loading your properties...</p>
             </div>
           ) : listings.length === 0 ? (
             <div className={style.emptyState}>
               <div>
                 <DotLottieReact 
-  src={lottieUrl} 
-  loop 
-  autoplay 
-  style={{ width: 250, height: 250, alignSelf: 'center' }} 
-/>
+                  src={lottieUrl} 
+                  loop 
+                  autoplay 
+                  style={{ width: 250, height: 250, alignSelf: 'center' }} 
+                />
               </div>
               <div>
                 <h3>No Properties Yet</h3>
-              <p>Create your first listing to start selling.</p>
-              <button onClick={openCreateForm} className={style.addButtonSecondary}>
-                Create Listing
-              </button>
+                <p>List your first property to start finding tenants.</p>
+                <button onClick={openCreateForm} className={style.addButtonSecondary}>
+                  Create Listing
+                </button>
               </div>
             </div>
           ) : (
@@ -267,15 +263,15 @@ export default function Listings() {
                 let statusText = "Pending";
 
                 if (listing.status === 'rejected') {
-                  badgeClass = style.rejected; // You need to add .rejected in CSS (red)
+                  badgeClass = style.rejected; 
                   statusText = "Rejected";
                 } else if (listing.status === 'approved') {
                   if (listing.is_active) {
-                     badgeClass = style.active; // Green
-                     statusText = "Active";
+                      badgeClass = style.active; 
+                      statusText = "Active";
                   } else {
-                     badgeClass = style.pending; // Orange (Needs Payment)
-                     statusText = "Approved (Unpaid)";
+                      badgeClass = style.pending; 
+                      statusText = "Approved (Unpaid)";
                   }
                 }
 
@@ -348,7 +344,7 @@ export default function Listings() {
         </>
       )}
 
-      {/* --- PREVIEW MODAL (Reuse from previous steps) --- */}
+      {/* --- PREVIEW MODAL --- */}
       {previewListing && (
         <div className={style.modalOverlay} onClick={() => setPreviewListing(null)}>
           <div className={style.modalContent} onClick={e => e.stopPropagation()}>

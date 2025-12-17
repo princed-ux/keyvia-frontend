@@ -1,42 +1,20 @@
+// src/components/OwnerSideNav.jsx
 import React, { useRef, useState, useEffect } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import style from "../styles/SideNav.module.css";
-import img from "../assets/person.png";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import style from "../styles/SideNav.module.css"; // Reuse existing CSS
+import defaultImg from "../assets/person.png";
 import { useAuth } from "../context/AuthProvider.jsx";
 import Swal from "sweetalert2";
 
 // =======================
-// IMAGE VALIDATION
+// OWNER SIDENAV COMPONENT
 // =======================
-const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
-const ALLOWED_EXT = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"];
-
-function isValidImage(file) {
-  if (!file) return { ok: false, reason: "No file selected" };
-  if (!file.type?.startsWith("image/")) {
-    return { ok: false, reason: "Selected file is not an image" };
-  }
-  const ext = file.name.split(".").pop().toLowerCase();
-  if (!ALLOWED_EXT.includes(ext)) {
-    return { ok: false, reason: "File extension not allowed" };
-  }
-  if (file.size > MAX_BYTES) {
-    return { ok: false, reason: `File too large. Max ${MAX_BYTES / 1024 / 1024} MB` };
-  }
-  return { ok: true };
-}
-
-// =======================
-// OWNER SIDENAV
-// =======================
-const SideNav = () => {
-  const inputRef = useRef(null);
+const OwnerSideNav = () => {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const location = useLocation();
 
-  const [avatarSrc, setAvatarSrc] = useState(user?.profileImage || img);
-  const [selectedFile, setSelectedFile] = useState(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showSpecialId, setShowSpecialId] = useState(false);
@@ -65,29 +43,6 @@ const SideNav = () => {
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, []);
-
-  // ==========================
-  // IMAGE UPLOAD
-  // ==========================
-  const openPicker = () => inputRef.current?.click();
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    const check = isValidImage(file);
-    if (!check.ok) {
-      Swal.fire({
-        icon: "error",
-        title: "Invalid Image",
-        text: check.reason,
-      });
-      e.target.value = "";
-      return;
-    }
-    setSelectedFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setAvatarSrc(ev.target.result);
-    reader.readAsDataURL(file);
-  };
 
   // ==========================
   // LOGOUT HANDLER
@@ -126,6 +81,39 @@ const SideNav = () => {
   };
 
   // ==========================
+  // DYNAMIC TITLES MAP
+  // ==========================
+  const pathTitles = {
+    "/owner/dashboard": "Dashboard",
+    "/owner/profile": "My Profile",
+    "/owner/properties": "My Properties",
+    "/owner/add-property": "Add Property",
+    "/owner/payments": "Payments & Finance",
+    "/owner/messages": "Messages",
+    "/owner/applications": "Applications",
+    "/owner/notifications": "Notifications",
+    "/owner/settings": "Settings",
+  };
+
+  // Determine current title (fallback to Dashboard)
+  const currentTitle = pathTitles[location.pathname] || "Owner Dashboard";
+
+  // ==========================
+  // SIDEBAR NAVIGATION LINKS
+  // ==========================
+  const navLinks = [
+    { to: "/owner/dashboard", icon: "fas fa-chart-pie", label: "Dashboard", end: true },
+    { to: "/owner/profile", icon: "fas fa-user-circle", label: "My Profile" },
+    { to: "/owner/properties", icon: "fas fa-building", label: "My Properties" },
+    { to: "/owner/add-property", icon: "fas fa-plus-circle", label: "Add Property" },
+    { to: "/owner/payments", icon: "fas fa-wallet", label: "Payments" }, // ✅ Added
+    { to: "/owner/messages", icon: "fas fa-comment-alt", label: "Messages" },
+    { to: "/owner/applications", icon: "fas fa-file-contract", label: "Applications" }, // ✅ Added
+    { to: "/owner/notifications", icon: "fas fa-bell", label: "Notifications" }, // ✅ Added
+    { to: "/owner/settings", icon: "fas fa-cog", label: "Settings" },
+  ];
+
+  // ==========================
   // JSX RETURN
   // ==========================
   return (
@@ -136,84 +124,34 @@ const SideNav = () => {
           {/* Avatar */}
           <div className={style.avatarWrap}>
             <img
-              src={avatarSrc}
+              src={user?.avatar_url || defaultImg}
               alt="Owner avatar"
               className={style.avatar}
-              onError={(e) => (e.currentTarget.src = img)}
-            />
-            <div
-              className={style.cameraIcon}
-              onClick={openPicker}
-              role="button"
-              tabIndex={0}
-              aria-label="Change profile photo"
-            >
-              <i className="fa-regular fa-camera" />
-            </div>
-            <input
-              ref={inputRef}
-              id="inputPhoto"
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className={style.fileInput}
+              onError={(e) => (e.currentTarget.src = defaultImg)}
             />
           </div>
 
-          {/* Owner Info */}
+          {/* User Info */}
           <div className={style.agentInfo}>
-            <h4 className={style.agentName}>{user?.name || "Property Owner"}</h4>
-            <p className={style.agentTitle}>{user?.role || "Owner"}</p>
+            <h4 className={style.agentName}>{user?.name || "Landlord Name"}</h4>
+            <p className={style.agentTitle}>Property Owner</p>
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation Links */}
         <nav className={style.nav}>
-          <NavLink
-            to="/owner/dashboard"
-            end
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-home" /> <span>Dashboard</span>
-          </NavLink>
-
-          <NavLink
-            to="/owner/properties"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-building" /> <span>My Properties</span>
-          </NavLink>
-
-          <NavLink
-            to="/owner/add-property"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-plus-circle" /> <span>Add Property</span>
-          </NavLink>
-
-          <NavLink
-            to="/owner/messages"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-message" /> <span> Chat Messages</span>
-          </NavLink>
-
-          <NavLink
-            to="/owner/settings"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-cog" /> <span>Settings</span>
-          </NavLink>
+          {navLinks.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) =>
+                isActive ? `${style.link} ${style.active}` : style.link
+              }
+            >
+              <i className={link.icon} /> <span>{link.label}</span>
+            </NavLink>
+          ))}
         </nav>
 
         {/* Footer */}
@@ -227,11 +165,11 @@ const SideNav = () => {
         </div>
       </div>
 
-      {/* Main container */}
+      {/* Main Content Area */}
       <div className={style.mainContainer}>
-        {/* Top Navigation */}
+        {/* Top Navigation Bar */}
         <div className={style.topnav}>
-          <div className={style.topTitle}>Owner Dashboard</div>
+          <div className={style.topTitle}>{currentTitle}</div>
 
           {/* Email + Dropdown */}
           <div className={style.userSection} ref={dropdownRef}>
@@ -252,7 +190,7 @@ const SideNav = () => {
                 <div className={style.dropdownItem}>
                   <strong>Role:</strong>
                   <span className={style.roleValue}>
-                    {user?.role || "Not assigned"}
+                    {user?.role || "Owner"}
                   </span>
                 </div>
 
@@ -267,14 +205,10 @@ const SideNav = () => {
                     <button
                       onClick={() => setShowSpecialId(!showSpecialId)}
                       className={style.eyeBtn}
-                      title={
-                        showSpecialId ? "Hide Special ID" : "Show Special ID"
-                      }
+                      title={showSpecialId ? "Hide Special ID" : "Show Special ID"}
                     >
                       <i
-                        className={`fas ${
-                          showSpecialId ? "fa-eye" : "fa-eye-slash"
-                        }`}
+                        className={`fas ${showSpecialId ? "fa-eye" : "fa-eye-slash"}`}
                       />
                     </button>
                     <button
@@ -291,7 +225,7 @@ const SideNav = () => {
           </div>
         </div>
 
-        {/* Page Content */}
+        {/* Page Content Outlet */}
         <div className={style.main}>
           <div className={style.pageWrapper}>
             <Outlet />
@@ -299,7 +233,7 @@ const SideNav = () => {
         </div>
       </div>
 
-      {/* Logout Modal */}
+      {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className={style.modalOverlay}>
           <div className={style.modal}>
@@ -323,4 +257,4 @@ const SideNav = () => {
   );
 };
 
-export default SideNav;
+export default OwnerSideNav;

@@ -322,14 +322,33 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
               id="propertyType"
               label="Property Type"
               options={[
-                { value: "", label: "Select Type", disabled: true },
-                { value: "Apartment", label: "Apartment" },
-                { value: "House", label: "House" },
-                { value: "Villa", label: "Villa" },
-                { value: "Condo", label: "Condo" },
-                { value: "Land", label: "Land" },
-                { value: "Commercial", label: "Commercial" },
-              ]}
+    { value: "", label: "Select Type", disabled: true },
+
+    // --- Residential ---
+    { value: "Apartment", label: "Apartment" },
+    { value: "House", label: "House" },
+    { value: "Villa", label: "Villa" },
+    { value: "Condo", label: "Condo" },
+    { value: "Duplex", label: "Duplex" },
+    { value: "Townhouse", label: "Townhouse" },
+    { value: "Bungalow", label: "Bungalow" },
+    { value: "Penthouse", label: "Penthouse" },
+    { value: "Studio", label: "Studio" },
+    { value: "Mansion", label: "Mansion" },
+
+    // --- Commercial ---
+    { value: "Commercial", label: "Commercial" },
+    { value: "Office", label: "Office Space" },
+    { value: "Retail", label: "Shop / Retail" },
+    { value: "Warehouse", label: "Warehouse" },
+    { value: "Hotel", label: "Hotel / Guest House" },
+    { value: "Mixed Use", label: "Mixed Use" },
+
+    // --- Land & Industrial ---
+    { value: "Land", label: "Land" },
+    { value: "Farm", label: "Farm / Ranch" },
+    { value: "Industrial", label: "Industrial" }
+]}
               value={form.propertyType}
               onChange={(e) => update("propertyType", e.target.value)}
               error={errors.propertyType}
@@ -436,11 +455,23 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
               id="parking"
               label="Parking"
               options={[
-                { value: "", label: "Select", disabled: true },
-                { value: "Garage", label: "Garage" },
-                { value: "Street", label: "Street" },
-                { value: "None", label: "None" },
-              ]}
+    { value: "", label: "Select", disabled: true },
+    { value: "Garage", label: "Garage" },
+    { value: "Attached Garage", label: "Attached Garage" },
+    { value: "Detached Garage", label: "Detached Garage" },
+    { value: "Driveway", label: "Driveway" },
+    { value: "Carport", label: "Carport" },
+    { value: "Street", label: "Street Parking" },
+    { value: "Off-Street", label: "Off-Street Parking" },
+    { value: "Underground", label: "Underground" },
+    { value: "Covered", label: "Covered Parking" },
+    { value: "Gated", label: "Gated / Secure" },
+    { value: "Lot", label: "Parking Lot" },
+    { value: "Open", label: "Open Space" },
+    { value: "Valet", label: "Valet Parking" },
+    { value: "RV", label: "RV / Boat Parking" },
+    { value: "None", label: "None" }
+]}
               value={form.parking}
               onChange={e => update("parking", e.target.value)}
             />
@@ -449,10 +480,13 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
               id="furnishing"
               label="Furnishing"
               options={[
-                { value: "", label: "Select", disabled: true },
-                { value: "Furnished", label: "Furnished" },
-                { value: "Unfurnished", label: "Unfurnished" },
-              ]}
+    { value: "", label: "Select", disabled: true },
+    { value: "Fully Furnished", label: "Fully Furnished" },
+    { value: "Semi-Furnished", label: "Semi-Furnished" },
+    { value: "Partly Furnished", label: "Partly Furnished" },
+    { value: "Unfurnished", label: "Unfurnished" },
+    { value: "Furnished", label: "Furnished (General)" }
+]}
               value={form.furnishing}
               onChange={e => update("furnishing", e.target.value)}
             />

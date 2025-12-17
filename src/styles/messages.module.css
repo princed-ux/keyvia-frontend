@@ -30,7 +30,8 @@
 
 .container {
   display: flex;
-  height: calc(100vh - 64px); /* Adjust based on navbar height */
+  /* height: calc(100vh - 64px); */
+  height: 79vh;
   background-color: var(--chat-bg);
   font-family: 'Inter', sans-serif;
   overflow: hidden;

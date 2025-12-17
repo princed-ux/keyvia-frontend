@@ -41,10 +41,15 @@ import PrivacySecurity from "./settings/PrivacySecurity.jsx";
 import ManageListings from "./settings/ManageListings.jsx";
 
 // ---------- Owner Pages ----------
-import OwnerSideNav from "./owner/SideNav.jsx";
+import OwnerSideNav from "./owner/SideNav.jsx"; // Updated SideNav
 import OwnerDashboard from "./owner/Dashboard.jsx";
-import OwnerListings from "./owner/Listings.jsx";
+import OwnerProfile from "./owner/Profile.jsx";         // ✅ New
+import OwnerProperties from "./owner/Properties.jsx";   // ✅ Renamed from Listings to match sidebar
+import OwnerAddProperty from "./owner/AddProperty.jsx"; // ✅ New
 import OwnerMessages from "./owner/Messages.jsx";
+import OwnerPayments from "./owner/Payments.jsx";       // ✅ New
+import OwnerApplications from "./owner/Applications.jsx"; // ✅ New
+import OwnerNotifications from "./owner/Notifications.jsx"; // ✅ New
 import OwnerSettings from "./owner/Settings.jsx";
 
 // ---------- Buyer Pages ----------
@@ -133,7 +138,7 @@ function App() {
         </Route>
       </Route>
 
-      {/* ---------- Owner Dashboard ---------- */}
+      {/* ---------- Owner Dashboard Routes ---------- */}
       <Route
         path="/owner"
         element={
@@ -142,10 +147,22 @@ function App() {
           </ProtectedRoute>
         }
       >
+        {/* Default redirect to dashboard */}
         <Route index element={<OwnerDashboard />} />
+        
+        {/* Main Pages */}
         <Route path="dashboard" element={<OwnerDashboard />} />
-        <Route path="listings" element={<OwnerListings />} />
+        <Route path="profile" element={<OwnerProfile />} />
+        <Route path="properties" element={<OwnerProperties />} />
+        <Route path="add-property" element={<OwnerAddProperty />} />
+        
+        {/* Operations */}
+        <Route path="payments" element={<OwnerPayments />} />
+        <Route path="applications" element={<OwnerApplications />} />
+        <Route path="notifications" element={<OwnerNotifications />} />
         <Route path="messages" element={<OwnerMessages />} />
+        
+        {/* Settings */}
         <Route path="settings" element={<OwnerSettings />} />
       </Route>
 

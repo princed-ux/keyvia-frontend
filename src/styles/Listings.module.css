@@ -81,6 +81,12 @@
   border: 1px solid var(--border);
 }
 
+.emptyState{
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
 .addButtonSecondary {
   margin-top: 15px;
   padding: 10px 20px;

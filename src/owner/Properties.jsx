@@ -11,12 +11,13 @@ import {
   CreditCard,
   X,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  ExternalLink
 } from "lucide-react";
 
 import client from "../api/axios"; // Adjust path if needed
 import { useAuth } from "../context/AuthProvider";
-import style from "../styles/Listings.module.css"; // Reuse the consistent CSS
+import style from "../styles/Listings.module.css"; 
 
 export default function OwnerProperties() {
   const navigate = useNavigate();
@@ -26,8 +27,6 @@ export default function OwnerProperties() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState(null); 
-  
-  // Preview Modal State
   const [previewListing, setPreviewListing] = useState(null);
 
   const lottieUrl = "https://lottie.host/37a0df00-47f6-43d0-873c-01acfb5d1e7d/wvtiKE3P1d.lottie";
@@ -40,7 +39,6 @@ export default function OwnerProperties() {
   const fetchListings = async () => {
     setLoading(true);
     try {
-      // ✅ Reusing the agent endpoint (filters by logged-in user ID)
       const res = await client.get("/api/listings/agent"); 
       setListings(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
@@ -58,7 +56,7 @@ export default function OwnerProperties() {
     
     const confirm = await Swal.fire({
       title: "Activate Listing?",
-      text: "This simulates a successful payment of $50.",
+      text: "Pay $10.00 to make this listing visible on the Buy/Rent pages.",
       icon: "info",
       showCancelButton: true,
       confirmButtonText: "Pay & Activate",
@@ -78,7 +76,7 @@ export default function OwnerProperties() {
           : l
       ));
 
-      Swal.fire("Success", "Your listing is now LIVE on the map!", "success");
+      Swal.fire("Live!", "Your listing is now visible to buyers/renters.", "success");
     } catch (err) {
       console.error(err);
       Swal.fire("Error", "Payment failed", "error");
@@ -106,17 +104,9 @@ export default function OwnerProperties() {
 
     try {
       await client.delete(`/api/listings/${listing.product_id}`);
-      
       setListings((prev) => prev.filter((l) => l.product_id !== listing.product_id));
       
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: 'Deleted',
-        showConfirmButton: false,
-        timer: 1500
-      });
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Deleted', showConfirmButton: false, timer: 1500 });
     } catch (err) {
       Swal.fire("Error", "Could not delete listing.", "error");
     } finally {
@@ -124,11 +114,16 @@ export default function OwnerProperties() {
     }
   };
 
-  // 3. Navigate to Edit Page
+  // 3. Edit Navigation
   const handleEdit = (listing, e) => {
     e.stopPropagation();
-    // Pass the listing object to the form page via state
     navigate("/owner/add-property", { state: { editingListing: listing } });
+  };
+
+  // 4. View Public Listing
+  const handleViewLive = (id, e) => {
+    e.stopPropagation();
+    navigate(`/listing/${id}`); // Goes to the public details page
   };
 
   return (
@@ -154,12 +149,7 @@ export default function OwnerProperties() {
       ) : listings.length === 0 ? (
         <div className={style.emptyState}>
           <div>
-            <DotLottieReact 
-              src={lottieUrl} 
-              loop 
-              autoplay 
-              style={{ width: 250, height: 250, alignSelf: 'center' }} 
-            />
+            <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 250, height: 250, alignSelf: 'center' }} />
           </div>
           <div>
             <h3>No Properties Yet</h3>
@@ -184,7 +174,7 @@ export default function OwnerProperties() {
             } else if (listing.status === 'approved') {
               if (listing.is_active) {
                   badgeClass = style.active; 
-                  statusText = "Active";
+                  statusText = "Active (Live)";
                   statusIcon = <CheckCircle2 size={12} />;
               } else {
                   badgeClass = style.pending; 
@@ -192,7 +182,6 @@ export default function OwnerProperties() {
               }
             }
 
-            // Image Fallback
             const photoUrl = listing.photos?.[0]?.url || listing.photos?.[0] || "/placeholder.png";
 
             return (
@@ -219,26 +208,39 @@ export default function OwnerProperties() {
                   <div className={style.cardMeta}>
                     <span><Home size={14}/> {listing.property_type}</span>
                     <span className={style.price}>
-                      {Number(listing.price).toLocaleString()} <span style={{fontSize:'0.8em', color:'#666'}}>{listing.price_currency}</span>
+                      {Number(listing.price).toLocaleString()} {listing.price_currency}
                     </span>
                   </div>
 
-                  {/* ACTIONS ROW */}
+                  {/* Action Buttons */}
                   <div className={style.actions}>
-                    {/* PAY BUTTON (Only if Approved + Inactive) */}
+                    
+                    {/* CASE 1: APPROVED BUT NOT PAID */}
                     {listing.status === 'approved' && !listing.is_active && (
                       <button 
                         className={style.actionBtn} 
                         style={{ backgroundColor: '#dcfce7', color: '#166534', borderColor: '#86efac' }}
                         onClick={(e) => handleActivate(listing, e)}
                         disabled={busyId === listing.product_id}
-                        title="Pay & Activate"
+                        title="Pay Activation Fee"
                       >
                         <CreditCard size={16} /> Pay
                       </button>
                     )}
 
-                    {/* EDIT BUTTON */}
+                    {/* CASE 2: ACTIVE (Show View Live Button) */}
+                    {listing.is_active && (
+                      <button 
+                        className={style.actionBtn}
+                        style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
+                        onClick={(e) => handleViewLive(listing.product_id, e)}
+                        title="View Public Page"
+                      >
+                        <ExternalLink size={16} /> Live
+                      </button>
+                    )}
+
+                    {/* EDIT */}
                     <button 
                       className={style.actionBtn}
                       onClick={(e) => handleEdit(listing, e)}
@@ -247,7 +249,7 @@ export default function OwnerProperties() {
                       <Edit size={16} /> Edit
                     </button>
 
-                    {/* DELETE BUTTON */}
+                    {/* DELETE */}
                     <button 
                       className={`${style.actionBtn} ${style.deleteBtn}`}
                       onClick={(e) => handleDelete(listing, e)}
@@ -283,23 +285,15 @@ export default function OwnerProperties() {
               <p className={style.modalPrice}>
                 {Number(previewListing.price).toLocaleString()} {previewListing.price_currency}
               </p>
-              
-              <div style={{display:'flex', gap:10, alignItems:'center', color:'#666', marginBottom:10}}>
-                 <MapPin size={16}/> 
-                 {previewListing.address}, {previewListing.city}
-              </div>
-
+              <p className={style.modalAddress}>
+                {previewListing.address}, {previewListing.city}, {previewListing.country}
+              </p>
               <div className={style.modalTags}>
                 <span>{previewListing.bedrooms} Beds</span>
                 <span>{previewListing.bathrooms} Baths</span>
                 <span>{previewListing.square_footage} sqft</span>
-                <span>{previewListing.category}</span>
               </div>
-              
-              <hr style={{margin:'15px 0', borderTop:'1px solid #eee'}}/>
-              
-              <h4>Description</h4>
-              <p className={style.modalDesc}>{previewListing.description || "No description provided."}</p>
+              <p className={style.modalDesc}>{previewListing.description || "No description."}</p>
             </div>
           </div>
         </div>

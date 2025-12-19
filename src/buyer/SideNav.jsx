@@ -1,261 +1,208 @@
 import React, { useRef, useState, useEffect } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import style from "../styles/SideNav.module.css";
-import img from "../assets/person.png";
+import defaultImg from "../assets/person.png";
 import { useAuth } from "../context/AuthProvider.jsx";
 import Swal from "sweetalert2";
-
-const MAX_BYTES = 2 * 1024 * 1024;
-const ALLOWED_EXT = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"];
-
-function isValidImage(file) {
-  if (!file) return { ok: false, reason: "No file selected" };
-  if (!file.type?.startsWith("image/")) return { ok: false, reason: "Not an image" };
-  const ext = file.name.split(".").pop().toLowerCase();
-  if (!ALLOWED_EXT.includes(ext)) return { ok: false, reason: "File type not allowed" };
-  if (file.size > MAX_BYTES) return { ok: false, reason: "File too large (max 2MB)" };
-  return { ok: true };
-}
 
 const SideNav = () => {
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
 
-  const [avatarSrc, setAvatarSrc] = useState(user?.profileImage || img);
-  const [selectedFile, setSelectedFile] = useState(null);
+  // Avatar source
+  const avatarSrc = user?.avatar_url || user?.profileImage || defaultImg;
+  
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showSpecialId, setShowSpecialId] = useState(false);
 
-  // Dropdown close behavior
+  // --- 1. NETWORK STATUS CHECKER ---
+  useEffect(() => {
+    const handleOffline = () => {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Internet Connection',
+        text: 'You are currently offline. Some features may not work.',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 5000,
+        timerProgressBar: true,
+        background: '#fff3cd', // Light yellow for warning
+        color: '#856404'
+      });
+    };
+
+    const handleOnline = () => {
+      Swal.fire({
+        icon: 'success',
+        title: 'Back Online',
+        text: 'Internet connection restored.',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        background: '#d4edda', // Light green for success
+        color: '#155724'
+      });
+    };
+
+    // Add listeners
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    // Initial check on mount
+    if (!navigator.onLine) {
+      handleOffline();
+    }
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
+
+  // --- 2. Close Dropdown on Outside Click ---
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
       }
     };
-
-    const handleEsc = (event) => {
-      if (event.key === "Escape") setShowDropdown(false);
-    };
-
-    const handleScroll = () => setShowDropdown(false);
-
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEsc);
-    window.addEventListener("scroll", handleScroll, true);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEsc);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Image upload
-  const openPicker = () => inputRef.current?.click();
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    const check = isValidImage(file);
-    if (!check.ok) {
-      Swal.fire({
-        icon: "error",
-        title: "Invalid Image",
-        text: check.reason,
-      });
-      e.target.value = "";
-      return;
-    }
-    setSelectedFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setAvatarSrc(ev.target.result);
-    reader.readAsDataURL(file);
-  };
-
-  // Logout handler
+  // --- 3. Logout Handler ---
   const confirmLogout = async () => {
     try {
       await logout();
-      setShowLogoutModal(false);
       navigate("/");
-    } catch (err) {
-      console.error("Logout failed:", err);
-      Swal.fire({
-        icon: "error",
-        title: "Logout Failed",
-        text: "Please try again.",
-      });
+    } catch (error) {
+      console.error("Logout failed", error);
     }
   };
 
-  // Copy special_id
-  const copySpecialId = async () => {
-    try {
-      await navigator.clipboard.writeText(user?.special_id || "");
-      Swal.fire({
-        icon: "success",
-        title: "Copied!",
-        text: "Special ID copied to clipboard.",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
+  // --- 4. Copy ID Handler ---
+  const copyId = () => {
+    navigator.clipboard.writeText(user?.special_id || "");
+    Swal.fire({ 
+      icon: 'success', 
+      title: 'Copied!', 
+      toast: true, 
+      position: 'top-end', 
+      showConfirmButton: false, 
+      timer: 1500 
+    });
+  };
+
+  // --- NAVIGATION LINKS ---
+  const navLinks = [
+    { to: "/buyer/dashboard", icon: "fas fa-home", label: "Dashboard", end: true },
+    { to: "profile", icon: "fas fa-user", label: "Profile" },
+    { to: "favorites", icon: "fas fa-heart", label: "Saved Homes" },
+    { to: "applications", icon: "fas fa-file-contract", label: "Applications" },
+    { to: "viewings", icon: "fas fa-calendar-check", label: "Tours & Viewings" },
+    { to: "messages", icon: "fas fa-envelope", label: "Messages" },
+    { to: "notifications", icon: "fas fa-bell", label: "Notifications" },
+    { to: "payments", icon: "fas fa-wallet", label: "Wallet & Pay" },
+    { to: "settings/account", icon: "fas fa-cog", label: "Settings" },
+  ];
+
+  // --- Dynamic Page Title ---
+  const getPageTitle = () => {
+    const found = navLinks.find(link => 
+      location.pathname.includes(link.to.replace('/buyer/', ''))
+    );
+    return found ? found.label : "Buyer Dashboard";
   };
 
   return (
     <div className={style.allcontainer}>
-      {/* Sidebar */}
+      
+      {/* --- SIDEBAR --- */}
       <div className={style.side}>
+        
+        {/* Profile / Logo Area */}
         <div className={style.logo}>
-          <div className={style.avatarWrap}>
-            <img src={avatarSrc} alt="Buyer avatar" className={style.avatar} />
-            <div className={style.cameraIcon} onClick={openPicker}>
-              <i className="fa-regular fa-camera" />
-            </div>
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className={style.fileInput}
+          <div className={style.avatarWrap} style={{ cursor: 'default' }}>
+            <img 
+              src={avatarSrc} 
+              alt="User" 
+              className={style.avatar} 
+              onError={(e) => (e.currentTarget.src = defaultImg)}
             />
           </div>
 
           <div className={style.agentInfo}>
-            <h4 className={style.agentName}>{user?.name || "Buyer Name"}</h4>
-            <p className={style.agentTitle}>Property Buyer</p>
+            <h4 className={style.agentName}>{user?.full_name || "Buyer Name"}</h4>
+            <p className={style.agentTitle}>{user?.role || "Property Seeker"}</p>
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation Menu */}
         <nav className={style.nav}>
-          <NavLink
-            to="/buyer/dashboard"
-            end
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-home" /> <span>Dashboard</span>
-          </NavLink>
-
-          <NavLink
-            to="favorites"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-heart" /> <span>My Favorites</span>
-          </NavLink>
-
-          <NavLink
-            to="applications"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-file-alt" /> <span>Applications</span>
-          </NavLink>
-
-          <NavLink
-            to="messages"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-envelope" /> <span>Messages</span>
-          </NavLink>
-
-          <NavLink
-            to="notifications"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-bell" /> <span>Notifications</span>
-          </NavLink>
-
-          <NavLink
-            to="settings/account"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-cog" /> <span>Settings</span>
-          </NavLink>
+          {navLinks.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) =>
+                isActive ? `${style.link} ${style.active}` : style.link
+              }
+            >
+              <i className={link.icon} /> <span>{link.label}</span>
+            </NavLink>
+          ))}
         </nav>
 
-        {/* Footer */}
+        {/* Footer / Logout */}
         <div className={style.footer}>
-          <button
-            className={style.logout}
-            onClick={() => setShowLogoutModal(true)}
-          >
+          <button className={style.logout} onClick={() => setShowLogoutModal(true)}>
             <i className="fas fa-sign-out-alt" /> <span>Logout</span>
           </button>
         </div>
       </div>
 
-      {/* Main Container */}
+      {/* --- MAIN CONTENT AREA --- */}
       <div className={style.mainContainer}>
+        
+        {/* Top Navigation */}
         <div className={style.topnav}>
-          <div className={style.topTitle}>Buyer Dashboard</div>
+          <div className={style.topTitle}>{getPageTitle()}</div>
 
           <div className={style.userSection} ref={dropdownRef}>
-            <div
-              className={style.userEmail}
+            <div 
+              className={style.userEmail} 
               onClick={() => setShowDropdown(!showDropdown)}
-              role="button"
-              tabIndex={0}
             >
               {user?.email || "user@example.com"}
-              <i
-                className={`fas fa-chevron-${
-                  showDropdown ? "up" : "down"
-                } ml-2`}
-              />
+              <i className={`fas fa-chevron-${showDropdown ? "up" : "down"} ml-2`} style={{marginLeft: '8px'}} />
             </div>
 
+            {/* Dropdown Menu */}
             {showDropdown && (
               <div className={style.dropdown}>
                 <div className={style.dropdownItem}>
                   <strong>Role:</strong>
-                  <span className={style.roleValue}>
-                    {user?.role || "Not assigned"}
-                  </span>
+                  <span className={style.roleValue}>{user?.role || "Buyer"}</span>
                 </div>
 
                 <div className={style.dropdownItem}>
                   <strong>Special ID:</strong>
                   <div className={style.uniqueBox}>
                     <span className={style.uniqueValue}>
-                      {showSpecialId
-                        ? user?.special_id || "N/A"
-                        : "•".repeat((user?.special_id || "").length || 8)}
+                      {showSpecialId ? user?.unique_id : "••••••••"}
                     </span>
-                    <button
-                      onClick={() => setShowSpecialId(!showSpecialId)}
-                      className={style.eyeBtn}
-                      title={
-                        showSpecialId ? "Hide Special ID" : "Show Special ID"
-                      }
-                    >
-                      <i
-                        className={`fas ${
-                          showSpecialId ? "fa-eye" : "fa-eye-slash"
-                        }`}
-                      />
+                    <button className={style.eyeBtn} onClick={() => setShowSpecialId(!showSpecialId)}>
+                      <i className={`fas ${showSpecialId ? "fa-eye" : "fa-eye-slash"}`} />
                     </button>
-                    <button
-                      onClick={copySpecialId}
-                      className={style.copyBtn}
-                      title="Copy Special ID"
-                    >
+                    <button className={style.copyBtn} onClick={copyId}>
                       <i className="fas fa-copy" />
                     </button>
                   </div>
@@ -265,6 +212,7 @@ const SideNav = () => {
           </div>
         </div>
 
+        {/* Content Body */}
         <div className={style.main}>
           <div className={style.pageWrapper}>
             <Outlet />
@@ -272,26 +220,27 @@ const SideNav = () => {
         </div>
       </div>
 
-      {/* Logout Modal */}
+      {/* --- LOGOUT MODAL --- */}
       {showLogoutModal && (
         <div className={style.modalOverlay}>
           <div className={style.modal}>
             <h3>Confirm Logout</h3>
             <p>Are you sure you want to log out?</p>
             <div className={style.modalButtons}>
-              <button
+              <button 
+                className={style.cancelBtn} 
                 onClick={() => setShowLogoutModal(false)}
-                className={style.cancelBtn}
               >
                 Cancel
               </button>
-              <button onClick={confirmLogout} className={style.confirmBtn}>
+              <button className={style.confirmBtn} onClick={confirmLogout}>
                 Logout
               </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

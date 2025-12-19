@@ -1,613 +1,625 @@
-// src/pages/Messages.jsx
 import React, { useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthProvider";
 import { useSocket } from "../context/SocketProvider";
 import { apiRequest } from "../utils/api";
 import {
-  Loader2,
-  Send,
-  UserRound,
-  ChevronLeft,
-  Search,
-  Moon,
-  Sun,
-  Smile,
+  Loader2, Send, UserRound, ChevronLeft, Search, Moon, Sun, Smile,
+  Phone, Video, Info, X, Trash2, CheckCheck, Check, BellOff, ExternalLink, Ban, ChevronRight, Unlock
 } from "lucide-react";
 import debounce from "lodash.debounce";
 import style from "../styles/messages.module.css";
 import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+import EmojiPicker from "emoji-picker-react";
+import { toast } from "react-toastify";
+import Swal from "sweetalert2"; 
+
+dayjs.extend(relativeTime);
+
+const REACTIONS = ["👍", "❤️", "😂", "🔥", "😮", "😢"];
 
 export default function Messages() {
   const { user } = useAuth();
-  const { socket, joinConversation } = useSocket();
+  const { socket } = useSocket();
+  const location = useLocation();
+  const navigate = useNavigate();
 
+  // --- STATE ---
   const [conversations, setConversations] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState("");
+  const [isBlocked, setIsBlocked] = useState(false);
+  
+  // Search
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [onlineUsers, setOnlineUsers] = useState([]);
-  const [typingUsers, setTypingUsers] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem("chat_theme") || "light"
-  );
+  
+  // Real-time & UI
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [theme, setTheme] = useState(() => localStorage.getItem("chat_theme") || "light");
+  const [showProfile, setShowProfile] = useState(false);
+  const [showEmojiPanel, setShowEmojiPanel] = useState(false);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, data: null });
 
+  // Refs
+  const selectedChatRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const inputAreaRef = useRef(null);
+  const textareaRef = useRef(null);
 
-  // Theme toggle
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") root.classList.add("dark");
-    else root.classList.remove("dark");
-    localStorage.setItem("chat_theme", theme);
-  }, [theme]);
+  // Sync Ref
+  useEffect(() => { selectedChatRef.current = selectedChat; }, [selectedChat]);
 
-  // Fetch conversations
-  const fetchChats = async () => {
-    if (!user) return;
-    try {
-      const res = await apiRequest(`/messages/user/${user.unique_id}`, "GET");
-      setConversations(res || []);
-    } catch (err) {
-      console.error("Error fetching conversations", err);
+  // --- HELPERS ---
+  const formatTime = (iso) => {
+    if (!iso) return "";
+    const d = dayjs(iso);
+    return d.isValid() ? d.format("h:mm A") : "";
+  };
+
+  const formatLastSeen = (iso) => {
+    if (!iso) return "Offline";
+    return `Last seen ${dayjs(iso).fromNow()}`;
+  };
+
+  const getChatPartner = (chat) => {
+    if (!chat || !user) return {};
+    const isUser1 = String(chat.user1_id) === String(user.unique_id);
+    
+    const partnerId = isUser1 ? chat.user2_id : chat.user1_id;
+    const isOnline = onlineUsers.includes(String(partnerId));
+
+    return {
+      id: partnerId,
+      unique_id: partnerId,
+      name: isUser1 
+        ? (chat.user2_full_name || chat.user2_name || chat.user2_username || "Unknown") 
+        : (chat.user1_full_name || chat.user1_name || chat.user1_username || "Unknown"),
+      avatar: isUser1 ? chat.user2_avatar : chat.user1_avatar,
+      email: isUser1 ? chat.user2_email : chat.user1_email,
+      last_active: isUser1 ? chat.user2_last_active : chat.user1_last_active,
+      online: isOnline
+    };
+  };
+
+  const getDisplayUser = (u) => ({
+    id: u.unique_id,
+    name: u.username || u.full_name || u.name || "Unknown User",
+    avatar: u.avatar_url || u.avatar,
+  });
+
+  const autoGrow = () => {
+    if(textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
   };
 
+  // --- 1. INITIAL LOAD ---
   useEffect(() => {
-    fetchChats();
+    if (!user) return;
+    const loadConvos = async () => {
+      try {
+        // ✅ FIXED: Added /api prefix
+        const res = await apiRequest(`/api/messages/user/${user.unique_id}`, "GET");
+        setConversations(Array.isArray(res) ? res : []);
+      } catch (err) { console.error(err); }
+    };
+    loadConvos();
   }, [user]);
 
-  // Smooth scroll
-  const scrollToBottom = (smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: smooth ? "smooth" : "auto",
-    });
-  };
-
+  // --- 2. HANDLE REDIRECT ---
   useEffect(() => {
-    scrollToBottom(true);
-  }, [messages]);
-
-  // Load messages for a chat
-  const loadChatMessages = async (chat) => {
-    setSelectedChat(chat);
-    setLoadingMessages(true);
-
-    const conversationId = chat.conversation_id;
-
-    // Ensure socket room join (emit directly; also call context helper if provided)
-    if (socket) {
-      socket.emit("join_conversation", { conversationId });
-    }
-    if (typeof joinConversation === "function") {
-      try {
-        joinConversation(conversationId);
-      } catch (e) {
-        // ignore if not defined or fails
+    const initChat = async () => {
+      const startChatWith = location.state?.startChatWith;
+      if (startChatWith && user) {
+        const existing = conversations.find(c => String(c.user1_id) === String(startChatWith) || String(c.user2_id) === String(startChatWith));
+        if (existing) {
+          loadChatMessages(existing);
+        } else {
+          try {
+            // ✅ FIXED: Added /api prefix
+            const res = await apiRequest("/api/messages/conversation", "POST", {
+              user1_id: user.unique_id, user2_id: startChatWith
+            });
+            // ✅ FIXED: Added /api prefix
+            const updatedList = await apiRequest(`/api/messages/user/${user.unique_id}`, "GET");
+            setConversations(updatedList || []);
+            const newChat = updatedList.find(c => c.conversation_id === res.conversation_id);
+            loadChatMessages(newChat || res);
+          } catch(e) {}
+        }
+        window.history.replaceState({}, document.title);
       }
-    }
+    };
+    if (user && (conversations.length > 0 || conversations.length === 0)) initChat();
+  }, [location.state, user, conversations.length]);
 
-    try {
-      const res = await apiRequest(`/messages/${conversationId}`, "GET");
-      setMessages(res || []);
-
-      // Mark incoming (other user's) messages as seen
-      if (socket && res && res.length) {
-        res.forEach((m) => {
-          const senderId = m.sender_id || m.senderId;
-          // if the message was sent by other user and not yet marked seen, emit seen
-          if (senderId && senderId !== user.unique_id && !m.seen) {
-            socket.emit("message_seen", { conversationId, messageId: m.id });
-          }
-        });
-      }
-
-      // Refresh chat list (to update last_message/updated_at)
-      fetchChats();
-    } catch (err) {
-      console.error("Error loading messages", err);
-      setMessages([]);
-    } finally {
-      setLoadingMessages(false);
-      scrollToBottom(false);
-    }
-  };
-
-  // ---------- Socket listeners ----------
-  // online users
+  // --- 3. SOCKET LISTENERS ---
   useEffect(() => {
     if (!socket || !user) return;
+
     socket.emit("user_online", { userId: user.unique_id });
-    return () => {
-      socket.emit("user_offline", { userId: user.unique_id });
-    };
-  }, [socket, user]);
+    socket.on("online_users", (users) => setOnlineUsers((users || []).map(String)));
+    
+    const handleIncoming = (data) => {
+      const convId = String(data.conversationId || data.conversation_id);
+      const incomingSenderId = String(data.senderId);
+      const myId = String(user.unique_id);
+      const isActive = selectedChatRef.current && String(selectedChatRef.current.conversation_id) === convId;
 
-  useEffect(() => {
-    if (!socket) return;
-    const handleOnline = (users) => setOnlineUsers(users || []);
-    socket.on("online_users", handleOnline);
-    return () => socket.off("online_users", handleOnline);
-  }, [socket]);
-
-  // incoming messages
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleIncoming = (payload) => {
-      // payload expected shape from your server: { conversationId, senderId, message, created_at, full_name, username, avatar_url, ... }
-      if (
-        selectedChat &&
-        payload.conversationId === selectedChat.conversation_id
-      ) {
-        setMessages((prev) => [...prev, payload]);
-        // Acknowledge delivery for the sender (optional - server must support)
-        if (socket && payload && payload.id) {
-          socket.emit("message_delivered", {
-            messageId: payload.id,
-            conversationId: payload.conversationId,
+      if (isActive) {
+        if (incomingSenderId !== myId) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === data.id)) return prev;
+            return [...prev, {
+              id: data.id,
+              sender_id: data.senderId, 
+              message: data.message,
+              created_at: data.created_at,
+              seen: true, 
+              reactions: {}
+            }];
           });
+          socket.emit("message_seen", { conversationId: convId, messageId: data.id, userId: myId });
+        } else {
+          setMessages(prev => prev.map(m => m.tempId === data.tempId ? { ...m, id: data.id, seen: false } : m));
         }
         scrollToBottom();
-      } else {
-        // refresh sidebar list to show new last message
-        fetchChats();
       }
+    };
+
+    const handleSidebarUpdate = (data) => {
+      const convId = String(data.conversation_id);
+      const isActive = selectedChatRef.current && String(selectedChatRef.current.conversation_id) === convId;
+
+      setConversations(prev => {
+        const otherChats = prev.filter(c => String(c.conversation_id) !== convId);
+        const existing = prev.find(c => String(c.conversation_id) === convId);
+        const unreadCount = isActive ? 0 : data.unread_messages;
+        const updated = existing ? { ...existing, ...data, unread_messages: unreadCount } : { ...data, unread_messages: unreadCount }; 
+        return [updated, ...otherChats];
+      });
+    };
+
+    const handleStatus = ({ messageId, conversationId, seen }) => {
+      if (selectedChatRef.current && String(selectedChatRef.current.conversation_id) === String(conversationId) && seen) {
+        if(messageId) setMessages(prev => prev.map(m => m.id === messageId ? {...m, seen: true} : m));
+        else setMessages(prev => prev.map(m => ({...m, seen: true})));
+      }
+    };
+
+    const handleReactionUpdate = ({ messageId, userId, emoji, type }) => {
+      setMessages(prev => prev.map(m => {
+        if (m.id === messageId) {
+          const reactions = { ...(m.reactions || {}) };
+          if (type === 'add') reactions[userId] = emoji;
+          else delete reactions[userId];
+          return { ...m, reactions };
+        }
+        return m;
+      }));
     };
 
     socket.on("receive_message", handleIncoming);
-    return () => socket.off("receive_message", handleIncoming);
-  }, [socket, selectedChat]);
-
-  // typing indicator
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleTyping = ({ conversationId, userId }) => {
-      if (!selectedChat || conversationId !== selectedChat.conversation_id)
-        return;
-      setTypingUsers((prev) => [...new Set([...prev, userId])]);
-      setTimeout(
-        () => setTypingUsers((prev) => prev.filter((id) => id !== userId)),
-        1800
-      );
-    };
-
-    socket.on("typing_indicator", handleTyping);
-    return () => socket.off("typing_indicator", handleTyping);
-  }, [socket, selectedChat]);
-
-  // message status updates (delivered/seen) - server should emit these
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleUpdateStatus = ({ messageId, seen, delivered }) => {
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (m.id === messageId || m.id == messageId) {
-            if (seen) return { ...m, status: "seen", seen: true };
-            if (delivered) return { ...m, status: "delivered" };
-          }
-          return m;
-        })
-      );
-    };
-
-    socket.on("update_message_status", handleUpdateStatus);
-    socket.on("message_delivered", handleUpdateStatus);
-    socket.on("message_seen", handleUpdateStatus);
+    socket.on("conversation_updated", handleSidebarUpdate);
+    socket.on("update_message_status", handleStatus);
+    socket.on("reaction_update", handleReactionUpdate);
 
     return () => {
-      socket.off("update_message_status", handleUpdateStatus);
-      socket.off("message_delivered", handleUpdateStatus);
-      socket.off("message_seen", handleUpdateStatus);
+      socket.off("receive_message", handleIncoming);
+      socket.off("conversation_updated", handleSidebarUpdate);
+      socket.off("update_message_status", handleStatus);
+      socket.off("reaction_update", handleReactionUpdate);
     };
-  }, [socket]);
+  }, [socket, user]);
 
-  // Emit typing
-  const handleTyping = () => {
-    if (!socket || !selectedChat) return;
-    socket.emit("typing", {
-      conversationId: selectedChat.conversation_id,
-      userId: user.unique_id,
-    });
+  // --- ACTIONS ---
+  const loadChatMessages = async (chat) => {
+    if (!chat) return;
+    
+    // 1. Reset States Immediately
+    setMessages([]); 
+    setLoadingMessages(true);
+    setShowProfile(false);
+    setIsBlocked(false); 
+    
+    setSelectedChat(chat);
+    selectedChatRef.current = chat;
+    
+    // 2. Set Block Status safely
+    setIsBlocked(Boolean(chat.is_blocked)); 
+
+    if(socket) socket.emit("join_conversation", { conversationId: chat.conversation_id });
+
+    try {
+      // ✅ FIXED: Added /api prefix
+      const res = await apiRequest(`/api/messages/${chat.conversation_id}`, "GET");
+      setMessages(res || []);
+      
+      setConversations(prev => prev.map(c => 
+        c.conversation_id === chat.conversation_id ? { ...c, unread_messages: 0 } : c
+      ));
+      
+      if(socket) socket.emit("message_seen", { conversationId: chat.conversation_id, userId: user.unique_id });
+
+    } catch (e) { 
+      setMessages([]); 
+    } finally { 
+      setLoadingMessages(false); 
+      scrollToBottom(); 
+    }
   };
 
-  // ---------- Send message (single emit, no duplicate) ----------
   const sendMessage = () => {
-    if (!newMessage.trim() || !selectedChat || !socket) return;
-
-    const payload = {
-      conversationId: selectedChat.conversation_id,
-      senderId: user.unique_id,
+    if (!newMessage.trim() || !selectedChat) return;
+    
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg = {
+      id: tempId,
+      conversation_id: selectedChat.conversation_id,
+      sender_id: user.unique_id, 
       message: newMessage.trim(),
-      status: "sent",
+      created_at: new Date().toISOString(),
+      seen: false,
+      reactions: {},
+      tempId: tempId
     };
 
-    // Emit to server (server will persist and re-emit to room)
-    socket.emit("send_message", payload);
+    const serverPayload = {
+      conversationId: selectedChat.conversation_id,
+      senderId: user.unique_id, 
+      message: newMessage.trim(),
+      id: tempId
+    };
 
-    // Clear the input — we do not locally append a duplicate; we'll wait for server to emit back.
+    setMessages(prev => [...prev, optimisticMsg]);
     setNewMessage("");
-    // optional: small visual feedback can be added (e.g., disabled send until server ack)
+    if(textareaRef.current) textareaRef.current.style.height = "44px";
+    scrollToBottom();
+    
+    socket.emit("send_message", serverPayload);
+    
+    setConversations(prev => prev.map(c => 
+      c.conversation_id === selectedChat.conversation_id 
+      ? { ...c, last_message: optimisticMsg.message, updated_at: optimisticMsg.created_at } 
+      : c
+    ));
   };
 
-  // ---------- Search users ----------
-  const searchUsers = debounce(async (q) => {
-    if (!q.trim()) {
-      setSearchResults([]);
-      return;
-    }
+  const handleReaction = (msg, emoji) => {
+    const hasReacted = msg.reactions?.[user.unique_id] === emoji;
+    const type = hasReacted ? 'remove' : 'add';
+    
+    setMessages(prev => prev.map(m => {
+      if (m.id === msg.id) {
+        const reactions = { ...(m.reactions || {}) };
+        if (hasReacted) delete reactions[user.unique_id];
+        else reactions[user.unique_id] = emoji;
+        return { ...m, reactions };
+      }
+      return m;
+    }));
 
-    setSearchLoading(true); // start loading
+    if (type === 'add') socket.emit("add_reaction", { messageId: msg.id, conversationId: selectedChat.conversation_id, emoji });
+    else socket.emit("remove_reaction", { messageId: msg.id, conversationId: selectedChat.conversation_id });
+    
+    setContextMenu({ visible: false, x: 0, y: 0, data: null });
+  };
+
+  // ✅ DELETE CONVERSATION
+  const deleteConversation = async () => {
+    if (!selectedChat) return;
+
+    const result = await Swal.fire({
+      title: "Delete Conversation?",
+      text: "This action cannot be undone. The chat will be removed for you.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!"
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // ✅ FIXED: Added /api prefix
+        await apiRequest(`/api/messages/conversation/${selectedChat.conversation_id}`, "DELETE");
+        setConversations(prev => prev.filter(c => c.conversation_id !== selectedChat.conversation_id));
+        setSelectedChat(null);
+        setShowProfile(false);
+        Swal.fire("Deleted!", "Your conversation has been deleted.", "success");
+      } catch (e) {
+        toast.error("Failed to delete conversation");
+      }
+    }
+  };
+
+  // ✅ BLOCK USER
+  const blockUser = async () => {
+    const other = getChatPartner(selectedChat);
+    if (!other.unique_id) return;
+
+    const result = await Swal.fire({
+      title: `Block ${other.name}?`,
+      text: "They will not be able to send you messages.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, block them!"
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // Note: Assuming /users is mapped as /users in server.js (not /api/users). 
+        // If server.js has app.use("/api/users"), add /api here too.
+        await apiRequest("/users/block", "POST", { blocker_id: user.unique_id, blocked_id: other.unique_id });
+        
+        setIsBlocked(true);
+        setConversations(prev => prev.map(c => 
+          c.conversation_id === selectedChat.conversation_id ? { ...c, is_blocked: true } : c
+        ));
+        
+        Swal.fire("Blocked!", `${other.name} has been blocked.`, "success");
+      } catch (e) {
+        toast.error("Failed to block user");
+      }
+    }
+  };
+
+  // ✅ UNBLOCK USER
+  const unblockUser = async () => {
+    const other = getChatPartner(selectedChat);
+    if (!other.unique_id) return;
+
     try {
-      const res = await apiRequest(
-        `/users/search?query=${encodeURIComponent(q)}`,
-        "GET"
-      );
-      setSearchResults(res || []);
-    } catch (err) {
-      console.error("Search error", err);
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false); // stop loading
+      await apiRequest("/users/unblock", "POST", { blocker_id: user.unique_id, blocked_id: other.unique_id });
+      
+      setIsBlocked(false);
+      setConversations(prev => prev.map(c => 
+        c.conversation_id === selectedChat.conversation_id ? { ...c, is_blocked: false } : c
+      ));
+      
+      toast.success(`${other.name} unblocked`);
+    } catch (e) {
+      toast.error("Failed to unblock user");
     }
-  }, 350);
+  };
 
-  useEffect(() => {
-    searchUsers(searchQuery);
-  }, [searchQuery]);
-
-  // ---------- Start conversation ----------
-  const startConversation = async (otherUser) => {
+  const createChat = async (u) => {
+    setSearchQuery(""); setSearchResults([]);
     try {
-      const res = await apiRequest("/messages/conversation", "POST", {
-        user1_id: user.unique_id,
-        user2_id: otherUser.unique_id,
-      });
-      // refresh chats and open the new one
-      await fetchChats();
-      await loadChatMessages(res);
-      setSearchQuery("");
-      setSearchResults([]);
-    } catch (err) {
-      console.error("Failed to start chat", err);
+      // ✅ FIXED: Added /api prefix
+      const res = await apiRequest("/api/messages/conversation", "POST", { user1_id: user.unique_id, user2_id: u.id });
+      
+      // ✅ FIXED: Added /api prefix
+      const fullList = await apiRequest(`/api/messages/user/${user.unique_id}`, "GET");
+      setConversations(fullList || []);
+      
+      const newChat = fullList.find(c => c.conversation_id === res.conversation_id);
+      
+      loadChatMessages(newChat || { ...res, is_blocked: false }); 
+
+    } catch(e) {
+      console.error(e);
     }
   };
 
-  const fmtTime = (iso) => (iso ? dayjs(iso).format("h:mm A") : "");
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  
+  const startSearch = debounce(async (q) => {
+    if(!q.trim()) { setSearchResults([]); return; }
+    setSearchLoading(true);
+    try {
+      // Note: Assuming /users is mapped as /users in server.js
+      const res = await apiRequest(`/users/search?query=${q}`, "GET");
+      setSearchResults(Array.isArray(res) ? res : []);
+    } catch(e){} finally { setSearchLoading(false); }
+  }, 300);
 
-  // Helper: render chat display name
-  const renderChatName = (chat) =>
-    chat.user1_id === user.unique_id
-      ? chat.user2_name || chat.user2_username
-      : chat.user1_name || chat.user1_username;
-
-  // Helper: pick other user's avatar from conversation row (user1_avatar / user2_avatar)
-  const otherAvatarForChat = (chat) => {
-    if (!chat) return null;
-    return chat.user1_id === user.unique_id
-      ? chat.user2_avatar
-      : chat.user1_avatar;
-  };
+  const activePartner = getChatPartner(selectedChat);
 
   return (
-    <div className={style.container}>
-      {/* Sidebar */}
-      <aside
-        className={`${style.sidebar} ${
-          selectedChat ? style.sidebarHiddenOnMobile : ""
-        }`}
-      >
+    <div className={`${style.container} ${theme === 'dark' ? style.dark : ''}`}>
+      
+      {/* SIDEBAR */}
+      <aside className={`${style.sidebar} ${selectedChat ? style.mobileHidden : ''}`}>
         <div className={style.sidebarHeader}>
-          <div className={style.sidebarHeaderLeft}>
-            <div className={style.avatar}>
-              <UserRound className={style.avatarIcon} />
+          <div style={{display:'flex', gap:10, alignItems:'center'}}>
+            <div className={style.avatarLarge} style={{width:35, height:35}}>
+              {user?.avatar_url ? <img src={user.avatar_url} className={style.avatarIMG} alt="me"/> : <UserRound size={20}/>}
             </div>
-            <div>
-              <div className={style.sidebarTitle}>Chats</div>
-              <div className={style.sidebarSubtitle}>Secure messages</div>
-            </div>
+            <span style={{fontWeight:600}}>Chats</span>
           </div>
-          <button
-            className={style.themeToggleBtn}
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-          >
-            {theme === "light" ? (
-              <Moon className={style.themeIcon} />
-            ) : (
-              <Sun className={style.themeIcon} />
-            )}
-          </button>
+          <button onClick={() => setTheme(theme==='light'?'dark':'light')} style={{background:'none', border:'none', cursor:'pointer'}}>{theme==='light'?<Moon size={20}/>:<Sun size={20}/>}</button>
         </div>
 
         <div className={style.searchWrapper}>
-          <Search className={style.searchIcon} />
-          <input
-            className={style.searchInput}
-            type="search"
-            placeholder="Search or start new chat"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-
-          {searchQuery.trim() && (
-            <div className={style.searchResults}>
+          <Search className={style.searchIcon}/>
+          <input className={style.searchInput} placeholder="Search users..." value={searchQuery} onChange={e=>{setSearchQuery(e.target.value); startSearch(e.target.value);}}/>
+          {/* SEARCH RESULTS */}
+          {searchQuery && (
+            <div style={{position:'absolute', top:55, left:0, right:0, background:'var(--sidebar-bg)', borderBottom:'1px solid var(--border-color)', zIndex:20, boxShadow:'0 4px 6px rgba(0,0,0,0.1)'}}>
               {searchLoading ? (
-                <div
-                  className={style.searchResultItem}
-                  style={{
-                    justifyContent: "center",
-                    fontStyle: "italic",
-                    color: "#888",
-                  }}
-                >
-                  Searching…
-                </div>
-              ) : searchResults.length > 0 ? (
-                searchResults.map((u) => (
-                  <div
-                    key={u.unique_id}
-                    className={style.searchResultItem}
-                    onClick={() => startConversation(u)}
-                  >
-                    <div className={style.avatarSmall}>
-                      {u.avatar_url ? (
-                        <img
-                          src={u.avatar_url}
-                          className={style.avatarIMG}
-                          alt="avatar"
-                          style={{ width: 32, height: 32 }}
-                        />
-                      ) : (
-                        <UserRound size={20} />
-                      )}
-                    </div>
-                    <div className={style.resultInfo}>
-                      <div className={style.resultName}>
-                        {u.username || u.name || u.special_id}
-                      </div>
-                      <div className={style.resultEmail}>{u.email}</div>
-                    </div>
-                  </div>
-                ))
+                <div style={{padding:15, color:'gray', textAlign:'center'}}>Searching...</div>
+              ) : searchResults.length === 0 ? (
+                <div style={{padding:15, color:'gray', textAlign:'center'}}>No user found</div>
               ) : (
-                <div
-                  className={style.searchResultItem}
-                  style={{
-                    justifyContent: "center",
-                    fontStyle: "italic",
-                    color: "#888",
-                  }}
-                >
-                  No results found
-                </div>
+                searchResults.map(u => {
+                  const display = getDisplayUser(u);
+                  return (
+                    <div key={display.id} onClick={()=>createChat(display)} style={{padding:12, cursor:'pointer', display:'flex', gap:10, alignItems:'center', borderBottom:'1px solid var(--border-color)', background:'var(--sidebar-bg)'}}>
+                      <div className={style.avatarLarge} style={{width:30, height:30}}>
+                        {display.avatar ? <img src={display.avatar} className={style.avatarIMG}/> : <UserRound size={16}/>}
+                      </div>
+                      <div>
+                        <div style={{fontWeight:600, color:'var(--text-primary)'}}>{display.name}</div>
+                      </div>
+                    </div>
+                  )
+                })
               )}
             </div>
           )}
         </div>
 
         <div className={style.chatList}>
-          {conversations.map((chat) => {
-            const otherId =
-              chat.user1_id === user.unique_id ? chat.user2_id : chat.user1_id;
-            const isTyping = typingUsers.includes(otherId);
-            const isOnline = onlineUsers.includes(otherId);
-            const avatar = otherAvatarForChat(chat);
-
-            // Count unread messages (messages where seen = false and sender is other user)
-            const unreadCount = chat.unread_messages || 0; // you need to calculate this from your backend
-
+          {conversations.map(c => {
+            const u = getChatPartner(c);
             return (
-              <div
-                key={chat.conversation_id}
-                onClick={() => loadChatMessages(chat)}
-                className={`${style.chatItem} ${
-                  selectedChat?.conversation_id === chat.conversation_id
-                    ? style.chatItemActive
-                    : ""
-                }`}
-              >
+              <div key={c.conversation_id} className={`${style.chatItem} ${selectedChat?.conversation_id === c.conversation_id ? style.chatItemActive : ''}`} onClick={()=>loadChatMessages(c)}>
                 <div className={style.avatarWrapper}>
-                  <div className={style.avatarLarge}>
-                    {avatar ? (
-                      <img
-                        src={avatar}
-                        className={style.avatarIMG}
-                        alt="avatar"
-                      />
-                    ) : (
-                      <UserRound className={style.avatarIcon} />
-                    )}
-                  </div>
-                  {isOnline && <span className={style.onlineIndicator} />}
+                  <div className={style.avatarLarge}>{u.avatar ? <img src={u.avatar} className={style.avatarIMG}/> : <UserRound size={20}/>}</div>
+                  {u.online && <div className={style.onlineIndicator}/>}
                 </div>
-
                 <div className={style.chatInfo}>
-                  <div
-                    className={style.chatName}
-                    style={{ fontWeight: unreadCount > 0 ? "700" : "500" }}
-                  >
-                    {renderChatName(chat) || "Unknown"}
-                  </div>
+                  <div className={style.chatName}>{u.name}</div>
                   <div className={style.chatLastMessage}>
-                    {isTyping ? (
-                      <i>typing…</i>
-                    ) : (
-                      chat.last_message || "No messages yet"
-                    )}
+                    {String(c.last_message_sender) === String(user.unique_id) && "You: "}
+                    {c.last_message || "Start a conversation"}
                   </div>
                 </div>
-
                 <div className={style.chatTime}>
-                  {chat.updated_at ? fmtTime(chat.updated_at) : ""}
-                  {unreadCount > 0 && (
-                    <span
-                      style={{
-                        marginLeft: 6,
-                        backgroundColor: "#09707D",
-                        color: "#fff",
-                        borderRadius: "12px",
-                        padding: "2px 6px",
-                        fontSize: 12,
-                      }}
-                    >
-                      {unreadCount}
-                    </span>
-                  )}
+                  <span>{formatTime(c.updated_at)}</span>
+                  {c.unread_messages > 0 && <span className={style.unreadBadge}>{c.unread_messages}</span>}
                 </div>
+                <ChevronRight size={16} color="#ccc" style={{marginLeft:5}}/>
               </div>
-            );
+            )
           })}
         </div>
       </aside>
 
-      {/* Chat Window */}
-      <main
-        className={`${style.chatWindow} ${
-          !selectedChat ? style.chatHiddenOnMobile : ""
-        }`}
-      >
-        <div className={style.chatHeader}>
-          {selectedChat && (
-            <ChevronLeft
-              className={style.backBtn}
-              onClick={() => setSelectedChat(null)}
-            />
-          )}
-          <div className={style.avatar}>
-            {selectedChat ? (
-              otherAvatarForChat(selectedChat) ? (
-                <img
-                  src={otherAvatarForChat(selectedChat)}
-                  className={style.avatarIMG}
-                  alt="avatar"
-                />
-              ) : (
-                <UserRound className={style.avatarIcon} />
-              )
-            ) : (
-              <UserRound className={style.avatarIcon} />
-            )}
-          </div>
+      {/* CHAT WINDOW */}
+      <main className={`${style.chatWindow} ${!selectedChat ? style.mobileHidden : ''}`}>
+        {selectedChat ? (
+          <>
+            <div className={style.chatHeader} onClick={()=>setShowProfile(!showProfile)}>
+              <div style={{display:'flex', gap:10, alignItems:'center', flex:1}}>
+                <ChevronLeft className={style.headerIcon} style={{display:'none'}} onClick={(e)=>{e.stopPropagation(); setSelectedChat(null);}}/>
+                <div className={style.avatarLarge} style={{width:40, height:40}}>{activePartner.avatar ? <img src={activePartner.avatar} className={style.avatarIMG}/> : <UserRound/>}</div>
+                <div>
+                  <div className={style.headerName}>{activePartner.name}</div>
+                  <div className={activePartner.online ? style.headerStatus : style.headerStatusOffline}>
+                    {activePartner.online ? "Online" : formatLastSeen(activePartner.last_active)}
+                  </div>
+                </div>
+              </div>
+              <div className={style.headerActions}>
+                <Phone className={style.headerIcon} onClick={(e)=>{e.stopPropagation(); toast.info("Voice call coming soon")}}/>
+                <Video className={style.headerIcon} onClick={(e)=>{e.stopPropagation(); toast.info("Video call coming soon")}}/>
+                <Info className={style.headerIcon} onClick={()=>setShowProfile(!showProfile)}/>
+              </div>
+            </div>
 
-          <div className={style.headerInfo}>
-            <div className={style.headerName}>
-              {selectedChat ? renderChatName(selectedChat) : "Select a chat"}
-            </div>
-            <div className={style.headerStatus}>
-              {selectedChat
-                ? typingUsers.length > 0
-                  ? "typing…"
-                  : onlineUsers.includes(
-                      selectedChat.user1_id === user.unique_id
-                        ? selectedChat.user2_id
-                        : selectedChat.user1_id
-                    )
-                  ? "online"
-                  : "offline"
-                : "Open a conversation"}
-            </div>
-          </div>
-        </div>
-
-        <div className={style.messagesArea}>
-          {loadingMessages ? (
-            <div className={style.loaderWrapper}>
-              <Loader2 className={style.loader} />
-            </div>
-          ) : !selectedChat ? (
-            <div className={style.emptyMsg}>
-              Select a conversation to start chatting
-            </div>
-          ) : messages.length === 0 ? (
-            <div className={style.emptyMsg}>No messages yet — say hello 👋</div>
-          ) : (
-            <div className={style.messagesList}>
-              {messages.map((msg, idx) => {
-                const senderId = msg.sender_id || msg.senderId;
-                const mine = senderId === user.unique_id;
+            <div className={style.messagesArea}>
+              {loadingMessages ? <div style={{display:'flex', justifyContent:'center', marginTop:20}}><Loader2 className={style.loader}/></div> : 
+               messages.map((msg, i) => {
+                const mine = String(msg.sender_id) === String(user.unique_id);
                 return (
-                  <div
-                    key={msg.id || idx}
-                    className={`${style.msgWrapper} ${
-                      mine ? style.msgRight : style.msgLeft
-                    }`}
-                  >
-                    {/* show small avatar for incoming messages */}
-                    {!mine && (
-                      <div style={{ marginRight: 8 }}>
-                        {msg.avatar_url ? (
-                          <img
-                            src={msg.avatar_url}
-                            alt="avatar"
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: "50%",
-                              objectFit: "cover",
-                            }}
-                          />
-                        ) : (
-                          <div style={{ width: 28, height: 28 }}>
-                            <UserRound />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <div className={style.msgBubble}>
-                      <div>{msg.message}</div>
+                  <div key={i} className={`${style.msgWrapper} ${mine ? style.msgRight : style.msgLeft}`}>
+                    <div className={style.msgBubble} onContextMenu={(e)=>{e.preventDefault(); setContextMenu({visible:true, x:e.clientX, y:e.clientY, data:msg});}}>
+                      {msg.message}
+                      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                        <div className={style.reactionBar}>
+                          {Array.from(new Set(Object.values(msg.reactions))).map((r, ri) => <span key={ri}>{r}</span>)}
+                        </div>
+                      )}
                       <div className={style.msgMeta}>
-                        <span className={style.msgTime}>
-                          {fmtTime(msg.created_at)}
-                        </span>
-                        {mine && (
-                          <span className={style.msgStatus}>
-                            {msg.status || (msg.seen ? "seen" : "sent")}
-                          </span>
-                        )}
+                        <span>{formatTime(msg.created_at)}</span>
+                        {mine && (msg.seen ? <CheckCheck size={14} color="#53bdeb"/> : <Check size={14} color="#8696a0"/>)}
                       </div>
                     </div>
                   </div>
-                );
+                )
               })}
               <div ref={messagesEndRef} />
             </div>
-          )}
-        </div>
 
-        {selectedChat && (
-          <div className={style.inputArea}>
-            <button className={style.emojiBtn} type="button" aria-label="emoji">
-              <Smile />
-            </button>
-            <input
-              className={style.inputBox}
-              type="text"
-              placeholder="Type a message"
-              value={newMessage}
-              onChange={(e) => {
-                setNewMessage(e.target.value);
-                handleTyping();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") sendMessage();
-              }}
-            />
-            <button
-              className={style.sendBtn}
-              onClick={sendMessage}
-              aria-label="send"
-            >
-              <Send className={style.sendIcon} />
-            </button>
+            {/* ✅ CONDITIONAL RENDER: Input Area OR Unblock Button */}
+            {isBlocked ? (
+              <div className={style.inputAreaWrapper} style={{justifyContent: 'center', background: 'var(--bg-secondary)', flexDirection:'column', gap: 10}}>
+                <p style={{color:'gray', fontSize:14}}>You have blocked this user</p>
+                <button 
+                  onClick={unblockUser} 
+                  style={{
+                    padding: "10px 20px", 
+                    background: "var(--primary-color)", 
+                    color: "white", 
+                    border: "none", 
+                    borderRadius: "8px", 
+                    cursor: "pointer", 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "8px"
+                  }}
+                >
+                  <Unlock size={16} /> Unblock User
+                </button>
+              </div>
+            ) : (
+              <div className={style.inputAreaWrapper} ref={inputAreaRef}>
+                {showEmojiPanel && <div className={style.emojiPanel}><EmojiPicker onEmojiClick={(e)=>setNewMessage(p=>p+e.emoji)} height={350}/></div>}
+                <button className={style.emojiBtn} onClick={()=>setShowEmojiPanel(!showEmojiPanel)}><Smile/></button>
+                <textarea ref={textareaRef} className={style.inputBox} rows={1} placeholder="Type a message..." value={newMessage} onChange={e=>{setNewMessage(e.target.value); autoGrow();}} onKeyDown={e=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault(); sendMessage();}}}/>
+                <button className={style.sendBtn} onClick={sendMessage}><Send/></button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', color:'var(--text-secondary)'}}>
+            <div style={{fontSize:50}}>👋</div>
+            <h2>Welcome to Chat</h2>
           </div>
         )}
       </main>
+
+      {/* PROFILE SIDEBAR */}
+      {showProfile && selectedChat && (
+        <aside className={style.profileSidebar}>
+          <div className={style.profileHeader}><span>Contact Info</span><X style={{cursor:'pointer'}} onClick={()=>setShowProfile(false)}/></div>
+          <div className={style.profileContent}>
+            <img src={activePartner.avatar || "/person-placeholder.png"} className={style.profileAvatarLarge}/>
+            <div className={style.profileName}>{activePartner.name}</div>
+            <div className={style.profileEmail}>{activePartner.email}</div>
+            <div className={style.section}>
+              <div style={{display:'flex', flexDirection:'column', gap:10, marginTop:10}}>
+                <button onClick={()=>window.open(`/profile/${activePartner.unique_id}`)} style={{padding:10, border:'1px solid #09707d', color:'#09707d', background:'none', borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}><ExternalLink size={16}/> View Profile</button>
+                
+                {/* Block/Unblock toggle in Sidebar */}
+                {isBlocked ? (
+                   <button onClick={unblockUser} style={{padding:10, border:'1px solid #3b82f6', color:'#3b82f6', background:'none', borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}><Unlock size={16}/> Unblock User</button>
+                ) : (
+                   <button onClick={blockUser} style={{padding:10, border:'1px solid #ef4444', color:'#ef4444', background:'none', borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}><Ban size={16}/> Block User</button>
+                )}
+
+                <button onClick={deleteConversation} style={{padding:10, border:'1px solid #6b7280', color:'#6b7280', background:'none', borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}><Trash2 size={16}/> Delete Chat</button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu.visible && (
+        <div className={style.contextMenu} style={{top: contextMenu.y, left: contextMenu.x}}>
+          <div className={style.reactionPicker}>
+            {REACTIONS.map(emoji => (
+              <div key={emoji} className={style.reactionEmoji} onClick={() => handleReaction(contextMenu.data, emoji)}>
+                {emoji}
+              </div>
+            ))}
+          </div>
+          <div className={style.contextMenuItem} onClick={() => { navigator.clipboard.writeText(contextMenu.data.message); setContextMenu({visible:false, data:null}); }}>
+            Copy Message
+          </div>
+        </div>
+      )}
     </div>
   );
 }

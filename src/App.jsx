@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom"; // ✅ Added Navigate here
 import "./App.css";
 
 // ---------- Public Pages ----------
@@ -41,23 +41,28 @@ import PrivacySecurity from "./settings/PrivacySecurity.jsx";
 import ManageListings from "./settings/ManageListings.jsx";
 
 // ---------- Owner Pages ----------
-import OwnerSideNav from "./owner/SideNav.jsx"; // Updated SideNav
+import OwnerSideNav from "./owner/SideNav.jsx"; 
 import OwnerDashboard from "./owner/Dashboard.jsx";
-import OwnerProfile from "./owner/Profile.jsx";         // ✅ New
-import OwnerProperties from "./owner/Properties.jsx";   // ✅ Renamed from Listings to match sidebar
-import OwnerAddProperty from "./owner/AddProperty.jsx"; // ✅ New
+import OwnerProfile from "./owner/Profile.jsx";         
+import OwnerProperties from "./owner/Properties.jsx";   
+import OwnerAddProperty from "./owner/AddProperty.jsx"; 
 import OwnerMessages from "./owner/Messages.jsx";
-import OwnerPayments from "./owner/Payments.jsx";       // ✅ New
-import OwnerApplications from "./owner/Applications.jsx"; // ✅ New
-import OwnerNotifications from "./owner/Notifications.jsx"; // ✅ New
+import OwnerPayments from "./owner/Payments.jsx";       
+import OwnerApplications from "./owner/Applications.jsx"; 
+import OwnerNotifications from "./owner/Notifications.jsx"; 
 import OwnerSettings from "./owner/Settings.jsx";
 
-// ---------- Buyer Pages ----------
-import BuyerSideNav from "./buyer/SideNav.jsx";
-import BuyerDashboard from "./buyer/Dashboard.jsx";
-import BuyerMessages from "./buyer/Messages.jsx";
-import BuyerSettings from "./buyer/Settings.jsx";
-import BuyerFavorites from "./buyer/Favorites.jsx";
+// ---------- Buyer Page Imports ----------
+import BuyerSideNav from "./buyer/SideNav";
+import BuyerDashboard from "./buyer/Dashboard";
+import BuyerProfile from "./buyer/Profile";       
+import BuyerFavorites from "./buyer/Favorites";
+import BuyerApplications from "./buyer/Applications"; 
+import BuyerViewings from "./buyer/Viewings";       
+import BuyerMessages from "./buyer/Messages";       
+import BuyerNotifications from "./buyer/Notifications"; 
+import BuyerPayments from "./buyer/Payments";       
+import BuyerSettings from "./buyer/Settings";
 
 // ---------- Developer Pages ----------
 import DeveloperSideNav from "./developer/SideNav.jsx";
@@ -69,7 +74,6 @@ import DeveloperSettings from "./developer/Settings.jsx";
 // ---------- Admin Pages (Standard) ----------
 import AdminSideNav from "./admin/SideNav.jsx";
 import AdminDashboard from "./admin/Dashboard.jsx";
-// import AdminUsers from "./admin/Users.jsx"; // Removed for Standard Admin
 import AdminProperties from "./admin/Properties.jsx";
 import AdminMessages from "./admin/Messages.jsx";
 import AdminNotifications from "./admin/Notifications.jsx";
@@ -77,12 +81,12 @@ import AdminSettings from "./admin/Settings.jsx";
 
 // ---------- Super Admin Pages (CEO) ----------
 import SuperAdminSideNav from "./admin-super/SideNav.jsx";
-import SuperAdminDashboard from "./admin-super/Dashboard.jsx"; // Ensure this file exists
-import SuperAdminUsers from "./admin-super/Users.jsx";         // Ensure this file exists
-import SuperAdminAdmins from "./admin-super/ManageAdmins.jsx"; // Ensure this file exists
-import SuperAdminProperties from "./admin-super/Properties.jsx"; // Or reuse AdminProperties
-import SuperAdminPayments from "./admin-super/Payments.jsx";     // Ensure this file exists
-import SuperAdminMessages from "./admin-super/Messages.jsx";     // Or reuse AdminMessages
+import SuperAdminDashboard from "./admin-super/Dashboard.jsx"; 
+import SuperAdminUsers from "./admin-super/Users.jsx";         
+import SuperAdminAdmins from "./admin-super/ManageAdmins.jsx"; 
+import SuperAdminProperties from "./admin-super/Properties.jsx"; 
+import SuperAdminPayments from "./admin-super/Payments.jsx";     
+import SuperAdminMessages from "./admin-super/Messages.jsx";     
 import SuperAdminNotifications from "./admin-super/Notifications.jsx";
 import SuperAdminSettings from "./admin-super/Settings.jsx";
 
@@ -166,7 +170,7 @@ function App() {
         <Route path="settings" element={<OwnerSettings />} />
       </Route>
 
-      {/* ---------- Buyer Dashboard ---------- */}
+      {/* ---------- Buyer Dashboard Routes ---------- */}
       <Route
         path="/buyer"
         element={
@@ -175,11 +179,20 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<BuyerDashboard />} />
+        {/* Default redirect to Dashboard */}
+        <Route index element={<Navigate to="dashboard" replace />} />
+        
         <Route path="dashboard" element={<BuyerDashboard />} />
-        <Route path="messages" element={<BuyerMessages />} />
+        <Route path="profile" element={<BuyerProfile />} />
         <Route path="favorites" element={<BuyerFavorites />} />
-        <Route path="settings" element={<BuyerSettings />} />
+        <Route path="applications" element={<BuyerApplications />} />
+        <Route path="viewings" element={<BuyerViewings />} />
+        <Route path="messages" element={<BuyerMessages />} />
+        <Route path="notifications" element={<BuyerNotifications />} />
+        <Route path="payments" element={<BuyerPayments />} />
+        
+        {/* Settings handles sub-routes like /settings/account internally */}
+        <Route path="settings/*" element={<BuyerSettings />} />
       </Route>
 
       {/* ---------- Developer Dashboard ---------- */}
@@ -209,7 +222,6 @@ function App() {
       >
         <Route index element={<AdminDashboard />} />
         <Route path="dashboard" element={<AdminDashboard />} />
-        {/* Removed Users Route for Standard Admin */}
         <Route path="properties" element={<AdminProperties />} />
         <Route path="messages" element={<AdminMessages />} />
         <Route path="notifications" element={<AdminNotifications />} />
@@ -220,7 +232,7 @@ function App() {
       <Route
         path="/super-admin"
         element={
-          <ProtectedRoute requiredRole="super_admin"> {/* Custom Role Check needed in ProtectedRoute */}
+          <ProtectedRoute requiredRole="super_admin"> 
             <SuperAdminSideNav />
           </ProtectedRoute>
         }

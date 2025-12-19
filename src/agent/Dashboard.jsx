@@ -1,199 +1,272 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import ApexCharts from "react-apexcharts";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import client from "../api/axios";
 import style from "../styles/AgentDashboard.module.css";
 import { useAuth } from "../context/AuthProvider.jsx";
 import {
-  Building2,
-  CheckCircle,
-  MessageSquare,
-  DollarSign,
-  TrendingUp,
-  Eye,
-  MoreHorizontal,
-  Wallet,
-  Download,
-  Plus
+  Building2, CheckCircle, Wallet, TrendingUp, Eye,
+  MoreHorizontal, Plus, ArrowUpRight, ArrowDownLeft,
+  Activity, RefreshCw, Trash2, PauseCircle, PieChart
 } from "lucide-react";
 
-// --- FORMATTING HELPERS ---
+// --- HELPERS ---
 const formatCurrency = (amount) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount || 0);
 
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-};
+const formatDate = (dateString) => 
+  new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 const AgentDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // --- STATE ---
-  const [stats, setStats] = useState({ listings: 0, active: 0, views: 0, earnings: 0 });
-  const [revenueData, setRevenueData] = useState([]);
-  const [categoryData, setCategoryData] = useState([]);
+  // --- DATA STATE ---
+  const [stats, setStats] = useState({ listings: 0, active: 0, views: 0, total_spent: 0 });
+  const [dailyFunding, setDailyFunding] = useState([]); 
+  const [typeData, setTypeData] = useState({ series: [], labels: [] });
+  const [statusData, setStatusData] = useState({ series: [], labels: [] });
   const [recentListings, setRecentListings] = useState([]);
   const [transactions, setTransactions] = useState([]);
 
-  // --- FETCH DATA ---
+  // --- UI STATE ---
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const menuRef = useRef(null);
+
+  // --- 1. FETCH DATA ---
+  const fetchData = async () => {
+    setRefreshing(true);
+    try {
+      const [statsRes, fundingRes, typeRes, statusRes, listRes, transRes] = await Promise.all([
+        // Stats
+        client.get(`/agents/stats`).catch(() => ({ 
+          data: { listings: 0, active: 0, views: 0, total_spent: 0 } 
+        })),
+        // Daily Funding (Fixed Mock Structure)
+        client.get(`/agents/charts/funding`).catch(() => ({ 
+          data: { data: [0, 0, 0, 0, 0, 0, 0] } 
+        })),
+        // Listing Types
+        client.get(`/agents/charts/types`).catch(() => ({ 
+          data: { series: [], labels: [] } 
+        })),
+        // Status
+        client.get(`/agents/charts/status`).catch(() => ({ 
+          data: { series: [], labels: [] } 
+        })),
+        // Listings
+        client.get(`/agents/listings?limit=5`).catch(() => ({ data: [] })),
+        // Transactions
+        client.get(`/agents/transactions?limit=5`).catch(() => ({ data: [] }))
+      ]);
+
+      setStats(statsRes.data);
+      
+      // ✅ FIX: Extract the inner array correctly
+      // Backend returns { data: [10, 20...] }, Axios puts it in res.data
+      const fundingArray = fundingRes.data?.data || []; 
+      setDailyFunding(Array.isArray(fundingArray) ? fundingArray : []);
+
+      setTypeData(typeRes.data);
+      setStatusData(statusRes.data);
+      setRecentListings(listRes.data);
+      setTransactions(transRes.data);
+
+    } catch (err) {
+      console.error("Data Load Error:", err);
+    } finally {
+      setRefreshing(false);
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        // We attempt to fetch real data. If backend routes aren't ready, the .catch() blocks provide "Demo Data" 
-        // so your UI looks amazing immediately.
-        const [statsRes, revenueRes, catRes, listRes, transRes] = await Promise.all([
-          // 1. Stats
-          client.get(`/agents/stats`).catch(() => ({ 
-            data: { listings: 14, active: 8, views: 1240, earnings: 45200 } 
-          })),
-          // 2. Revenue Chart Data
-          client.get(`/agents/charts/revenue`).catch(() => ({ 
-            data: { series: [ { name: "Revenue", data: [15000, 22000, 18000, 32000, 28000, 45000, 42000] } ], categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"] } 
-          })),
-          // 3. Property Category Data (Donut)
-          client.get(`/agents/charts/categories`).catch(() => ({ 
-            data: { series: [44, 55, 13], labels: ["Apartments", "Houses", "Commercial"] } 
-          })),
-          // 4. Recent Listings
-          client.get(`/agents/listings?limit=5`).catch(() => ({ 
-            data: [
-              { id: 1, title: "Luxury Ocean Villa", location: "Lagos, NG", price: 850000, status: "Active", views: 342, image: "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=100&q=80" },
-              { id: 2, title: "Modern City Apartment", location: "Abuja, NG", price: 120000, status: "Pending", views: 890, image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=100&q=80" },
-              { id: 3, title: "Cozy Family Home", location: "Ibadan, NG", price: 45000, status: "Sold", views: 1200, image: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=100&q=80" },
-            ] 
-          })),
-          // 5. Recent Transactions
-          client.get(`/agents/transactions?limit=5`).catch(() => ({ 
-            data: [
-              { id: "TXN-8821", date: "2025-12-10", type: "Commission", amount: 4500, status: "Completed" },
-              { id: "TXN-8822", date: "2025-12-08", type: "Withdrawal", amount: -2000, status: "Processing" },
-              { id: "TXN-8823", date: "2025-12-01", type: "Commission", amount: 1200, status: "Completed" },
-            ] 
-          }))
-        ]);
-
-        setStats(statsRes.data);
-        setRevenueData(revenueRes.data);
-        setCategoryData(catRes.data);
-        setRecentListings(listRes.data);
-        setTransactions(transRes.data);
-
-      } catch (err) {
-        console.error("Dashboard Load Error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) loadData();
+    if (user) {
+      setLoading(true);
+      fetchData();
+    }
   }, [user]);
 
-  // --- CHART CONFIG 1: REVENUE (Area) ---
-  const revenueOptions = useMemo(() => ({
-    chart: { type: "area", height: 320, toolbar: { show: false }, fontFamily: "inherit" },
-    colors: ["#09707d"],
-    stroke: { curve: "smooth", width: 3 },
-    fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
-    dataLabels: { enabled: false },
-    grid: { borderColor: "#f3f4f6", strokeDashArray: 4 },
-    xaxis: { categories: revenueData.categories, axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { colors: "#9ca3af" } } },
-    yaxis: { labels: { style: { colors: "#9ca3af" }, formatter: (value) => `$${value / 1000}k` } },
-    tooltip: { y: { formatter: (val) => formatCurrency(val) } }
-  }), [revenueData]);
+  // --- 2. CLICK OUTSIDE HANDLER ---
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  // --- CHART CONFIG 2: CATEGORIES (Donut) ---
-  const categoryOptions = useMemo(() => ({
-    chart: { type: "donut", height: 320, fontFamily: "inherit" },
-    labels: categoryData.labels || [],
-    colors: ["#09707d", "#f59e0b", "#10b981", "#6366f1"],
+  // --- 3. LISTING ACTIONS ---
+  const handleAction = async (action, listing) => {
+    setOpenMenuId(null);
+    if (action === 'delete') {
+      const result = await Swal.fire({
+        title: 'Delete Listing?',
+        text: `Are you sure you want to delete "${listing.title}"?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'Yes, delete it'
+      });
+      if (result.isConfirmed) {
+        // Add API delete call here
+        Swal.fire('Deleted!', 'Listing has been deleted.', 'success');
+        fetchData();
+      }
+    } else if (action === 'freeze') {
+      Swal.fire('Updated', `Listing "${listing.title}" is now frozen.`, 'info');
+    }
+  };
+
+  // --- 4. CHARTS CONFIG ---
+  const investmentOptions = useMemo(() => ({
+    chart: { type: "bar", height: 320, toolbar: { show: false }, fontFamily: "inherit" },
+    colors: ["#007983"],
+    plotOptions: { bar: { borderRadius: 4, columnWidth: "50%" } },
+    dataLabels: { enabled: false },
+    grid: { borderColor: "#f1f5f9", strokeDashArray: 4 },
+    xaxis: { 
+      categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], 
+      axisBorder: { show: false }, axisTicks: { show: false }, 
+      labels: { style: { colors: "#64748b" } } 
+    },
+    yaxis: { labels: { style: { colors: "#64748b" }, formatter: (val) => `$${val}` } },
+    tooltip: { y: { formatter: (val) => formatCurrency(val) } },
+    title: { text: "Wallet Funding (This Week)", style: { fontSize: '14px', color: '#64748b', fontWeight: 400 } }
+  }), []);
+
+  const typeOptions = useMemo(() => ({
+    chart: { type: "donut", height: 280, fontFamily: "inherit" },
+    labels: typeData.labels || [],
+    colors: ["#007983", "#f59e0b", "#10b981", "#6366f1"],
     legend: { position: "bottom" },
     dataLabels: { enabled: false },
-    plotOptions: { pie: { donut: { size: "70%" } } }
-  }), [categoryData]);
+    plotOptions: { pie: { donut: { size: "70%", labels: { show: true, total: { show: true, label: 'Types', color: '#64748b' } } } } }
+  }), [typeData]);
 
-  if (loading) return (
-    <div className={style.loaderContainer}>
-      <div className={style.spinner}></div>
-      <p>Loading Dashboard...</p>
-    </div>
-  );
+  const statusOptions = useMemo(() => ({
+    chart: { type: "donut", height: 280, fontFamily: "inherit" },
+    labels: statusData.labels || [],
+    colors: ["#16a34a", "#eab308", "#475569"],
+    legend: { position: "bottom" },
+    dataLabels: { enabled: false },
+    plotOptions: { pie: { donut: { size: "70%", labels: { show: true, total: { show: true, label: 'Status', color: '#64748b' } } } } }
+  }), [statusData]);
+
+  if (loading && !stats.listings) return <div className={style.loaderContainer}><div className={style.spinner}></div></div>;
 
   return (
     <div className={style.dashboardContainer}>
       
-      {/* 1. HEADER SECTION */}
+      {/* HEADER */}
       <div className={style.header}>
         <div>
-          <h2 className={style.welcomeText}>Hello, {user?.name || "Agent"} 👋</h2>
-          <p className={style.subText}>Here's what's happening with your real estate business today.</p>
+          <h2 className={style.welcomeText}>Agent Dashboard</h2>
+          <p className={style.subText}>Overview of your real estate activities.</p>
         </div>
         <div className={style.headerActions}>
-          <button className={style.secondaryBtn}><Download size={18}/> Reports</button>
+          <button 
+            className={style.refreshBtn} 
+            onClick={fetchData} 
+            disabled={refreshing}
+            title="Refresh Data"
+          >
+            <RefreshCw size={18} className={refreshing ? style.spin : ""} />
+            <span>{refreshing ? "Syncing..." : "Refresh"}</span>
+          </button>
           <button className={style.primaryBtn} onClick={() => navigate('/dashboard/listings/new')}>
-            <Plus size={18}/> Add Property
+            <Plus size={18} /> Add Property
           </button>
         </div>
       </div>
 
-      {/* 2. STATS CARDS */}
-      <div className={style.cardsGrid}>
-        <div className={style.card}>
-          <div className={style.cardIcon} style={{ background: "#e0f2fe", color: "#0284c7" }}><Building2 size={24} /></div>
+      {/* METRICS */}
+      <div className={style.metricsGrid}>
+        <div className={style.metricCard}>
+          <div className={style.metricIcon} style={{ background: "#ecfdf5", color: "#059669" }}>
+            <TrendingUp size={24} />
+          </div>
           <div>
-            <p className={style.cardLabel}>Total Properties</p>
-            <h3 className={style.cardValue}>{stats.listings}</h3>
+            <p className={style.metricLabel}>Total Invested</p>
+            <h3 className={style.metricValue}>{formatCurrency(Number(stats.total_spent) || 0)}</h3>
+            <span className={style.metricSub}>Wallet & Activations</span>
           </div>
         </div>
-        <div className={style.card}>
-          <div className={style.cardIcon} style={{ background: "#dcfce7", color: "#16a34a" }}><CheckCircle size={24} /></div>
+
+        <div className={style.metricCard}>
+          <div className={style.metricIcon} style={{ background: "#e0f2fe", color: "#0284c7" }}>
+            <Building2 size={24} />
+          </div>
           <div>
-            <p className={style.cardLabel}>Active Listings</p>
-            <h3 className={style.cardValue}>{stats.active}</h3>
+            <p className={style.metricLabel}>Active Listings</p>
+            <h3 className={style.metricValue}>{stats.active} <span className={style.subValue}>/ {stats.listings}</span></h3>
+            <span className={style.metricSub}>Live Properties</span>
           </div>
         </div>
-        <div className={style.card}>
-          <div className={style.cardIcon} style={{ background: "#f3e8ff", color: "#9333ea" }}><Eye size={24} /></div>
+
+        <div className={style.metricCard}>
+          <div className={style.metricIcon} style={{ background: "#f3e8ff", color: "#9333ea" }}>
+            <Eye size={24} />
+          </div>
           <div>
-            <p className={style.cardLabel}>Total Views</p>
-            <h3 className={style.cardValue}>{stats.views.toLocaleString()}</h3>
+            <p className={style.metricLabel}>Total Views</p>
+            <h3 className={style.metricValue}>{stats.views?.toLocaleString() || 0}</h3>
+            <span className={style.metricSub}>Exposure Reach</span>
           </div>
         </div>
-        <div className={style.card}>
-          <div className={style.cardIcon} style={{ background: "#fff7ed", color: "#ea580c" }}><DollarSign size={24} /></div>
+
+        <div className={style.metricCard}>
+          <div className={style.metricIcon} style={{ background: "#fff7ed", color: "#ea580c" }}>
+            <Wallet size={24} />
+          </div>
           <div>
-            <p className={style.cardLabel}>Total Earnings</p>
-            <h3 className={style.cardValue}>{formatCurrency(stats.earnings)}</h3>
+            <p className={style.metricLabel}>Quick Balance</p>
+            <button className={style.linkText} onClick={() => navigate('/dashboard/payments')}>
+              Go to Wallet <ArrowUpRight size={14} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 3. CHARTS SECTION */}
-      <div className={style.chartsGrid}>
-        <div className={style.chartCard}>
-          <div className={style.chartHeader}>
-            <h3>Revenue Analytics</h3>
-            <select className={style.chartSelect}><option>This Year</option><option>Last Year</option></select>
+      {/* CHARTS */}
+      <div className={style.chartsLayout}>
+        <div className={style.mainChartCard}>
+          <div className={style.cardHeader}>
+            <h3>Investment Analysis</h3>
+            <p>Daily amount funded into wallet this week</p>
           </div>
-          <ApexCharts options={revenueOptions} series={revenueData.series || []} type="area" height={300} />
+          <ApexCharts options={investmentOptions} series={[{ name: "Funded", data: dailyFunding }]} type="bar" height={300} />
         </div>
-        <div className={style.chartCard}>
-          <div className={style.chartHeader}>
-            <h3>Property Distribution</h3>
+
+        <div className={style.sideChartsColumn}>
+          <div className={style.smallChartCard}>
+            <div className={style.cardHeaderSmall}>
+              <h3><PieChart size={16}/> Listing Types</h3>
+            </div>
+            <ApexCharts options={typeOptions} series={typeData.series} type="donut" height={200} />
           </div>
-          <ApexCharts options={categoryOptions} series={categoryData.series || []} type="donut" height={300} />
+          
+          <div className={style.smallChartCard}>
+            <div className={style.cardHeaderSmall}>
+              <h3><Activity size={16}/> Property Status</h3>
+            </div>
+            <ApexCharts options={statusOptions} series={statusData.series} type="donut" height={200} />
+          </div>
         </div>
       </div>
 
-      {/* 4. RECENT LISTINGS & TRANSACTIONS */}
+      {/* LISTINGS & TRANSACTIONS */}
       <div className={style.bottomGrid}>
         
-        {/* Recent Listings Table */}
         <div className={style.tableCard}>
-          <div className={style.tableHeader}>
+          <div className={style.tableHeaderRow}>
             <h3>Recent Listings</h3>
-            <button className={style.linkBtn} onClick={() => navigate('/dashboard/listings')}>View All</button>
+            <button className={style.textBtn} onClick={() => navigate('/dashboard/listings')}>View All</button>
           </div>
           <div className={style.tableWrapper}>
             <table className={style.table}>
@@ -202,7 +275,6 @@ const AgentDashboard = () => {
                   <th>Property</th>
                   <th>Price</th>
                   <th>Status</th>
-                  <th>Views</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -210,23 +282,38 @@ const AgentDashboard = () => {
                 {recentListings.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      <div className={style.propInfo}>
-                        <img src={item.image} alt="prop" className={style.propImg} />
+                      <div className={style.propCell}>
+                        <img src={item.image} alt="prop" className={style.propThumb} />
                         <div>
-                          <span className={style.propTitle}>{item.title}</span>
+                          <span className={style.propName}>{item.title}</span>
                           <span className={style.propLoc}>{item.location}</span>
                         </div>
                       </div>
                     </td>
-                    <td className={style.priceText}>{formatCurrency(item.price)}</td>
+                    <td className={style.priceCell}>{formatCurrency(item.price)}</td>
                     <td>
-                      <span className={`${style.badge} ${style[item.status.toLowerCase()]}`}>
+                      <span className={`${style.statusBadge} ${style[item.status.toLowerCase()]}`}>
                         {item.status}
                       </span>
                     </td>
-                    <td>{item.views}</td>
-                    <td>
-                      <button className={style.actionBtn}><MoreHorizontal size={18}/></button>
+                    <td className={style.actionCell}>
+                      <button 
+                        className={style.iconBtn} 
+                        onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
+                      >
+                        <MoreHorizontal size={18}/>
+                      </button>
+                      
+                      {openMenuId === item.id && (
+                        <div className={style.actionMenu} ref={menuRef}>
+                          <button onClick={() => handleAction('freeze', item)} className={style.menuItem}>
+                            <PauseCircle size={14} /> Freeze Listing
+                          </button>
+                          <button onClick={() => handleAction('delete', item)} className={`${style.menuItem} ${style.deleteItem}`}>
+                            <Trash2 size={14} /> Delete Listing
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -235,32 +322,27 @@ const AgentDashboard = () => {
           </div>
         </div>
 
-        {/* Recent Transactions */}
         <div className={style.transactionCard}>
-          <div className={style.tableHeader}>
-            <h3>Recent Transactions</h3>
-            <button className={style.linkBtn} onClick={() => navigate('/dashboard/payments')}>View All</button>
+          <div className={style.tableHeaderRow}>
+            <h3>Wallet Activity</h3>
+            <button className={style.textBtn} onClick={() => navigate('/dashboard/payments')}>View All</button>
           </div>
           <div className={style.txnList}>
             {transactions.map((txn) => (
               <div key={txn.id} className={style.txnItem}>
-                <div className={style.txnIcon}>
-                  {txn.amount > 0 ? <TrendingUp size={20} color="#16a34a"/> : <Wallet size={20} color="#ea580c"/>}
+                <div className={`${style.txnIconBox} ${txn.amount > 0 ? style.in : style.out}`}>
+                  {txn.amount > 0 ? <ArrowDownLeft size={18}/> : <ArrowUpRight size={18}/>}
                 </div>
-                <div className={style.txnDetails}>
-                  <span className={style.txnType}>{txn.type}</span>
+                <div className={style.txnInfo}>
+                  <span className={style.txnTitle}>{txn.type}</span>
                   <span className={style.txnDate}>{formatDate(txn.date)}</span>
                 </div>
-                <div className={style.txnAmount} style={{ color: txn.amount > 0 ? '#16a34a' : '#ef4444' }}>
+                <div className={`${style.txnAmount} ${txn.amount > 0 ? style.positive : style.negative}`}>
                   {txn.amount > 0 ? "+" : ""}{formatCurrency(txn.amount)}
                 </div>
               </div>
             ))}
           </div>
-          
-          <button className={style.withdrawBtn}>
-            <Wallet size={18}/> Withdraw Balance
-          </button>
         </div>
 
       </div>

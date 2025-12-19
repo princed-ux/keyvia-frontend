@@ -1,317 +1,383 @@
 import React, { useEffect, useState } from "react";
-import { FlutterWaveButton, closePaymentModal } from "flutterwave-react-v3";
+import axios from "axios";
 import Swal from "sweetalert2";
 import { 
-  DollarSign, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Download, 
-  CreditCard, 
-  AlertCircle,
-  CheckCircle2,
-  Loader2
+  CreditCard, History, Wallet, AlertCircle, 
+  Loader2, CheckCircle2, Plus, Zap, ArrowUpRight, Building2
 } from "lucide-react";
-
-import client from "../api/axios"; // Uses your configured axios client
 import { useAuth } from "../context/AuthProvider";
-import style from "../styles/Payments.module.css"; // Using the same CSS module
+import style from "../styles/Payments.module.css"; // ✅ Corrected Path
 
-// Configuration
-const ACTIVATION_FEE_USD = 10; 
+// ================= CONFIG =================
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const WALLET_PRICE = 15; // Discounted Price for Owners
+const DIRECT_PRICE = 20; // Standard Card Price
 
 const OwnerPayments = () => {
   const { user } = useAuth();
-  
-  // Data State
-  const [balance, setBalance] = useState(0);
-  const [inactiveListings, setInactiveListings] = useState([]);
-  const [transactions, setTransactions] = useState([]);
-  
-  // Loading State
-  const [loading, setLoading] = useState(true);
-  const [initializing, setInitializing] = useState(false);
-  
-  // Payment State
-  const [currentPaymentData, setCurrentPaymentData] = useState(null);
-  const [selectedListing, setSelectedListing] = useState(null);
+  const userId = user?.unique_id || user?.id;
 
+  // ================= STATE =================
+  const [inactiveListings, setInactiveListings] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState(null);
+
+  const authHeader = () => ({
+    headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+  });
+
+  // ================= LOAD SCRIPTS =================
   useEffect(() => {
-    fetchAllData();
+    if (!window.FlutterwaveCheckout) {
+      const script = document.createElement("script");
+      script.src = "https://checkout.flutterwave.com/v3.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
   }, []);
 
-  const fetchAllData = async () => {
+  // ================= FETCH DATA =================
+  useEffect(() => {
+    if (userId) fetchData();
+  }, [userId]);
+
+  const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Earnings/Stats
-      const statsRes = await client.get("/agents/stats");
-      setBalance(statsRes.data.earnings || 0);
+      // 1. Get Wallet Balance
+      const walletRes = await axios.get(`${API_BASE}/api/wallet`, authHeader());
+      setWalletBalance(Number(walletRes.data?.balance || 0));
 
-      // 2. Fetch Listings (to find unpaid ones)
-      const listingsRes = await client.get("/api/listings/agent");
-      const allListings = Array.isArray(listingsRes.data) ? listingsRes.data : [];
-      const unpaid = allListings.filter(l => l.status === 'approved' && !l.is_active);
+      // 2. Get Owner's Inactive Listings
+      const listingsRes = await axios.get(`${API_BASE}/api/listings/agent`, authHeader()); 
+      const unpaid = Array.isArray(listingsRes.data)
+        ? listingsRes.data.filter((l) => l.status === "approved" && !l.is_active)
+        : [];
       setInactiveListings(unpaid);
 
-      // 3. Fetch Transaction History (Payments & Withdrawals)
-      const historyRes = await client.get("/api/payments/history");
-      setTransactions(Array.isArray(historyRes.data) ? historyRes.data : []);
+      // 3. Get Payment History
+      const historyRes = await axios.get(`${API_BASE}/api/payments/history`, authHeader());
+      setPayments(Array.isArray(historyRes.data) ? historyRes.data : []);
 
     } catch (err) {
-      console.error("Data fetch error:", err);
+      console.error("Owner Data Fetch Error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // ==========================
-  // 🟢 FLUTTERWAVE PAYMENT LOGIC
-  // ==========================
-
-  const initiatePayment = async (listing) => {
-    setInitializing(true);
-    setSelectedListing(listing);
-
-    try {
-      // Call backend to generate TX Ref
-      const res = await client.post("/api/payments/initialize", { listingId: listing.product_id });
-      
-      const paymentData = res.data;
-      if (!paymentData || !paymentData.tx_ref || !paymentData.public_key) {
-        throw new Error("Invalid payment initialization");
-      }
-
-      setCurrentPaymentData(paymentData);
-    } catch (err) {
-      console.error("Payment init failed:", err);
-      Swal.fire("Error", "Could not initialize payment.", "error");
-      setCurrentPaymentData(null);
-    } finally {
-      setInitializing(false);
-    }
-  };
-
-  const handlePaymentSuccess = async (response) => {
-    closePaymentModal(); 
-
-    const tx_ref = response?.tx_ref || currentPaymentData?.tx_ref;
-    const transaction_id = response?.transaction_id;
-
-    Swal.fire({
-      title: "Verifying...",
-      text: "Please wait while we confirm your payment.",
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
-    });
-
-    try {
-      const verifyRes = await client.post("/api/payments/verify", { tx_ref, transaction_id });
-
-      if (verifyRes.data?.success || verifyRes.data?.status === "success") {
-        Swal.fire("Success!", "Your listing is now LIVE.", "success");
-        fetchAllData(); // Refresh all data
-      } else {
-        throw new Error(verifyRes.data?.message || "Verification failed");
-      }
-    } catch (err) {
-      console.error(err);
-      Swal.fire("Error", "Payment verification failed. Please contact support.", "error");
-    } finally {
-      setCurrentPaymentData(null);
-      setSelectedListing(null);
-    }
-  };
-
-  // ==========================
-  // 🔴 WITHDRAWAL LOGIC
-  // ==========================
-  const handleWithdraw = () => {
-    Swal.fire({
-      title: "Withdraw Funds",
-      text: `Available Balance: $${balance.toLocaleString()}`,
-      input: "number",
-      inputAttributes: { min: 10, max: balance },
-      showCancelButton: true,
-      confirmButtonText: "Withdraw",
-      showLoaderOnConfirm: true,
-      preConfirm: async (amount) => {
-        try {
-          // await client.post("/api/payments/withdraw", { amount });
-          return new Promise(resolve => setTimeout(resolve, 1000)); // Mock delay
-        } catch (error) {
-          Swal.showValidationMessage(`Request failed: ${error}`);
-        }
+  // ================= HELPER: SELECT CURRENCY =================
+  const selectCurrency = async () => {
+    const { value: currency } = await Swal.fire({
+      title: 'Select Payment Currency',
+      text: 'Pay in your local currency. We handle the conversion.',
+      input: 'select',
+      inputOptions: {
+        USD: 'USD ($)',
+        NGN: 'Naira (₦)',
+        GBP: 'Pounds (£)',
+        EUR: 'Euro (€)',
+        KES: 'Kenyan Shilling (KSh)',
+        GHS: 'Ghana Cedi (₵)'
       },
-      allowOutsideClick: () => !Swal.isLoading()
-    }).then((result) => {
-      if (result.isConfirmed) {
-        Swal.fire("Success", "Withdrawal request submitted!", "success");
-      }
+      inputPlaceholder: 'Choose currency',
+      showCancelButton: true,
+      confirmButtonColor: '#007983',
+      confirmButtonText: 'Continue'
+    });
+    return currency;
+  };
+
+  // ================= ACTION 1: FUND WALLET =================
+  const handleFundWallet = async () => {
+    // 1. Ask for Amount (USD)
+    const { value: amount } = await Swal.fire({
+      title: 'Add Funds',
+      text: 'Enter amount in USD (min $5).',
+      input: 'number',
+      inputValue: 20,
+      showCancelButton: true,
+      confirmButtonColor: '#007983',
+      confirmButtonText: 'Next'
+    });
+
+    if (!amount || amount < 5) return;
+
+    // 2. Ask for Currency
+    const currency = await selectCurrency();
+    if (!currency) return;
+
+    setProcessingId('FUND');
+    try {
+      const res = await axios.post(
+        `${API_BASE}/api/wallet/fund`, 
+        { amount, currency }, // Send chosen currency
+        authHeader()
+      );
+      openFlutterwave(res.data, "FUND_WALLET");
+    } catch (err) {
+      Swal.fire("Error", "Could not initialize funding.", "error");
+      setProcessingId(null);
+    }
+  };
+
+  // ================= ACTION 2: PAY WITH WALLET ($15) =================
+  const payWithWallet = async (listing) => {
+    if (walletBalance < WALLET_PRICE) {
+      return Swal.fire({
+        title: "Insufficient Wallet Balance",
+        text: `You need $${WALLET_PRICE} to activate. Your balance is $${walletBalance}.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Fund Wallet Now",
+        confirmButtonColor: "#007983"
+      }).then((result) => {
+        if (result.isConfirmed) handleFundWallet();
+      });
+    }
+
+    const confirm = await Swal.fire({
+      title: 'Confirm Activation',
+      text: `Activate "${listing.title}" for $${WALLET_PRICE} (Wallet)?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#007983',
+      confirmButtonText: 'Yes, Activate'
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    setProcessingId(listing.product_id);
+    try {
+      await axios.post(`${API_BASE}/api/wallet/activate`, { listingId: listing.product_id }, authHeader());
+      Swal.fire("Success", "Property Activated Successfully!", "success");
+      fetchData();
+    } catch (err) {
+      Swal.fire("Error", err.response?.data?.message || "Activation failed", "error");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // ================= ACTION 3: DIRECT CARD PAYMENT ($20) =================
+  const payDirect = async (listing) => {
+    // 1. Ask for Currency
+    const currency = await selectCurrency();
+    if (!currency) return;
+
+    setProcessingId(listing.product_id);
+    try {
+      const res = await axios.post(
+        `${API_BASE}/api/payments/initialize`, 
+        { listingId: listing.product_id, currency }, 
+        authHeader()
+      );
+      openFlutterwave(res.data, "DIRECT_PAY", listing);
+    } catch (err) {
+      Swal.fire("Error", "Payment initialization failed", "error");
+      setProcessingId(null);
+    }
+  };
+
+  // ================= FLUTTERWAVE HANDLER =================
+  const openFlutterwave = (paymentData, type, listing = null) => {
+    window.FlutterwaveCheckout({
+      public_key: paymentData.public_key,
+      tx_ref: paymentData.tx_ref,
+      amount: paymentData.amount, // Now in Local Currency (e.g. NGN)
+      currency: paymentData.currency, // e.g. "NGN"
+      payment_options: "card,mobilemoney,ussd",
+      customer: {
+        email: user?.email,
+        name: user?.full_name,
+      },
+      customizations: {
+        title: type === "FUND_WALLET" ? "Landlord Wallet Fund" : "Property Activation",
+        description: type === "FUND_WALLET" ? "Adding funds to account" : `Activation for ${listing?.title}`,
+        logo: "https://your-logo-url.com/logo.png",
+      },
+      callback: (response) => verifyTransaction(response, type),
+      onclose: () => setProcessingId(null),
     });
   };
 
-  // ==========================
-  // RENDER HELPERS
-  // ==========================
-  const renderPayButton = (listing) => {
-    const isReady = currentPaymentData && selectedListing?.product_id === listing.product_id;
-
-    if (isReady) {
-      const config = {
-        public_key: currentPaymentData.public_key,
-        tx_ref: currentPaymentData.tx_ref,
-        amount: currentPaymentData.amount || ACTIVATION_FEE_USD,
-        currency: "USD",
-        payment_options: "card,mobilemoney,ussd",
-        customer: {
-          email: user?.email,
-          phonenumber: user?.phone,
-          name: user?.name,
-        },
-        customizations: {
-          title: "Activate Property",
-          description: `Activation fee for ${listing.title}`,
-          logo: "https://yoursite.com/logo.png", // Replace with your logo
-        },
-      };
-
-      return (
-        <div className="flex gap-2 mt-2">
-          <FlutterWaveButton
-            className={`${style.payNowBtn} bg-green-600 text-white`}
-            {...config}
-            text={`Confirm Pay $${ACTIVATION_FEE_USD}`}
-            callback={handlePaymentSuccess}
-            onClose={() => {}}
-          />
-          <button 
-            className="px-3 py-2 text-sm text-red-500 border border-red-200 rounded hover:bg-red-50"
-            onClick={() => setCurrentPaymentData(null)}
-          >
-            Cancel
-          </button>
-        </div>
+  const verifyTransaction = async (response, type) => {
+    const endpoint = type === "FUND_WALLET" ? "/api/wallet/verify" : "/api/payments/verify";
+    
+    try {
+      const res = await axios.post(
+        `${API_BASE}${endpoint}`,
+        { transaction_id: response.transaction_id, tx_ref: response.tx_ref },
+        authHeader()
       );
-    }
 
-    return (
-      <button
-        className={`${style.payNowBtn} flex items-center gap-2`}
-        onClick={() => initiatePayment(listing)}
-        disabled={initializing}
-      >
-        {initializing && selectedListing?.product_id === listing.product_id ? (
-          <><Loader2 className="animate-spin" size={16}/> Loading...</>
-        ) : (
-          <><CreditCard size={16}/> Pay Activation ($ {ACTIVATION_FEE_USD})</>
-        )}
-      </button>
-    );
+      if (res.data?.success) {
+        Swal.fire("Success", type === "FUND_WALLET" ? "Funds Added!" : "Property Activated!", "success");
+        fetchData();
+      } else {
+        throw new Error("Failed");
+      }
+    } catch (err) {
+      Swal.fire("Error", "Payment verification failed.", "error");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
-  if (loading) return <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto"/> Loading finance data...</div>;
+  if (loading && !walletBalance) {
+    return <div className={style.loaderContainer}><Loader2 className="animate-spin" size={40} color="#007983" /></div>;
+  }
 
   return (
-    <div className={style.paymentsPage}>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Payments & Finance</h2>
-        <button 
-          onClick={handleWithdraw}
-          className="bg-black text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-800 transition"
-        >
-          <DollarSign size={18} /> Withdraw Funds
-        </button>
-      </div>
-
-      {/* --- 1. WALLET / EARNINGS SECTION --- */}
-      <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-8 rounded-xl shadow-lg mb-8 max-w-md">
-        <p className="text-blue-100 text-sm font-medium uppercase tracking-wider">Total Earnings</p>
-        <h1 className="text-4xl font-bold mt-2">${balance.toLocaleString()}</h1>
-        <div className="mt-6 flex gap-4">
-          <div className="flex items-center gap-2 text-green-300 text-sm bg-white/10 px-3 py-1 rounded-full">
-            <ArrowUpRight size={14} /> +12% this month
-          </div>
+    <div className={style.pageWrapper}>
+      
+      {/* HEADER */}
+      <header className={style.header}>
+        <div>
+          <h1>Landlord Finance</h1>
+          <p>Manage property payments and wallet balance</p>
         </div>
-      </div>
+        <button className={style.refreshBtn} onClick={fetchData}>
+          <History size={16} /> Sync Data
+        </button>
+      </header>
 
-      {/* --- 2. PENDING ACTIVATIONS SECTION --- */}
-      {inactiveListings.length > 0 && (
-        <section className="mb-10">
-          <div className="flex items-center gap-2 mb-4 text-orange-600 font-semibold">
-            <AlertCircle size={20}/> Action Required: Activate these listings
-          </div>
-          <div className={style.listingGrid}>
-            {inactiveListings.map(listing => (
-              <div key={listing.product_id} className={style.listingCard}>
-                <div className={style.listingHeader}>
-                  <span className={style.listingTitle}>{listing.title}</span>
-                  <span className={style.statusBadge}>Approved</span>
+      <div className={style.gridContainer}>
+        
+        {/* --- LEFT COLUMN: WALLET & ACTIONS --- */}
+        <div className={style.leftColumn}>
+          
+          {/* PROFESSIONAL WALLET CARD */}
+          <div className={style.walletCard} style={{ background: 'linear-gradient(135deg, #111827 0%, #007983 100%)' }}>
+            <div className={style.cardPattern} />
+            <div className={style.cardContent}>
+              <div className={style.cardTop}>
+                <div className={style.chip} />
+                <span className={style.cardBrand}>LANDLORD PREMIER</span>
+              </div>
+              <div className={style.balanceGroup}>
+                <span className={style.balanceLabel}>Current Balance</span>
+                <h2 className={style.balanceAmount}>
+                  ${walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </h2>
+              </div>
+              <div className={style.cardBottom}>
+                <div className={style.holderInfo}>
+                  <span>OWNER</span>
+                  <strong>{user?.full_name?.toUpperCase() || "LANDLORD"}</strong>
                 </div>
-                <div className={style.listingBody}>
-                   <p className={style.listingMeta}>{listing.address}, {listing.city}</p>
-                   <div className={style.listingActions}>
-                      {renderPayButton(listing)}
-                   </div>
+                <div className={style.expiryInfo}>
+                  <span>STATUS</span>
+                  <strong>VERIFIED</strong>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        </section>
-      )}
 
-      {/* --- 3. TRANSACTION HISTORY SECTION --- */}
-      <section className={style.section}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-lg text-gray-700">Transaction History</h3>
-          <button className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-1">
-            <Download size={14} /> Export CSV
+          {/* FUND BUTTON */}
+          <button 
+            className={style.fundBtn} 
+            onClick={handleFundWallet} 
+            disabled={processingId === 'FUND'}
+          >
+            {processingId === 'FUND' ? <Loader2 className="animate-spin" /> : <Plus size={20} />}
+            <span>Add Funds to Wallet</span>
           </button>
+
+          {/* PENDING LISTINGS */}
+          <div className={style.section}>
+            <div className={style.sectionHeader}>
+              <h3><AlertCircle size={18} /> Inactive Properties</h3>
+            </div>
+            
+            {inactiveListings.length === 0 ? (
+              <div className={style.emptyState}>
+                <Building2 size={40} className={style.successIcon} />
+                <p>All your properties are active & visible!</p>
+              </div>
+            ) : (
+              <div className={style.pendingList}>
+                {inactiveListings.map(listing => (
+                  <div key={listing.product_id} className={style.pendingCard}>
+                    <div className={style.pendingMeta}>
+                      <h4>{listing.title}</h4>
+                      <span>{listing.city} • {listing.listing_type}</span>
+                    </div>
+                    
+                    <div className={style.actionRow}>
+                      {/* Option A: Wallet ($15) */}
+                      <button 
+                        className={style.walletPayBtn}
+                        onClick={() => payWithWallet(listing)}
+                        disabled={!!processingId}
+                        title="Save $5 using Wallet"
+                      >
+                        <Zap size={14} fill="currentColor" />
+                        <span>Wallet ${WALLET_PRICE}</span>
+                      </button>
+
+                      {/* Option B: Direct ($20) */}
+                      <button 
+                        className={style.directPayBtn}
+                        onClick={() => payDirect(listing)}
+                        disabled={!!processingId}
+                      >
+                        <span>Card ${DIRECT_PRICE}</span>
+                        <ArrowUpRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {transactions.length === 0 ? (
-          <div className={style.empty}>No transaction history found.</div>
-        ) : (
-          <div className={style.historyTableWrapper}>
-            <table className={style.historyTable}>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Reference</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((txn, idx) => (
-                  <tr key={txn.id || idx}>
-                    <td>{new Date(txn.created_at || txn.date).toLocaleDateString()}</td>
-                    <td>
-                      <span className="flex items-center gap-2">
-                        {txn.type === 'withdrawal' ? (
-                          <><ArrowUpRight size={16} className="text-red-500" /> Withdraw</>
-                        ) : (
-                          <><ArrowDownLeft size={16} className="text-green-500" /> Payment</>
-                        )}
-                      </span>
-                    </td>
-                    <td className="font-mono text-xs text-gray-500">{txn.tx_ref || txn.id?.substring(0,8)}</td>
-                    <td className={`font-bold ${txn.type === 'withdrawal' ? 'text-red-600' : 'text-green-600'}`}>
-                      {txn.type === 'withdrawal' ? '-' : '+'}${Number(txn.amount).toLocaleString()}
-                    </td>
-                    <td>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        (txn.status === 'completed' || txn.status === 'success') ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {txn.status || 'Success'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* --- RIGHT COLUMN: HISTORY --- */}
+        <div className={style.rightColumn}>
+          <div className={style.section}>
+            <div className={style.sectionHeader}>
+              <h3>Payment History</h3>
+            </div>
+
+            {payments.length === 0 ? (
+              <div className={style.emptyTable}>No transaction history found.</div>
+            ) : (
+              <div className={style.tableWrapper}>
+                <table className={style.historyTable}>
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Ref</th>
+                      <th>Date</th>
+                      <th className={style.textRight}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map(p => (
+                      <tr key={p.id}>
+                        <td>
+                          <span className={style.statusBadge}>
+                            {p.purpose === 'wallet_funding' ? 'Top Up' : 'Activation'}
+                          </span>
+                        </td>
+                        <td className={style.refText}>{p.tx_ref?.substring(0, 10)}...</td>
+                        <td>{new Date(p.created_at).toLocaleDateString()}</td>
+                        <td className={style.amountText}>
+                          {p.currency === 'NGN' ? '₦' : '$'}{p.amount}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </section>
+        </div>
+
+      </div>
     </div>
   );
 };

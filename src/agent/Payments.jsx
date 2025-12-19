@@ -1,256 +1,385 @@
-// src/pages/Payments.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { FlutterWaveButton, closePaymentModal } from "flutterwave-react-v3";
 import Swal from "sweetalert2";
-import { useAuth } from "../context/AuthProvider.jsx";
-import style from "../styles/Payments.module.css";
+import { 
+  CreditCard, History, Wallet, AlertCircle, 
+  Loader2, CheckCircle2, Plus, Zap, ArrowUpRight 
+} from "lucide-react";
+import { useAuth } from "../context/AuthProvider";
+import style from "../styles/Payments.module.css"; // ✅ Corrected Path
 
-// Use your environment variable
+// ================= CONFIG =================
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const WALLET_PRICE = 15; // Discounted Price
+const DIRECT_PRICE = 20; // Standard Price
 
-// ✅ FIXED: Changed from 60 to 10
-const ACTIVATION_FEE_USD = 10; 
-
-const Payments = () => {
+const AgentPayments = () => {
   const { user } = useAuth();
-  // Ensure we have the user ID
   const agentId = user?.unique_id || user?.id;
 
+  // ================= STATE =================
   const [inactiveListings, setInactiveListings] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [loadingListings, setLoadingListings] = useState(false);
-  const [loadingPayments, setLoadingPayments] = useState(false);
-  
-  const [initializing, setInitializing] = useState(false);
-  const [currentPaymentData, setCurrentPaymentData] = useState(null);
-  const [selectedListing, setSelectedListing] = useState(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState(null);
 
-  // Helper for Auth Headers
   const authHeader = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` }
+    headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
   });
 
+  // ================= LOAD SCRIPTS =================
   useEffect(() => {
-    if (agentId) {
-      fetchInactiveListings();
-      fetchPaymentHistory();
+    if (!window.FlutterwaveCheckout) {
+      const script = document.createElement("script");
+      script.src = "https://checkout.flutterwave.com/v3.js";
+      script.async = true;
+      document.body.appendChild(script);
     }
+  }, []);
+
+  // ================= FETCH DATA =================
+  useEffect(() => {
+    if (agentId) fetchData();
   }, [agentId]);
 
-  // ✅ Use correct backend route (/api/listings/agent)
-  async function fetchInactiveListings() {
-    setLoadingListings(true);
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      // 1. Fetch ALL agent listings
-      const res = await axios.get(`${API_BASE}/api/listings/agent`, authHeader());
-      
-      const allListings = Array.isArray(res.data) ? res.data : [];
+      // 1. Get Wallet Balance
+      const walletRes = await axios.get(`${API_BASE}/api/wallet`, authHeader());
+      setWalletBalance(Number(walletRes.data?.balance || 0));
 
-      // 2. Filter on Frontend: We need Approved but NOT Active
-      const unpaid = allListings.filter(l => 
-        l.status === 'approved' && l.is_active === false
-      );
-
+      // 2. Get Inactive Listings
+      const listingsRes = await axios.get(`${API_BASE}/api/listings/agent`, authHeader());
+      const unpaid = Array.isArray(listingsRes.data)
+        ? listingsRes.data.filter((l) => l.status === "approved" && !l.is_active)
+        : [];
       setInactiveListings(unpaid);
+
+      // 3. Get History
+      const historyRes = await axios.get(`${API_BASE}/api/payments/history`, authHeader());
+      setPayments(Array.isArray(historyRes.data) ? historyRes.data : []);
+
     } catch (err) {
-      console.error("Failed to fetch listings:", err);
+      console.error("Data Fetch Error:", err);
     } finally {
-      setLoadingListings(false);
-    }
-  }
-
-  // ✅ Ensure this route exists in your backend
-  async function fetchPaymentHistory() {
-    setLoadingPayments(true);
-    try {
-      const res = await axios.get(`${API_BASE}/api/payments/history`, authHeader());
-      setPayments(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.warn("Payment history fetch failed:", err);
-    } finally {
-      setLoadingPayments(false);
-    }
-  }
-
-  const initiatePayment = async (listing) => {
-    setInitializing(true);
-    setSelectedListing(listing);
-
-    try {
-      const payload = { listingId: listing.product_id };
-      
-      const res = await axios.post(`${API_BASE}/api/payments/initialize`, payload, authHeader());
-      
-      const paymentData = res.data;
-
-      if (!paymentData || !paymentData.tx_ref || !paymentData.public_key) {
-        throw new Error("Invalid payment initialization response");
-      }
-
-      setCurrentPaymentData(paymentData);
-    } catch (err) {
-      console.error("Payment init failed:", err);
-      Swal.fire("Error", "Could not initialize payment.", "error");
-      setCurrentPaymentData(null);
-    } finally {
-      setInitializing(false);
+      setLoading(false);
     }
   };
 
-  const handlePaymentSuccess = async (response) => {
-    closePaymentModal(); 
+  // ================= HELPER: SELECT CURRENCY =================
+  const selectCurrency = async () => {
+    const { value: currency } = await Swal.fire({
+      title: 'Select Payment Currency',
+      text: 'Pay in your local currency. We handle the conversion.',
+      input: 'select',
+      inputOptions: {
+        USD: 'USD ($)',
+        NGN: 'Naira (₦)',
+        GBP: 'Pounds (£)',
+        EUR: 'Euro (€)',
+        KES: 'Kenyan Shilling (KSh)',
+        GHS: 'Ghana Cedi (₵)'
+      },
+      inputPlaceholder: 'Choose currency',
+      showCancelButton: true,
+      confirmButtonColor: '#007983',
+      confirmButtonText: 'Continue'
+    });
+    return currency;
+  };
 
-    const tx_ref = response?.tx_ref || currentPaymentData?.tx_ref;
-    const transaction_id = response?.transaction_id;
-
-    Swal.fire({
-      title: "Verifying...",
-      text: "Please wait while we confirm your payment.",
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
+  // ================= ACTION 1: FUND WALLET =================
+  const handleFundWallet = async () => {
+    // 1. Ask for Amount (USD)
+    const { value: amount } = await Swal.fire({
+      title: 'Fund Your Wallet',
+      text: 'Enter amount in USD (min $5).',
+      input: 'number',
+      inputValue: 20,
+      showCancelButton: true,
+      confirmButtonColor: '#007983',
+      confirmButtonText: 'Next'
     });
 
+    if (!amount || amount < 5) return;
+
+    // 2. Ask for Currency
+    const currency = await selectCurrency();
+    if (!currency) return;
+
+    setProcessingId('FUND');
     try {
-      const verifyRes = await axios.post(
-        `${API_BASE}/api/payments/verify`, 
-        { tx_ref, transaction_id }, 
+      const res = await axios.post(
+        `${API_BASE}/api/wallet/fund`, 
+        { amount, currency }, // Send currency
+        authHeader()
+      );
+      openFlutterwave(res.data, "FUND_WALLET");
+    } catch (err) {
+      Swal.fire("Error", "Could not initialize funding.", "error");
+      setProcessingId(null);
+    }
+  };
+
+  // ================= ACTION 2: PAY WITH WALLET ($15) =================
+  const payWithWallet = async (listing) => {
+    if (walletBalance < WALLET_PRICE) {
+      return Swal.fire({
+        title: "Insufficient Funds",
+        text: `You need $${WALLET_PRICE} to activate. Your balance is $${walletBalance}.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Fund Wallet",
+        confirmButtonColor: "#007983"
+      }).then((result) => {
+        if (result.isConfirmed) handleFundWallet();
+      });
+    }
+
+    const confirm = await Swal.fire({
+      title: 'Confirm Activation',
+      text: `Activate "${listing.title}" for $${WALLET_PRICE}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#007983',
+      confirmButtonText: 'Yes, Activate'
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    setProcessingId(listing.product_id);
+    try {
+      await axios.post(`${API_BASE}/api/wallet/activate`, { listingId: listing.product_id }, authHeader());
+      Swal.fire("Success", "Listing Activated Successfully!", "success");
+      fetchData();
+    } catch (err) {
+      Swal.fire("Error", err.response?.data?.message || "Activation failed", "error");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // ================= ACTION 3: DIRECT CARD PAYMENT ($20) =================
+  const payDirect = async (listing) => {
+    // 1. Ask for Currency
+    const currency = await selectCurrency();
+    if (!currency) return;
+
+    setProcessingId(listing.product_id);
+    try {
+      const res = await axios.post(
+        `${API_BASE}/api/payments/initialize`, 
+        { listingId: listing.product_id, currency }, 
+        authHeader()
+      );
+      openFlutterwave(res.data, "DIRECT_PAY", listing);
+    } catch (err) {
+      Swal.fire("Error", "Initialization failed", "error");
+      setProcessingId(null);
+    }
+  };
+
+  // ================= FLUTTERWAVE HANDLER =================
+  const openFlutterwave = (paymentData, type, listing = null) => {
+    window.FlutterwaveCheckout({
+      public_key: paymentData.public_key,
+      tx_ref: paymentData.tx_ref,
+      amount: paymentData.amount, // Now Local Currency (e.g. NGN)
+      currency: paymentData.currency, // e.g. "NGN"
+      payment_options: "card,mobilemoney,ussd",
+      customer: {
+        email: user?.email,
+        name: user?.full_name,
+      },
+      customizations: {
+        title: type === "FUND_WALLET" ? "Wallet Top-up" : "Activate Listing",
+        description: type === "FUND_WALLET" ? "Adding funds to wallet" : `Activation for ${listing?.title}`,
+        logo: "https://your-logo-url.com/logo.png",
+      },
+      callback: (response) => verifyTransaction(response, type),
+      onclose: () => setProcessingId(null),
+    });
+  };
+
+  const verifyTransaction = async (response, type) => {
+    const endpoint = type === "FUND_WALLET" ? "/api/wallet/verify" : "/api/payments/verify";
+    
+    try {
+      const res = await axios.post(
+        `${API_BASE}${endpoint}`,
+        { transaction_id: response.transaction_id, tx_ref: response.tx_ref },
         authHeader()
       );
 
-      if (verifyRes.data?.success || verifyRes.data?.status === "success") {
-        Swal.fire("Success!", "Your listing is now ACTIVE.", "success");
-        // Refresh lists
-        fetchInactiveListings();
-        fetchPaymentHistory();
+      if (res.data?.success) {
+        Swal.fire("Success", type === "FUND_WALLET" ? "Wallet Funded!" : "Listing Activated!", "success");
+        fetchData();
       } else {
-        throw new Error(verifyRes.data?.message || "Verification failed");
+        throw new Error("Failed");
       }
     } catch (err) {
-      console.error(err);
-      Swal.fire("Error", "Payment verification failed. Contact support.", "error");
+      Swal.fire("Error", "Payment verification failed.", "error");
     } finally {
-      setCurrentPaymentData(null);
-      setSelectedListing(null);
+      setProcessingId(null);
     }
   };
 
-  const renderPayButton = (listing) => {
-    const isReady = currentPaymentData && selectedListing?.product_id === listing.product_id;
-
-    if (isReady) {
-      const config = {
-        public_key: currentPaymentData.public_key,
-        tx_ref: currentPaymentData.tx_ref,
-        amount: currentPaymentData.amount || ACTIVATION_FEE_USD,
-        currency: "USD",
-        payment_options: "card,mobilemoney,ussd",
-        customer: {
-          email: user?.email,
-          phonenumber: user?.phone,
-          name: user?.full_name || user?.name,
-        },
-        customizations: {
-          title: "Activate Listing",
-          description: `Activation fee for ${listing.title}`,
-          logo: "https://yoursite.com/logo.png",
-        },
-      };
-
-      return (
-        <div className={style.inlinePayWrapper}>
-          <FlutterWaveButton
-            className={style.payNowBtn}
-            {...config}
-            text={`Proceed to Pay $${ACTIVATION_FEE_USD}`}
-            callback={handlePaymentSuccess}
-            onClose={() => {}}
-          />
-          <button 
-            className={style.cancelBtn} 
-            onClick={() => setCurrentPaymentData(null)}
-          >
-            Cancel
-          </button>
-        </div>
-      );
-    }
-
-    return (
-      <button
-        className={style.payNowBtn}
-        onClick={() => initiatePayment(listing)}
-        disabled={initializing}
-      >
-        {initializing && selectedListing?.product_id === listing.product_id 
-          ? "Loading..." 
-          : `Pay $${ACTIVATION_FEE_USD}`}
-      </button>
-    );
-  };
+  if (loading && !walletBalance) {
+    return <div className={style.loaderContainer}><Loader2 className="animate-spin" size={40} color="#007983" /></div>;
+  }
 
   return (
-    <div className={style.paymentsPage}>
-      <h2 className={style.pageTitle}>Payments & Activation</h2>
-      <p style={{ color: "#6b7280", marginBottom: 30 }}>
-        Approved listings require a one-time activation fee of <strong>${ACTIVATION_FEE_USD} USD</strong> to go live on the public map.
-      </p>
+    <div className={style.pageWrapper}>
+      
+      {/* HEADER */}
+      <header className={style.header}>
+        <div>
+          <h1>Financial Dashboard</h1>
+          <p>Manage your earnings, wallet, and property activations.</p>
+        </div>
+        <button className={style.refreshBtn} onClick={fetchData}>
+          <History size={16} /> Sync Data
+        </button>
+      </header>
 
-      <section className={style.section}>
-        <h3>🛑 Pending Activation</h3>
-        {loadingListings ? <p>Loading...</p> : inactiveListings.length === 0 ? (
-          <div className={style.empty}>No listings waiting for payment.</div>
-        ) : (
-          <div className={style.listingGrid}>
-            {inactiveListings.map(listing => (
-              <div key={listing.product_id} className={style.listingCard}>
-                <div className={style.listingHeader}>
-                  <span className={style.listingTitle}>{listing.title}</span>
-                  <span className={style.statusBadge}>Approved</span>
+      <div className={style.gridContainer}>
+        
+        {/* --- LEFT COLUMN: WALLET & ACTIONS --- */}
+        <div className={style.leftColumn}>
+          
+          {/* 1. PROFESSIONAL CARD */}
+          <div className={style.walletCard}>
+            <div className={style.cardPattern} />
+            <div className={style.cardContent}>
+              <div className={style.cardTop}>
+                <div className={style.chip} />
+                <span className={style.cardBrand}>AGENT WALLET</span>
+              </div>
+              <div className={style.balanceGroup}>
+                <span className={style.balanceLabel}>Current Balance</span>
+                <h2 className={style.balanceAmount}>
+                  ${walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </h2>
+              </div>
+              <div className={style.cardBottom}>
+                <div className={style.holderInfo}>
+                  <span>AGENT</span>
+                  <strong>{user?.full_name?.toUpperCase() || "AGENT"}</strong>
                 </div>
-                <div className={style.listingBody}>
-                   <p className={style.listingMeta}>{listing.address}, {listing.city}</p>
-                   <div className={style.listingActions}>
-                      {renderPayButton(listing)}
-                   </div>
+                <div className={style.expiryInfo}>
+                  <span>STATUS</span>
+                  <strong>ACTIVE</strong>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        )}
-      </section>
 
-      <section className={style.section} style={{marginTop: 40}}>
-        <h3>📜 Payment History</h3>
-        {loadingPayments ? <p>Loading...</p> : payments.length === 0 ? (
-          <div className={style.empty}>No payment history found.</div>
-        ) : (
-          <div className={style.historyTableWrapper}>
-            <table className={style.historyTable}>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Reference</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map(p => (
-                  <tr key={p.id}>
-                    <td>{new Date(p.created_at).toLocaleDateString()}</td>
-                    <td>{p.tx_ref}</td>
-                    <td>${p.amount}</td>
-                    <td className={style.success}>Paid</td>
-                  </tr>
+          {/* 2. FUND BUTTON */}
+          <button 
+            className={style.fundBtn} 
+            onClick={handleFundWallet} 
+            disabled={processingId === 'FUND'}
+          >
+            {processingId === 'FUND' ? <Loader2 className="animate-spin" /> : <Plus size={20} />}
+            <span>Add Funds to Wallet</span>
+          </button>
+
+          {/* 3. PENDING LISTINGS */}
+          <div className={style.section}>
+            <div className={style.sectionHeader}>
+              <h3><AlertCircle size={18} /> Pending Activations</h3>
+            </div>
+            
+            {inactiveListings.length === 0 ? (
+              <div className={style.emptyState}>
+                <CheckCircle2 size={40} className={style.successIcon} />
+                <p>All your approved listings are active!</p>
+              </div>
+            ) : (
+              <div className={style.pendingList}>
+                {inactiveListings.map(listing => (
+                  <div key={listing.product_id} className={style.pendingCard}>
+                    <div className={style.pendingMeta}>
+                      <h4>{listing.title}</h4>
+                      <span>{listing.city} • {new Date(listing.created_at).toLocaleDateString()}</span>
+                    </div>
+                    
+                    <div className={style.actionRow}>
+                      {/* Option A: Wallet ($15) */}
+                      <button 
+                        className={style.walletPayBtn}
+                        onClick={() => payWithWallet(listing)}
+                        disabled={!!processingId}
+                        title="Save $5 using Wallet"
+                      >
+                        <Zap size={14} fill="currentColor" />
+                        <span>Wallet ${WALLET_PRICE}</span>
+                      </button>
+
+                      {/* Option B: Direct ($20) */}
+                      <button 
+                        className={style.directPayBtn}
+                        onClick={() => payDirect(listing)}
+                        disabled={!!processingId}
+                      >
+                        <span>Card ${DIRECT_PRICE}</span>
+                        <ArrowUpRight size={14} />
+                      </button>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
-        )}
-      </section>
+        </div>
+
+        {/* --- RIGHT COLUMN: HISTORY --- */}
+        <div className={style.rightColumn}>
+          <div className={style.section}>
+            <div className={style.sectionHeader}>
+              <h3>Payment History</h3>
+            </div>
+
+            {payments.length === 0 ? (
+              <div className={style.emptyTable}>No transaction history found.</div>
+            ) : (
+              <div className={style.tableWrapper}>
+                <table className={style.historyTable}>
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Ref</th>
+                      <th>Date</th>
+                      <th className={style.textRight}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map(p => (
+                      <tr key={p.id}>
+                        <td>
+                          <span className={style.statusBadge}>
+                            {p.purpose === 'wallet_funding' ? 'Top Up' : 'Activation'}
+                          </span>
+                        </td>
+                        <td className={style.refText}>{p.tx_ref?.substring(0, 8)}...</td>
+                        <td>{new Date(p.created_at).toLocaleDateString()}</td>
+                        <td className={style.amountText}>
+                          {p.currency === 'NGN' ? '₦' : '$'}{p.amount}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 };
 
-export default Payments;
+export default AgentPayments;

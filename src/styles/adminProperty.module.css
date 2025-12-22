@@ -1,5 +1,3 @@
-/* src/styles/adminProperty.module.css */
-
 .dashboardContainer {
   padding: 30px;
   max-width: 1600px;
@@ -220,8 +218,163 @@
 .lightboxNext { right: 30px; }
 .lightboxCounter { position: absolute; bottom: 30px; color: #9ca3af; font-size: 0.9rem; letter-spacing: 1px; }
 
+/* ------------------------------------------------ */
+/* ✅ NEW: AI ANALYSIS SECTION STYLES */
+/* ------------------------------------------------ */
+
+.aiSection {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.aiTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #475569;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.analyzeBtn {
+  background: #09707d;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  font-size: 0.85rem;
+}
+
+.analyzeBtn:hover {
+  background: #075a63;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.aiLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  color: #64748b;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #09707d;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.aiReport {
+  display: flex;
+  gap: 20px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e2e8f0;
+  align-items: center;
+}
+
+/* Vertical line indicators for safe/risk */
+.reportSafe { border-left: 4px solid #22c55e; padding-left: 12px; }
+.reportRisk { border-left: 4px solid #ef4444; padding-left: 12px; }
+
+.scoreCircle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  background: white;
+  border-radius: 50%;
+  border: 4px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.reportSafe .scoreCircle { border-color: #22c55e; color: #22c55e; }
+.reportRisk .scoreCircle { border-color: #ef4444; color: #ef4444; }
+
+.scoreCircle span { font-size: 1.2rem; font-weight: 800; color: inherit; }
+.scoreCircle small { font-size: 0.65rem; text-transform: uppercase; color: #64748b; font-weight: 600; }
+
+.reportDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.9rem;
+  justify-content: center;
+  flex: 1;
+}
+
+.reportItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #334155;
+}
+
+.reportItem strong { font-weight: 600; color: #1e293b; }
+
 @media (max-width: 768px) {
   .drawer { width: 100%; }
   .filterBar { flex-direction: column; align-items: stretch; }
   .searchContainer { width: 100%; }
+  .aiReport { flex-direction: column; align-items: flex-start; }
 }
+
+/* Header Row Alignment */
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+/* 🤖 The "Magic" AI Button */
+.aiMagicBtn {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
+  transition: all 0.3s ease;
+}
+
+.aiMagicBtn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.6);
+}
+
+.aiMagicBtn:disabled {
+  background: #cbd5e1;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ... Keep all your previous styles ... */

@@ -1,11 +1,12 @@
+/* --- Overlay & Container --- */
 .overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(5px);
   z-index: 2000;
   display: flex;
   align-items: center;
@@ -16,43 +17,113 @@
 .modalContainer {
   background: white;
   width: 100%;
-  max-width: 1100px;
-  height: 90vh;
+  max-width: 1200px;
+  height: 95vh;
   overflow-y: auto;
   border-radius: 12px;
   position: relative;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
 }
 
-.closeBtn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
+/* --- Top Controls (Header) --- */
+.topControls {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr; /* Left, Center, Right */
+  align-items: center;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e5e7eb;
   background: white;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.backBtn {
+  background: transparent;
   border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
+  color: #09707D; /* Brand Color */
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
+}
+
+.centerLogo img {
+    /* height: 60px; */
+    width: 100px;
+}
+
+.actionBtns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.actionBtns button {
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #09707D; /* Brand Color */
+  font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
-  z-index: 50;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  transition: color 0.2s;
+}
+
+.actionBtns button:hover {
+  color: #065a63;
 }
 
 /* --- Image Grid --- */
 .imageGrid {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 4px;
-  height: 400px;
-  background: #f0f0f0;
+  gap: 8px;
+  height: 450px;
+  background: #f3f4f6;
+  padding: 8px;
+  position: relative; /* Needed for See All button */
 }
 
-.mainImage img, .subImages img {
+.mainImage {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+.mainImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.mainImage:hover img {
+  transform: scale(1.02);
+}
+
+.subImages {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+}
+
+.imageWrapper {
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+}
+
+.imageWrapper img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -60,142 +131,302 @@
   transition: opacity 0.2s;
 }
 
-.subImages {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 4px;
+.imageWrapper:hover img {
+  opacity: 0.9;
 }
 
-.subImages img:hover, .mainImage img:hover { opacity: 0.9; }
+/* Specific Border Radius for Corners */
+.subImages .imageWrapper:nth-child(2) { border-top-right-radius: 8px; }
+.subImages .imageWrapper:nth-child(4) { border-bottom-right-radius: 8px; }
 
-/* --- Layout --- */
+/* Floating "See All" Button */
+.seeAllBtn {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: transform 0.1s;
+    z-index: 20;
+}
+
+.seeAllBtn:hover {
+    background: #f9f9f9;
+    transform: scale(1.02);
+}
+
+.moreOverlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    font-size: 24px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+/* --- Logo Overlay --- */
+.logoOverlay {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 6px 12px;
+  border-radius: 4px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.logoOverlay img {
+  height: 24px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* --- Content Layout --- */
 .contentLayout {
   display: flex;
   padding: 30px 40px;
-  gap: 40px;
+  gap: 50px;
 }
 
-.leftColumn { flex: 1.8; }
-.rightColumn { flex: 1; max-width: 360px; }
+.leftColumn {
+  flex: 1.8;
+}
 
-/* --- Header --- */
+.rightColumn {
+  flex: 1;
+  max-width: 380px;
+  min-width: 320px;
+}
+
+/* --- Header Details --- */
 .headerTop {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  margin-bottom: 8px;
 }
 
 .header h1 {
-  font-size: 26px;
-  font-weight: 700;
-  color: #111;
+  font-size: 28px;
+  font-weight: 800;
+  color: #111827;
   margin: 0;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .priceTag {
   font-size: 28px;
   font-weight: 800;
-  color: #111;
+  color: #111827;
 }
 
 .addressText {
-  color: #555;
-  margin-top: 8px;
+  color: #4b5563;
+  margin-top: 4px;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 500;
 }
 
-/* --- Stats --- */
+/* --- Key Stats --- */
 .keyStats {
   display: flex;
-  gap: 20px;
+  gap: 40px;
   margin-top: 24px;
-  padding: 16px 0;
-  border-top: 1px solid #eee;
-  border-bottom: 1px solid #eee;
+  padding: 20px 0;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .statBox {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  flex-direction: column;
+  align-items: center;
 }
 
-.statVal { font-size: 20px; font-weight: 700; color: #111; }
-.statLabel { font-size: 14px; color: #666; }
+.statVal {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.statLabel {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* --- Media Links --- */
+.mediaLinks {
+    display: flex;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.mediaLinks button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f0fdf4;
+    border: 1px solid #09707D;
+    color: #09707D;
+    padding: 8px 14px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
 
 /* --- Sections --- */
-.section { margin-top: 30px; }
-.section h3 { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #111; }
-.descText { line-height: 1.6; color: #444; font-size: 15px; }
+.section {
+  margin-top: 40px;
+}
 
+.section h3 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: #111827;
+}
+
+.descText {
+  line-height: 1.7;
+  color: #374151;
+  font-size: 16px;
+}
+
+/* --- Feature Grid --- */
 .featureGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
 }
 
 .featureItem {
-  background: #f9f9f9;
-  padding: 8px 12px;
-  border-radius: 6px;
+  background: #f9fafb;
+  padding: 10px 14px;
+  border-radius: 8px;
   font-size: 14px;
-  color: #333;
+  color: #374151;
   display: flex;
   align-items: center;
   gap: 8px;
+  border: 1px solid #f3f4f6;
 }
 
+/* --- Map --- */
 .mapWrapper {
-  height: 250px;
-  border-radius: 8px;
+  height: 300px;
+  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #eee;
+  border: 1px solid #e5e7eb;
 }
 
-/* --- Sticky Agent Card --- */
+/* --- Sticky Agent Card (Right Column) --- */
 .stickyCard {
   position: sticky;
   top: 20px;
   background: white;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
 }
 
 .agentHeader {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
-  margin-bottom: 20px;
-  cursor: pointer;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .agentAvatar {
-  width: 50px;
-  height: 50px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.agentHeader h4 { margin: 0; font-size: 16px; color: #007983; }
-.agentHeader p { margin: 0; font-size: 13px; color: #666; }
+.agentInfo {
+    display: flex;
+    flex-direction: column;
+}
 
-.contactForm h5 { margin: 0 0 12px 0; font-size: 15px; font-weight: 600; }
+.agentHeader h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #09707D; /* Brand Color */
+}
+
+.agentHeader p {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.viewProfileLink {
+    background: none;
+    border: none;
+    color: #09707D;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    padding: 0;
+    margin-top: 4px;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.viewProfileLink:hover {
+    color: #065a63;
+}
+
+.contactForm h5 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
 
 .inputWrap {
   display: flex;
   align-items: center;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 12px;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.inputWrap:focus-within {
+  border-color: #09707D;
+  box-shadow: 0 0 0 3px rgba(9, 112, 125, 0.1);
 }
 
 .inputWrap select {
@@ -203,40 +434,159 @@
   width: 100%;
   outline: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 15px;
+  color: #374151;
+  cursor: pointer;
 }
 
 .tourBtn {
   width: 100%;
-  background: #007983;
+  background: #09707D;
   color: white;
-  padding: 12px;
+  padding: 14px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-weight: 600;
+  font-size: 16px;
   cursor: pointer;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  transition: background 0.2s;
+}
+
+.tourBtn:hover {
+  background: #075a63;
 }
 
 .messageBtn {
   width: 100%;
   background: white;
-  border: 1px solid #007983;
-  color: #007983;
-  padding: 10px;
-  border-radius: 6px;
+  border: 1px solid #09707D;
+  color: #09707D;
+  padding: 12px;
+  border-radius: 8px;
   font-weight: 600;
+  font-size: 15px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  transition: background 0.1s;
+}
+
+.messageBtn:hover {
+  background: #f0fdfe;
+}
+
+/* --- Full Screen Gallery --- */
+.galleryOverlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: #000;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.galleryContent {
+    max-width: 90%;
+    max-height: 90%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.galleryContent img, .mediaPlayer {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+}
+
+.iframeWrapper {
+    width: 80vw;
+    height: 80vh;
+    background: #000;
+}
+
+.iframeWrapper iframe {
+    width: 100%;
+    height: 100%;
+}
+
+.closeGalleryBtn {
+    position: absolute;
+    top: 20px; right: 20px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.navBtnLeft, .navBtnRight {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.navBtnLeft { left: 20px; }
+.navBtnRight { right: 20px; }
+
+.galleryCounter {
+    color: white;
+    margin-top: 15px;
+    font-size: 16px;
+    font-weight: 500;
 }
 
 /* --- Mobile --- */
-@media (max-width: 900px) {
-  .imageGrid { height: 250px; grid-template-columns: 1fr; }
-  .subImages { display: none; }
-  .contentLayout { flex-direction: column; padding: 20px; }
-  .rightColumn { max-width: 100%; }
+@media (max-width: 1024px) {
+  .contentLayout {
+    flex-direction: column;
+    padding: 24px;
+  }
+  
+  .rightColumn {
+    max-width: 100%;
+  }
+  
+  .stickyCard {
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .imageGrid {
+    height: 300px;
+    grid-template-columns: 1fr;
+  }
+  
+  .subImages {
+    display: none; /* Hide smaller images on mobile */
+  }
+  
+  .mainImage {
+    border-radius: 8px;
+  }
+  
+  .topControls {
+    padding: 10px 16px;
+  }
+  
+  .header h1 {
+    font-size: 22px;
+  }
+  
+  .priceTag {
+    font-size: 24px;
+  }
 }

@@ -1,76 +1,133 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, MapPin, Bed, Bath, Square, Trash2 } from "lucide-react";
-import style from "../styles/BuyerDashboard.module.css"; // Reuse dashboard styles
+import client from "../api/axios"; 
+import { Heart, MapPin, Bed, Bath, Square, Trash2, Loader2, ArrowRight } from "lucide-react";
+import { getCurrencySymbol, formatPrice } from "../utils/format"; 
+import style from "../styles/BuyerFavorites.module.css"; // ✅ UPDATED CSS FILE NAME
 
 const BuyerFavorites = () => {
-  // Mock Data
-  const [favorites, setFavorites] = useState([
-    {
-      id: "PRD-001",
-      title: "Luxury Condo in Midtown",
-      price: "$450,000",
-      image: "/placeholder.png",
-      address: "123 Peachtree St, Atlanta, GA",
-      beds: 3, baths: 2, sqft: 1500
-    },
-    {
-      id: "PRD-002",
-      title: "Cozy Family Home",
-      price: "$320,000",
-      image: "/placeholder.png",
-      address: "45 Westside Blvd, Atlanta, GA",
-      beds: 2, baths: 2, sqft: 1200
-    }
-  ]);
+  const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const removeFavorite = (id) => {
-    setFavorites(favorites.filter(f => f.id !== id));
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      try {
+        const res = await client.get("/api/favorites/my-favorites");
+        setFavorites(res.data || []);
+      } catch (err) {
+        console.error("Error fetching favorites:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFavorites();
+  }, []);
+
+  const removeFavorite = async (e, productId) => {
+    e.preventDefault(); 
+    e.stopPropagation();
+    
+    // Optimistic UI Update
+    setFavorites((prev) => prev.filter((f) => f.product_id !== productId));
+
+    try {
+      await client.post("/api/favorites/toggle", { product_id: productId });
+    } catch (err) {
+      console.error("Error removing favorite:", err);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className={style.loaderContainer}>
+        <Loader2 className="animate-spin" size={40} color="#09707D" />
+      </div>
+    );
+  }
 
   return (
     <div className={style.pageWrapper}>
       <header className={style.header}>
-        <div>
-          <h1>My Favorites</h1>
-          <p>Homes you have saved for later.</p>
+        <div className={style.headerContent}>
+          <h1>Saved Homes</h1>
+          <span className={style.countBadge}>{favorites.length} Listings</span>
         </div>
+        <p className={style.subHeader}>Your curated collection of dream properties.</p>
       </header>
 
-      <div className={style.homesGrid}>
+      <div className={style.gridContainer}>
         {favorites.length > 0 ? (
           favorites.map((home) => (
-            <div key={home.id} className={style.homeCard}>
-              <Link to={`/listing/${home.id}`} className={style.imageWrapper}>
-                <img src={home.image} alt={home.title} />
+            <Link to={`/listing/${home.product_id}`} key={home.product_id} className={style.card}>
+              
+              {/* --- IMAGE SECTION --- */}
+              <div className={style.imageWrapper}>
+                <img 
+                  src={home.photos?.[0]?.url || "/placeholder.png"} 
+                  alt={home.title} 
+                  className={style.cardImage}
+                />
+                <div className={style.overlayGradient} />
+                
+                <div className={style.topBadges}>
+                   <span className={style.statusBadge}>
+                      {home.listing_type === 'sale' ? 'For Sale' : 'For Rent'}
+                   </span>
+                </div>
+
                 <button 
                   className={style.removeBtn}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    removeFavorite(home.id);
-                  }}
+                  onClick={(e) => removeFavorite(e, home.product_id)}
+                  title="Remove from favorites"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={18} />
                 </button>
-              </Link>
-              
-              <div className={style.cardDetails}>
-                <div className={style.price}>{home.price}</div>
-                <div className={style.address}>{home.address}</div>
-                
-                <div className={style.metaRow}>
-                  <span><Bed size={14}/> {home.beds}</span>
-                  <span><Bath size={14}/> {home.baths}</span>
-                  <span><Square size={14}/> {home.sqft} sqft</span>
+              </div>
+
+              {/* --- DETAILS SECTION --- */}
+              <div className={style.cardContent}>
+                <div className={style.priceRow}>
+                  <h3 className={style.price}>
+                    {getCurrencySymbol(home.price_currency)}{formatPrice(home.price)}
+                    {home.listing_type === 'rent' && <span className={style.period}>/mo</span>}
+                  </h3>
+                </div>
+
+                <div className={style.addressRow}>
+                  <MapPin size={16} className={style.icon} />
+                  <p>{home.address}, {home.city}</p>
+                </div>
+
+                <div className={style.divider} />
+
+                <div className={style.statsRow}>
+                  <div className={style.statItem}>
+                    <Bed size={18} />
+                    <span><strong>{home.bedrooms}</strong> bds</span>
+                  </div>
+                  <div className={style.statItem}>
+                    <Bath size={18} />
+                    <span><strong>{home.bathrooms}</strong> ba</span>
+                  </div>
+                  <div className={style.statItem}>
+                    <Square size={18} />
+                    <span><strong>{formatPrice(home.square_footage)}</strong> sqft</span>
+                  </div>
+                </div>
+
+                <div className={style.actionRow}>
+                    <span className={style.viewDetails}>View Details <ArrowRight size={14}/></span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))
         ) : (
           <div className={style.emptyState}>
-            <Heart size={48} className={style.emptyIcon} />
-            <h3>No saved homes yet</h3>
-            <p>Start browsing to save your dream home!</p>
+            <div className={style.emptyIconCircle}>
+                <Heart size={48} strokeWidth={1.5} />
+            </div>
+            <h3>No favorites yet</h3>
+            <p>Start exploring and save the homes you love.</p>
             <Link to="/buy" className={style.browseBtn}>Browse Homes</Link>
           </div>
         )}

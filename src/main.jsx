@@ -12,6 +12,8 @@ import { LoadingProvider } from "./context/LoadingContext"; // ✅ Move here
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import "maplibre-gl/dist/maplibre-gl.css";
+
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>

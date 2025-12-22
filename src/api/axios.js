@@ -4,7 +4,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const client = axios.create({
   baseURL: API_BASE,
-  withCredentials: true, // ✅ IMPORTANT: This allows cookies (refresh tokens) to be sent
+  withCredentials: true, // Allows cookies (for refresh tokens)
 });
 
 // 1. Automatically add the Access Token to every request
@@ -19,7 +19,7 @@ client.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 2. Smart Error Handling (Auto-Refresh)
+// 2. Smart Error Handling (Auto-Refresh or Force Logout)
 client.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -33,9 +33,7 @@ client.interceptors.response.use(
         console.log("🔄 Token expired. Attempting to refresh...");
         
         // Call your backend refresh endpoint
-        // 'withCredentials: true' handles sending the cookie automatically
         const res = await client.post("/api/auth/refresh");
-
         const newAccessToken = res.data.accessToken;
 
         if (newAccessToken) {
@@ -52,12 +50,14 @@ client.interceptors.response.use(
           return client(originalRequest);
         }
       } catch (refreshError) {
-        console.error("❌ Session expired. Please login again.");
+        console.error("❌ Session expired. Logging out.");
         
-        // Refresh failed (or refresh token expired) -> Force Logout
+        // Refresh failed -> Clear storage & Force Logout
         localStorage.removeItem("accessToken");
         localStorage.removeItem("user");
-        window.location.href = "/login";
+        
+        // ✅ UPDATED: Redirect with a flag so we can notify the user
+        window.location.href = "/login?sessionExpired=true";
       }
     }
 
@@ -65,7 +65,6 @@ client.interceptors.response.use(
   }
 );
 
-// ✅ RESTORED: This is needed by AuthProvider.jsx
 export const attachToken = (token) => {
   if (token) {
     client.defaults.headers.common["Authorization"] = `Bearer ${token}`;

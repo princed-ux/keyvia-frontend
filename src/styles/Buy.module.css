@@ -16,7 +16,8 @@
   padding: 10px 20px;
   border-bottom: 1px solid #e0e0e0;
   background: white;
-  gap: 16px;
+  justify-content: space-between;
+  /* gap: 16px; */
   z-index: 50;
   height: 64px;
 }
@@ -33,7 +34,7 @@
   border: 1px solid transparent;
   border-radius: 8px;
   padding: 0 12px;
-  width: 260px;
+  width: 400px;
   height: 40px;
   transition: all 0.2s;
 }
@@ -107,14 +108,49 @@
   gap: 6px;
 }
 
+/* --- UPDATE: Save Search Button --- */
 .saveSearchBtn {
   margin-left: auto;
+  background-color: white;
   color: #007983;
+  border: 1px solid #007983;
+  padding: 8px 16px;
+  border-radius: 8px;
   font-weight: 600;
-  background: none;
-  border: none;
   font-size: 13px;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.saveSearchBtn:hover {
+  background-color: #f0fdfe;
+  box-shadow: 0 2px 5px rgba(0, 121, 131, 0.15);
+}
+
+/* --- UPDATE: Dropdown Inputs (Fit Width) --- */
+.inputSmall {
+  flex: 1; /* Makes inputs fill available space */
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  min-width: 80px;
+}
+
+.inputSmall:focus {
+  border-color: #007983;
+  box-shadow: 0 0 0 2px rgba(0, 121, 131, 0.1);
+}
+
+/* Ensure pill buttons fill width */
+.pillGroup {
+  display: flex;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 4px;
+  gap: 4px;
+  width: 100%; /* Full width */
 }
 
 /* --- Content Split --- */
@@ -350,4 +386,39 @@
   .listSection { height: 60vh; border-left: none; }
   .filterBar { overflow-x: auto; padding: 10px; gap: 10px; height: auto; flex-wrap: wrap; }
   .searchContainer { width: 100%; }
+}
+
+
+/* Buy.module.css additions */
+
+.inputSmall {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 100px;
+  font-size: 14px;
+}
+
+.pill {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.pillActive {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: #fff;
+  color: #007983;
+  font-weight: bold;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 4px;
 }

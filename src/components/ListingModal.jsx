@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Heart, Share2, MapPin, Bed, Bath, Square, Calendar, Check, Mail } from "lucide-react";
+import { X, Heart, Share2, MapPin, Bed, Bath, Square, Calendar, Check, Mail, ChevronLeft, ChevronRight, PlayCircle, Video } from "lucide-react";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { getCurrencySymbol, formatPrice } from "../utils/format";
 import style from "../styles/ListingModal.module.css"; 
+import keyviaLogo from "../assets/mainLogo.png"; 
 
 // Fix Leaflet Icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -17,36 +18,132 @@ L.Icon.Default.mergeOptions({
 
 const ListingModal = ({ listing, onClose }) => {
   const navigate = useNavigate();
+  const [showGallery, setShowGallery] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+
   if (!listing) return null;
 
-  const photos = listing.photos?.map(p => p.url) || [];
-  while (photos.length < 5) photos.push("/placeholder.png");
+  // --- 1. PREPARE MEDIA LIST (Photos + Video + Tour) ---
+  const photos = listing.photos?.map(p => ({ type: 'image', url: p.url })) || [];
+  
+  const allMedia = [...photos];
+  if (listing.video_url) allMedia.push({ type: 'video', url: listing.video_url });
+  if (listing.virtual_tour_url) allMedia.push({ type: 'tour', url: listing.virtual_tour_url });
 
+  // Fill placeholders if < 5 images for the grid
+  const gridPhotos = [...photos];
+  while (gridPhotos.length < 5) gridPhotos.push({ type: 'placeholder', url: "/placeholder.png" });
+
+  // Calculate remaining photos for the "+X" overlay
+  const remainingPhotos = allMedia.length > 5 ? allMedia.length - 5 : 0;
+
+  // --- HANDLERS ---
   const handleAgentClick = () => {
-    const id = listing.agent?.username || listing.agent?.unique_id || listing.agent_unique_id;
+    // Uses the new fields from the Backend JOIN
+    const id = listing.agent_username || listing.agent_unique_id;
     if (id) navigate(`/user/${id}`);
   };
 
+  const openGallery = (index = 0) => {
+    setGalleryIndex(index);
+    setShowGallery(true);
+  };
+
+  const nextSlide = (e) => {
+    e.stopPropagation();
+    setGalleryIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1));
+  };
+
+  const prevSlide = (e) => {
+    e.stopPropagation();
+    setGalleryIndex((prev) => (prev === 0 ? allMedia.length - 1 : prev - 1));
+  };
+
+  // --- RENDER GALLERY OVERLAY ---
+  if (showGallery) {
+    const current = allMedia[galleryIndex];
+    return (
+        <div className={style.galleryOverlay} onClick={() => setShowGallery(false)}>
+            <button className={style.closeGalleryBtn} onClick={() => setShowGallery(false)}><X size={24} /></button>
+            
+            <button className={style.navBtnLeft} onClick={prevSlide}><ChevronLeft size={32} /></button>
+            
+            <div className={style.galleryContent} onClick={(e) => e.stopPropagation()}>
+                {current.type === 'image' && <img src={current.url} alt="Gallery" />}
+                {current.type === 'video' && (
+                    <video controls autoPlay className={style.mediaPlayer}>
+                        <source src={current.url} type="video/mp4" />
+                        Your browser does not support the video tag.
+                    </video>
+                )}
+                {current.type === 'tour' && (
+                    <div className={style.iframeWrapper}>
+                        <iframe src={current.url} title="Virtual Tour" frameBorder="0" allowFullScreen></iframe>
+                    </div>
+                )}
+                <div className={style.galleryCounter}>{galleryIndex + 1} / {allMedia.length}</div>
+            </div>
+
+            <button className={style.navBtnRight} onClick={nextSlide}><ChevronRight size={32} /></button>
+        </div>
+    );
+  }
+
+  // --- MAIN MODAL RENDER ---
   return (
     <div className={style.overlay} onClick={onClose}>
       <div className={style.modalContainer} onClick={(e) => e.stopPropagation()}>
-        <button className={style.closeBtn} onClick={onClose}><X size={20} /></button>
+        
+        {/* --- HEADER --- */}
+        <div className={style.topControls}>
+            <div className={style.leftNav}>
+                <button className={style.backBtn} onClick={onClose}>‹ Back to search</button>
+            </div>
+            {/* ✅ LOGO CENTERED IN TOP NAV */}
+            <div className={style.centerLogo}>
+                <img src={keyviaLogo} alt="KEYVIA" />
+            </div>
+            <div className={style.actionBtns}>
+                <button><Heart size={18} /> Save</button>
+                <button><Share2 size={18} /> Share</button>
+                <button onClick={onClose}><X size={20} /> Close</button>
+            </div>
+        </div>
 
-        {/* --- TOP: ZILLOW STYLE IMAGE GRID --- */}
+        {/* --- IMAGE GRID --- */}
         <div className={style.imageGrid}>
-          <div className={style.mainImage}>
-            <img src={photos[0]} alt="Main" />
+          {/* Main Large Image */}
+          <div className={style.mainImage} onClick={() => openGallery(0)}>
+            <img src={gridPhotos[0].url} alt="Main" />
+            <div className={style.logoOverlay}>
+                <img src={keyviaLogo} alt="KEYVIA" />
+            </div>
           </div>
+
+          {/* Sub Images (2x2) */}
           <div className={style.subImages}>
-            <img src={photos[1]} alt="Sub 1" />
-            <img src={photos[2]} alt="Sub 2" />
-            <img src={photos[3]} alt="Sub 3" />
-            <img src={photos[4]} alt="Sub 4" />
+            {gridPhotos.slice(1, 5).map((photo, index) => (
+                <div key={index} className={style.imageWrapper} onClick={() => openGallery(index + 1)}>
+                    <img src={photo.url} alt={`Sub ${index}`} />
+                    
+                    {/* Overlay for +X photos on the LAST image block */}
+                    {index === 3 && remainingPhotos > 0 && (
+                        <div className={style.moreOverlay}>
+                            +{remainingPhotos}
+                        </div>
+                    )}
+                </div>
+            ))}
           </div>
+
+          {/* ✅ "See All Photos" Button */}
+          <button className={style.seeAllBtn} onClick={() => openGallery(0)}>
+            <Square size={16} /> See all {allMedia.length} photos
+          </button>
         </div>
 
         <div className={style.contentLayout}>
-          {/* --- LEFT COLUMN: DETAILS --- */}
+          {/* --- LEFT: INFO --- */}
           <div className={style.leftColumn}>
             <div className={style.header}>
               <div className={style.headerTop}>
@@ -75,6 +172,14 @@ const ListingModal = ({ listing, onClose }) => {
               </div>
             </div>
 
+            {/* Media Indicators */}
+            {(listing.video_url || listing.virtual_tour_url) && (
+                <div className={style.mediaLinks}>
+                    {listing.video_url && <button onClick={() => { const idx = allMedia.findIndex(m => m.type === 'video'); openGallery(idx); }}><PlayCircle size={16}/> Watch Video</button>}
+                    {listing.virtual_tour_url && <button onClick={() => { const idx = allMedia.findIndex(m => m.type === 'tour'); openGallery(idx); }}><Video size={16}/> Virtual Tour</button>}
+                </div>
+            )}
+
             <div className={style.section}>
               <h3>Description</h3>
               <p className={style.descText}>{listing.description || "No description provided."}</p>
@@ -102,14 +207,21 @@ const ListingModal = ({ listing, onClose }) => {
             </div>
           </div>
 
-          {/* --- RIGHT COLUMN: STICKY AGENT CARD --- */}
+          {/* --- RIGHT: AGENT & CONTACT --- */}
           <div className={style.rightColumn}>
             <div className={style.stickyCard}>
-              <div className={style.agentHeader} onClick={handleAgentClick}>
-                <img src={listing.agent?.avatar_url || "/person.png"} alt="Agent" className={style.agentAvatar} />
-                <div>
-                  <h4>{listing.agent?.full_name || "Listing Agent"}</h4>
-                  <p>{listing.agent?.agency_name || "Real Estate Pro"}</p>
+              <div className={style.agentHeader}>
+                <img 
+                    src={listing.agent_avatar || "/person.png"} 
+                    alt="Agent" 
+                    className={style.agentAvatar} 
+                />
+                <div className={style.agentInfo}>
+                  <h4>{listing.agent_name || "Listing Agent"}</h4>
+                  <p>{listing.agency_name || "Real Estate Professional"}</p>
+                  <button className={style.viewProfileLink} onClick={handleAgentClick}>
+                    View Agent's Profile
+                  </button>
                 </div>
               </div>
               

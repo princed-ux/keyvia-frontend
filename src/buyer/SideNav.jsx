@@ -140,7 +140,7 @@ const SideNav = () => {
           </div>
 
           <div className={style.agentInfo}>
-            <h4 className={style.agentName}>{user?.full_name || "Buyer Name"}</h4>
+            <h4 className={style.agentName}>{user?.name || "Buyer Name"}</h4>
             <p className={style.agentTitle}>{user?.role || "Property Seeker"}</p>
           </div>
         </div>
@@ -195,10 +195,12 @@ const SideNav = () => {
 
                 <div className={style.dropdownItem}>
                   <strong>Special ID:</strong>
-                  <div className={style.uniqueBox}>
-                    <span className={style.uniqueValue}>
-                      {showSpecialId ? user?.unique_id : "••••••••"}
-                    </span>
+                                    <div className={style.uniqueBox}>
+                                      <span className={style.uniqueValue}>
+                                        {showSpecialId
+                                          ? user?.special_id || "N/A"
+                                          : "•".repeat((user?.special_id || "").length || 8)}
+                                      </span> 
                     <button className={style.eyeBtn} onClick={() => setShowSpecialId(!showSpecialId)}>
                       <i className={`fas ${showSpecialId ? "fa-eye" : "fa-eye-slash"}`} />
                     </button>

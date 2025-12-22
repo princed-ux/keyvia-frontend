@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // ✅ Added useEffect
 import { useAuth } from "../context/AuthProvider";
 import client from "../api/axios";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom"; // ✅ Added useSearchParams
 import Swal from "sweetalert2";
 import style from "../styles/login.module.css";
 import { Eye, EyeOff } from "lucide-react";
@@ -14,11 +14,28 @@ import house from "../assets/tallbuildings.jpg";
 const Login = () => {
   const navigate = useNavigate();
   const { loginStart } = useAuth();
+  const [searchParams] = useSearchParams(); // ✅ Get URL params
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [remember, setRemember] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // ----------------- ✅ CHECK FOR EXPIRED SESSION -----------------
+  useEffect(() => {
+    if (searchParams.get("sessionExpired")) {
+      // Fire the alert
+      Swal.fire({
+        icon: "warning",
+        title: "Session Expired",
+        text: "Your session has timed out. Please login again to continue.",
+        confirmButtonColor: "#007983",
+      });
+
+      // Clean the URL (remove the ?sessionExpired=true part) so it doesn't pop up on refresh
+      window.history.replaceState({}, document.title, "/login");
+    }
+  }, [searchParams]);
 
   // ----------------- Input Change -----------------
   const handleChange = (e) => {
@@ -40,18 +57,12 @@ const Login = () => {
 
     setSubmitting(true);
     try {
-      // 1. Send Credentials to Backend (Trigger OTP)
       await loginStart(form.email.trim().toLowerCase(), form.password);
-      
-      // 2. Save email temporarily for the next step
       sessionStorage.setItem("loginEmail", form.email.trim().toLowerCase());
-
-      // 3. Navigate to OTP Page
       navigate("/login/verify");
       
     } catch (error) {
        console.error(error);
-       // Error alert is usually handled in AuthProvider, but safe fallback:
        if(error.response) {
          Swal.fire({ icon: 'error', title: 'Login Failed', text: error.response.data.message });
        }

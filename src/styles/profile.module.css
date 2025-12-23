@@ -323,3 +323,188 @@
     position: static;
   }
 }
+
+
+
+
+/* --- STATUS BADGES & BANNERS --- */
+.statusBanner {
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.statusWarning {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.statusRejected {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.statusVerified {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+
+.badgePending { background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; }
+.badgeVerified { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.badgeRejected { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+
+/* --- PHONE INPUT GROUP --- */
+.phoneGroup {
+  display: flex;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.phoneGroup:focus-within {
+  border-color: #09707d;
+  box-shadow: 0 0 0 3px rgba(9, 112, 125, 0.1);
+}
+
+.dialCode {
+  background: #f8fafc;
+  padding: 12px;
+  font-size: 0.95rem;
+  color: #64748b;
+  font-weight: 600;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.phoneInput {
+  flex: 1;
+  border: none;
+  padding: 12px;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+/* --- EXISTING STYLES (Keep these) --- */
+.container { padding: 20px; max-width: 1200px; margin: 0 auto; min-height: 100vh; }
+.header { background: #09707d; padding: 40px; border-radius: 16px; color: white; margin-bottom: -40px; }
+.headerContent h1 { margin: 0; font-size: 2rem; }
+.layout { display: flex; gap: 30px; margin-top: 20px; }
+.sidebar { flex: 1; max-width: 350px; }
+.content { flex: 2; background: white; border-radius: 16px; padding: 30px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+.avatarCard { background: white; padding: 30px; border-radius: 16px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+.avatarWrapper { position: relative; width: 120px; height: 120px; margin: 0 auto 15px; }
+.avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 4px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); cursor: pointer; }
+.cameraBtn { position: absolute; bottom: 0; right: 0; background: #09707d; color: white; padding: 8px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+.userName { margin: 0; font-size: 1.4rem; color: #1e293b; }
+.userRole { color: #64748b; margin: 5px 0 15px; }
+.locationTag { display: flex; align-items: center; justify-content: center; gap: 6px; color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
+.editBtn, .cancelBtn, .saveBtn { width: 100%; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; border: none; transition: 0.2s; }
+.editBtn { background: #f1f5f9; color: #334155; }
+.editBtn:hover { background: #e2e8f0; }
+.cancelBtn { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
+.saveBtn { background: #09707d; color: white; }
+.saveBtn:hover { background: #075a63; }
+.tabs { display: flex; gap: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 25px; }
+.tab { padding: 10px 20px; border: none; background: transparent; color: #64748b; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; border-radius: 8px; transition: 0.2s; }
+.activeTab { background: #f0fdfa; color: #09707d; }
+.formGrid, .socialGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.inputGroup { display: flex; flex-direction: column; gap: 6px; }
+.inputGroupFull { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
+.label { font-size: 0.85rem; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 6px; }
+.input, .select, .textarea { padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; background: #fff; width: 100%; }
+.input:disabled, .select:disabled, .textarea:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+.errorBorder { border-color: #ef4444; }
+.errorText { color: #ef4444; font-size: 0.75rem; }
+.modalOverlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; justify-content: center; align-items: center; }
+.modalContent img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
+
+@media (max-width: 768px) {
+  .layout { flex-direction: column; }
+  .formGrid, .socialGrid { grid-template-columns: 1fr; }
+}
+
+
+.countrySelectWrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.countryFlag {
+  width: 28px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+
+.phoneGroup {
+  display: flex;
+  align-items: center;
+}
+
+.dialBox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 44px;
+  background: #f5f7fa;
+  border: 1px solid #dcdfe6;
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  font-size: 14px;
+}
+
+.phoneFlag {
+  width: 22px;
+  height: 16px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.dialCode {
+  font-weight: 600;
+  color: #333;
+}
+
+.dialPlaceholder {
+  font-size: 16px;
+}
+
+.phoneInput {
+  flex: 1;
+  height: 44px;
+  border: 1px solid #dcdfe6;
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  padding: 0 12px;
+  font-size: 14px;
+}

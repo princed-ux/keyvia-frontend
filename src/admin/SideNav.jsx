@@ -151,6 +151,14 @@ const AdminSideNav = () => {
           {/* REMOVED: Manage Users (Only for Super Admin) */}
 
           <NavLink
+            to="/admin/profile"
+            className={({ isActive }) =>
+              isActive ? `${style.link} ${style.active}` : style.link
+            }
+          >
+            <Building2 size={18} /> Review Profile
+          </NavLink>
+          <NavLink
             to="/admin/properties"
             className={({ isActive }) =>
               isActive ? `${style.link} ${style.active}` : style.link

@@ -1,13 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import style from "../styles/Listings.module.css";
+import style from "../styles/propertyForm.module.css";
 import { 
-  X, 
-  UploadCloud, 
-  Video, 
-  Globe, 
-  CheckCircle 
+  X, UploadCloud, Video, Globe, CheckCircle, 
+  MapPin, DollarSign, Home, User, Mail, Phone, Calendar, Loader2
 } from "lucide-react";
 import { useAuth } from "../context/AuthProvider.jsx";
 
@@ -20,6 +17,7 @@ const initialState = {
   country: "",
   state: "",
   city: "",
+  zipCode: "",
   address: "",
   propertyType: "",
   listingType: "",
@@ -31,15 +29,9 @@ const initialState = {
   furnishing: "",
   lotSize: "",
   features: {
-    ac: false,
-    laundry: false,
-    balcony: false,
-    pets: false,
-    pool: false,
-    fireplace: false,
-    smart: false,
-    closet: false,
-    security: false,
+    ac: false, laundry: false, balcony: false, pets: false, pool: false,
+    fireplace: false, smart: false, closet: false, security: false,
+    gym: false, wifi: false,
   },
   description: "",
   photos: [],
@@ -58,16 +50,20 @@ function mapInitialToForm(initial = {}) {
   const f = { ...initialState };
   if (!initial) return f;
 
+  // Basic Fields
   f.title = initial.title || "";
   f.price = initial.price ?? "";
   f.pricePeriod = initial.price_period || initial.pricePeriod || "month";
   f.priceCurrency = initial.price_currency || initial.priceCurrency || "USD";
   
+  // Location
   f.country = initial.country || "";
   f.state = initial.state || "";
   f.city = initial.city || "";
+  f.zipCode = initial.zip_code || initial.zipCode || "";
   f.address = initial.address || "";
 
+  // Details
   f.propertyType = initial.property_type || initial.propertyType || "";
   f.listingType = initial.listing_type || initial.listingType || "";
   f.bedrooms = initial.bedrooms || "";
@@ -78,14 +74,23 @@ function mapInitialToForm(initial = {}) {
   f.furnishing = initial.furnishing || "";
   f.lotSize = initial.lot_size || initial.lotSize || "";
   
-  f.features = {
-    ...f.features,
-    ...(typeof initial.features === "string" ? JSON.parse(initial.features) : initial.features || {}),
-  };
+  // Features (Smart Parsing)
+  let parsedFeatures = initial.features;
+  if (typeof parsedFeatures === 'string') {
+    try { parsedFeatures = JSON.parse(parsedFeatures); } catch (e) {}
+  }
+  if (Array.isArray(parsedFeatures)) {
+    const featureObj = {};
+    Object.keys(initialState.features).forEach(k => featureObj[k] = false);
+    parsedFeatures.forEach(key => { if (typeof key === 'string') featureObj[key.toLowerCase()] = true; });
+    f.features = featureObj;
+  } else if (typeof parsedFeatures === 'object' && parsedFeatures !== null) {
+    f.features = { ...initialState.features, ...parsedFeatures };
+  }
 
+  // Media & Contact
   f.description = initial.description || "";
   f.photos = Array.isArray(initial.photos) ? initial.photos : [];
-  
   f.contactName = initial.contact_name || initial.contactName || "";
   f.contactEmail = initial.contact_email || initial.contactEmail || "";
   f.contactPhone = initial.contact_phone || initial.contactPhone || "";
@@ -94,37 +99,48 @@ function mapInitialToForm(initial = {}) {
   return f;
 }
 
-// ✅ MOVED OUTSIDE: Defines component once, preventing re-render focus loss
-const InputGroup = ({ id, label, type = "text", placeholder, options, value, onChange, error, disabled, ...props }) => (
+// --- UPDATED INPUT GROUP (Supports 'optional' prop) ---
+const InputGroup = ({ 
+  id, label, type = "text", placeholder, options, value, onChange, 
+  error, disabled, icon: Icon, optional = false, ...props 
+}) => (
   <div className={style.formGroup}>
-    <label htmlFor={id} className={style.label}>{label}</label>
-    {options ? (
-      <select
-        id={id}
-        className={style.select}
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        {...props}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value} disabled={o.disabled}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    ) : (
-      <input
-        id={id}
-        type={type}
-        className={`${style.input} ${error ? style.inputError : ""}`}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        {...props}
-      />
+    {label && (
+      <label htmlFor={id} className={style.label}>
+        {label} 
+        {optional && <span className={style.optionalText}>(Optional)</span>}
+      </label>
     )}
+    <div className={style.inputWrapper}>
+      {Icon && <Icon size={18} className={style.inputIcon} />}
+      {options ? (
+        <select
+          id={id}
+          className={`${style.select} ${Icon ? style.hasIcon : ''}`}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          {...props}
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value} disabled={o.disabled}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          id={id}
+          type={type}
+          className={`${style.input} ${error ? style.inputError : ""} ${Icon ? style.hasIcon : ''}`}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          {...props}
+        />
+      )}
+    </div>
     {error && <span className={style.errorText}>{error}</span>}
   </div>
 );
@@ -136,118 +152,110 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
-  // Previews
+  // Media Previews
   const [photoPreviews, setPhotoPreviews] = useState([]);
   const [videoPreview, setVideoPreview] = useState(null);
   const [virtualPreview, setVirtualPreview] = useState(null);
 
-  // Refs
   const fileInputRef = useRef(null);
   const videoInputRef = useRef(null);
   const virtualInputRef = useRef(null);
 
+  // 1. Prevent accidental navigation when processing
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (loading) {
+        e.preventDefault();
+        e.returnValue = "Upload in progress. Are you sure you want to leave?";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [loading]);
+
+  // 2. Initialize Form
   useEffect(() => {
     if (initialData) {
-      const mapped = mapInitialToForm(initialData);
-      setForm(mapped);
-
+      setForm(mapInitialToForm(initialData));
       if (initialData.photos) {
-        const previews = initialData.photos.map((p) =>
-          typeof p === "string" ? p : p.url
-        );
-        setPhotoPreviews(previews);
+        setPhotoPreviews(initialData.photos.map(p => typeof p === "string" ? p : p.url));
       }
     } else if (user) {
       setForm(prev => ({
         ...prev,
-        contactName: user.name || "",
+        contactName: user.full_name || user.name || "",
         contactEmail: user.email || "",
         contactPhone: user.phone || ""
       }));
     }
   }, [initialData, user]);
 
+  // Cleanup object URLs
   useEffect(() => {
     return () => {
       photoPreviews.forEach(url => { if (typeof url === "string" && url.startsWith("blob:")) URL.revokeObjectURL(url) });
-      if (videoPreview && videoPreview.startsWith("blob:")) URL.revokeObjectURL(videoPreview);
-      if (virtualPreview && virtualPreview.startsWith("blob:")) URL.revokeObjectURL(virtualPreview);
+      if (videoPreview?.startsWith("blob:")) URL.revokeObjectURL(videoPreview);
+      if (virtualPreview?.startsWith("blob:")) URL.revokeObjectURL(virtualPreview);
     };
   }, [photoPreviews, videoPreview, virtualPreview]);
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const toggleFeature = (key) =>
+  const toggleFeature = (key) => {
+    if (loading) return; // Prevent toggling while loading
     setForm((prev) => ({
       ...prev,
       features: { ...prev.features, [key]: !prev.features[key] },
     }));
+  };
 
-  // --- Photo Logic ---
+  // --- Handlers ---
   const handlePhotoPick = (e) => {
+    if (loading) return;
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-
-    setForm((prev) => ({
-      ...prev,
-      photos: [...prev.photos, ...files].slice(0, 15),
-    }));
-
-    setPhotoPreviews((prev) =>
-      [...prev, ...files.map((f) => URL.createObjectURL(f))].slice(0, 15)
-    );
-    setErrors((prev) => ({ ...prev, photos: undefined }));
-    if(fileInputRef.current) fileInputRef.current.value = "";
+    setForm(prev => ({ ...prev, photos: [...prev.photos, ...files].slice(0, 15) }));
+    setPhotoPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))].slice(0, 15));
+    setErrors(prev => ({ ...prev, photos: undefined }));
+    e.target.value = "";
   };
 
   const removePhotoAt = (i) => {
-    setForm((prev) => {
-      const copy = [...prev.photos];
-      copy.splice(i, 1);
-      return { ...prev, photos: copy };
-    });
-    setPhotoPreviews((prev) => {
-      const copy = [...prev];
-      copy.splice(i, 1);
-      return copy;
-    });
+    if (loading) return;
+    setForm(prev => { const c = [...prev.photos]; c.splice(i, 1); return { ...prev, photos: c }; });
+    setPhotoPreviews(prev => { const c = [...prev]; c.splice(i, 1); return c; });
   };
 
-  // --- Video/Virtual Logic ---
   const handleVideoPick = (e) => {
+    if (loading) return;
     const file = e.target.files?.[0];
-    if (!file) return;
-    update("video", file);
-    setVideoPreview(URL.createObjectURL(file));
-    if(videoInputRef.current) videoInputRef.current.value = "";
+    if (file) { update("video", file); setVideoPreview(URL.createObjectURL(file)); }
+    e.target.value = "";
   };
-  const removeVideo = () => { update("video", null); setVideoPreview(null); };
 
   const handleVirtualPick = (e) => {
+    if (loading) return;
     const file = e.target.files?.[0];
-    if (!file) return;
-    update("virtualTour", file);
-    setVirtualPreview(URL.createObjectURL(file));
-    if(virtualInputRef.current) virtualInputRef.current.value = "";
+    if (file) { update("virtualTour", file); setVirtualPreview(URL.createObjectURL(file)); }
+    e.target.value = "";
   };
-  const removeVirtual = () => { update("virtualTour", null); setVirtualPreview(null); };
 
   // --- Validation ---
   const validateAll = () => {
     const next = {};
-    if (!form.title || form.title.trim().length < 3) next.title = "Title too short.";
-    if (!form.price || Number(form.price) <= 0) next.price = "Invalid price.";
+    if (!form.title || form.title.trim().length < 3) next.title = "Title is required (min 3 chars).";
+    if (!form.price || Number(form.price) <= 0) next.price = "Price is required.";
     if (!form.listingType) next.listingType = "Required.";
-    if (form.listingType === "rent" && !form.pricePeriod) next.pricePeriod = "Required.";
     if (!form.propertyType) next.propertyType = "Required.";
-    
     if (!form.country) next.country = "Required.";
     if (!form.city) next.city = "Required.";
+    
+    // ✅ ADDED ADDRESS VALIDATION
+    if (!form.address || form.address.trim().length < 5) next.address = "Full Address is required.";
 
-    if (!form.contactEmail || !validateEmail(form.contactEmail)) next.contactEmail = "Invalid email.";
-    if (!form.contactPhone || !validatePhone(form.contactPhone)) next.contactPhone = "Invalid phone.";
-    if (!form.photos.length) next.photos = "Min 1 photo required.";
-
+    if (!form.photos.length) next.photos = "Upload at least 1 photo.";
+    if (!form.contactEmail || !validateEmail(form.contactEmail)) next.contactEmail = "Valid email required.";
+    
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -255,7 +263,8 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateAll()) {
-      toast.error("Please fix errors.");
+      toast.error("Please fill in required fields (marked in red).");
+      // Find first error and scroll to it
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -265,45 +274,50 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
       await submitListing(form, initialData?.product_id || initialData?.id);
     } catch (err) {
       console.error(err);
-      toast.error("Submission failed.");
-    } finally {
-      setLoading(false);
+      toast.error("Submission failed. Try again.");
+      setLoading(false); 
     }
   };
-
 
   return (
     <div className={style.formContainer}>
       <form onSubmit={handleSubmit}>
         
+        {/* 🌀 PROCESSING OVERLAY */}
+        {loading && (
+          <div className={style.processingOverlay}>
+            <div className={style.processingContent}>
+              <div className={style.spinnerLarge}></div>
+              <h3 className={style.processingTitle}>Processing Listing...</h3>
+              <p className={style.processingSubtitle}>Please do not close this tab.</p>
+            </div>
+          </div>
+        )}
+
+        {/* HEADER */}
         <div className={style.formHeader}>
           <h2>{initialData ? "Edit Property" : "Add New Listing"}</h2>
-          <button type="button" onClick={closeBtn} className={style.closeBtn}>
+          <button type="button" onClick={closeBtn} className={style.closeBtn} disabled={loading}>
             <X size={24} />
           </button>
         </div>
 
-        {/* --- 1. Basic Info --- */}
+        {/* 1. BASIC INFO */}
         <div className={style.section}>
-          <h3>Basic Information</h3>
-          
+          <h3><Home size={18} /> Basic Information</h3>
           <div className={style.formGrid}>
-            {/* 1. Property Title (Full Width) */}
             <div className={style.fullWidth}>
                 <InputGroup
-                  id="title"
-                  label="Property Title"
-                  placeholder="e.g. Modern Apartment in City Center"
-                  value={form.title}
-                  onChange={(e) => update("title", e.target.value)}
+                  id="title" label="Property Title"
+                  placeholder="e.g. Luxury Apartment in Downtown"
+                  value={form.title} onChange={(e) => update("title", e.target.value)}
                   error={errors.title}
+                  disabled={loading}
                 />
             </div>
 
-            {/* 2. Listing Type */}
             <InputGroup
-              id="listingType"
-              label="Listing Type"
+              id="listingType" label="Listing Type"
               options={[
                 { value: "", label: "Select Type", disabled: true },
                 { value: "sale", label: "For Sale" },
@@ -315,225 +329,133 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
                 if(e.target.value === "sale") update("pricePeriod", "");
               }}
               error={errors.listingType}
+              disabled={loading}
             />
 
-            {/* 3. Property Type */}
             <InputGroup
-              id="propertyType"
-              label="Property Type"
+              id="propertyType" label="Property Type"
               options={[
-    { value: "", label: "Select Type", disabled: true },
-
-    // --- Residential ---
-    { value: "Apartment", label: "Apartment" },
-    { value: "House", label: "House" },
-    { value: "Villa", label: "Villa" },
-    { value: "Condo", label: "Condo" },
-    { value: "Duplex", label: "Duplex" },
-    { value: "Townhouse", label: "Townhouse" },
-    { value: "Bungalow", label: "Bungalow" },
-    { value: "Penthouse", label: "Penthouse" },
-    { value: "Studio", label: "Studio" },
-    { value: "Mansion", label: "Mansion" },
-
-    // --- Commercial ---
-    { value: "Commercial", label: "Commercial" },
-    { value: "Office", label: "Office Space" },
-    { value: "Retail", label: "Shop / Retail" },
-    { value: "Warehouse", label: "Warehouse" },
-    { value: "Hotel", label: "Hotel / Guest House" },
-    { value: "Mixed Use", label: "Mixed Use" },
-
-    // --- Land & Industrial ---
-    { value: "Land", label: "Land" },
-    { value: "Farm", label: "Farm / Ranch" },
-    { value: "Industrial", label: "Industrial" }
-]}
-              value={form.propertyType}
-              onChange={(e) => update("propertyType", e.target.value)}
+                { value: "", label: "Select Type", disabled: true },
+                { value: "Apartment", label: "Apartment" },
+                { value: "House", label: "House" },
+                { value: "Commercial", label: "Commercial" },
+                { value: "Land", label: "Land" },
+              ]}
+              value={form.propertyType} onChange={(e) => update("propertyType", e.target.value)}
               error={errors.propertyType}
+              disabled={loading}
             />
 
-            {/* 4. Price Group (Full Width Row) */}
             <div className={style.priceGroup}>
               <InputGroup
-                id="price"
-                label="Price"
-                type="number"
-                placeholder="0.00"
-                value={form.price}
-                onChange={(e) => update("price", e.target.value)}
-                error={errors.price}
+                id="price" label="Price" type="number" placeholder="0.00" icon={DollarSign}
+                value={form.price} onChange={(e) => update("price", e.target.value)}
+                error={errors.price} disabled={loading}
               />
               <InputGroup
-                id="currency"
-                label="Currency"
-                options={[
-                  { value: "USD", label: "USD ($)" },
-                  { value: "EUR", label: "EUR (€)" },
-                  { value: "GBP", label: "GBP (£)" },
-                  { value: "NGN", label: "NGN (₦)" },
-                  { value: "CNY", label: "CNY (¥)" },
-                  { value: "RUB", label: "RUB (₽)" },
-                  { value: "JPY", label: "JPY (¥)" },
-                  { value: "AUD", label: "AUD (A$)" },
-                  { value: "CAD", label: "CAD (C$)" },
-                  { value: "CHF", label: "CHF (Fr)" },
-                  { value: "INR", label: "INR (₹)" },
-                  { value: "ZAR", label: "ZAR (R)" },
-                ]}
-                value={form.priceCurrency}
-                onChange={(e) => update("priceCurrency", e.target.value)}
+                id="currency" label="Currency"
+                options={[{ value: "USD", label: "USD" }, { value: "EUR", label: "EUR" }, { value: "NGN", label: "NGN" }]}
+                value={form.priceCurrency} onChange={(e) => update("priceCurrency", e.target.value)}
+                disabled={loading}
               />
               {form.listingType === "rent" && (
                 <InputGroup
-                  id="period"
-                  label="Period"
-                  options={[
-                    { value: "month", label: "/ Month" },
-                    { value: "year", label: "/ Year" },
-                    { value: "week", label: "/ Week" },
-                    { value: "day", label: "/ Day" },
-                  ]}
-                  value={form.pricePeriod}
-                  onChange={(e) => update("pricePeriod", e.target.value)}
+                  id="period" label="Period"
+                  options={[{ value: "month", label: "/ Month" }, { value: "year", label: "/ Year" }]}
+                  value={form.pricePeriod} onChange={(e) => update("pricePeriod", e.target.value)}
+                  disabled={loading}
                 />
               )}
             </div>
 
-            {/* 5. Location Row (3 Columns: Country | State | City) */}
             <div className={style.locationRow}>
-                <InputGroup
-                  id="country"
-                  label="Country"
-                  placeholder="e.g. USA"
-                  value={form.country}
-                  onChange={(e) => update("country", e.target.value)}
-                  error={errors.country}
-                />
-                <InputGroup
-                  id="state"
-                  label="State/Province"
-                  placeholder="e.g. California"
-                  value={form.state}
-                  onChange={(e) => update("state", e.target.value)}
-                />
-                <InputGroup
-                  id="city"
-                  label="City"
-                  placeholder="e.g. Los Angeles"
-                  value={form.city}
-                  onChange={(e) => update("city", e.target.value)}
-                  error={errors.city}
-                />
+                <InputGroup id="country" label="Country" value={form.country} onChange={(e) => update("country", e.target.value)} error={errors.country} disabled={loading} />
+                <InputGroup id="state" label="State" value={form.state} onChange={(e) => update("state", e.target.value)} disabled={loading} />
+                <InputGroup id="city" label="City" value={form.city} onChange={(e) => update("city", e.target.value)} error={errors.city} disabled={loading} />
+                <InputGroup id="zipCode" label="Zip Code" optional value={form.zipCode} onChange={(e) => update("zipCode", e.target.value)} disabled={loading} />
             </div>
 
-            {/* 6. Address (Full Width) */}
             <div className={style.fullWidth}>
-                <InputGroup
-                  id="address"
-                  label="Full Address (Street, Unit)"
-                  placeholder="e.g. 123 Sunset Blvd, Apt 4B"
-                  value={form.address}
-                  onChange={(e) => update("address", e.target.value)}
+                {/* ✅ ADDRESS IS NOW REQUIRED */}
+                <InputGroup 
+                  id="address" 
+                  label="Full Address" 
+                  placeholder="Street address, unit, etc." 
+                  icon={MapPin} 
+                  value={form.address} 
+                  onChange={(e) => update("address", e.target.value)} 
+                  error={errors.address} 
+                  disabled={loading} 
                 />
             </div>
-
           </div>
         </div>
 
-        {/* --- 2. Details --- */}
+        {/* 2. DETAILS */}
         <div className={style.section}>
-          <h3>Property Details</h3>
+          <h3><CheckCircle size={18}/> Property Details</h3>
           <div className={style.formGrid}>
-            <InputGroup id="bed" label="Bedrooms" type="number" value={form.bedrooms} onChange={e => update("bedrooms", e.target.value)} />
-            <InputGroup id="bath" label="Bathrooms" type="number" value={form.bathrooms} onChange={e => update("bathrooms", e.target.value)} />
-            <InputGroup id="sqft" label="Sq Ft" type="number" value={form.squareFootage} onChange={e => update("squareFootage", e.target.value)} />
-            <InputGroup id="year" label="Year Built" type="number" value={form.yearBuilt} onChange={e => update("yearBuilt", e.target.value)} />
+            <InputGroup id="bed" label="Bedrooms" optional type="number" value={form.bedrooms} onChange={e => update("bedrooms", e.target.value)} disabled={loading} />
+            <InputGroup id="bath" label="Bathrooms" optional type="number" value={form.bathrooms} onChange={e => update("bathrooms", e.target.value)} disabled={loading} />
+            <InputGroup id="sqft" label="Sq Ft" optional type="number" value={form.squareFootage} onChange={e => update("squareFootage", e.target.value)} disabled={loading} />
+            <InputGroup id="year" label="Year Built" optional type="number" icon={Calendar} value={form.yearBuilt} onChange={e => update("yearBuilt", e.target.value)} disabled={loading} />
             
             <InputGroup
-              id="parking"
-              label="Parking"
-              options={[
-    { value: "", label: "Select", disabled: true },
-    { value: "Garage", label: "Garage" },
-    { value: "Attached Garage", label: "Attached Garage" },
-    { value: "Detached Garage", label: "Detached Garage" },
-    { value: "Driveway", label: "Driveway" },
-    { value: "Carport", label: "Carport" },
-    { value: "Street", label: "Street Parking" },
-    { value: "Off-Street", label: "Off-Street Parking" },
-    { value: "Underground", label: "Underground" },
-    { value: "Covered", label: "Covered Parking" },
-    { value: "Gated", label: "Gated / Secure" },
-    { value: "Lot", label: "Parking Lot" },
-    { value: "Open", label: "Open Space" },
-    { value: "Valet", label: "Valet Parking" },
-    { value: "RV", label: "RV / Boat Parking" },
-    { value: "None", label: "None" }
-]}
-              value={form.parking}
-              onChange={e => update("parking", e.target.value)}
+              id="parking" label="Parking" optional
+              options={[{ value: "", label: "Select" }, { value: "Garage", label: "Garage" }, { value: "Street", label: "Street" }, { value: "None", label: "None" }]}
+              value={form.parking} onChange={e => update("parking", e.target.value)}
+              disabled={loading}
             />
             
             <InputGroup
-              id="furnishing"
-              label="Furnishing"
-              options={[
-    { value: "", label: "Select", disabled: true },
-    { value: "Fully Furnished", label: "Fully Furnished" },
-    { value: "Semi-Furnished", label: "Semi-Furnished" },
-    { value: "Partly Furnished", label: "Partly Furnished" },
-    { value: "Unfurnished", label: "Unfurnished" },
-    { value: "Furnished", label: "Furnished (General)" }
-]}
-              value={form.furnishing}
-              onChange={e => update("furnishing", e.target.value)}
+              id="furnishing" label="Furnishing" optional
+              options={[{ value: "", label: "Select" }, { value: "Furnished", label: "Furnished" }, { value: "Unfurnished", label: "Unfurnished" }]}
+              value={form.furnishing} onChange={e => update("furnishing", e.target.value)}
+              disabled={loading}
             />
           </div>
         </div>
 
-        {/* --- 3. Features --- */}
+        {/* 3. AMENITIES */}
         <div className={style.section}>
-          <h3>Features & Amenities</h3>
+          <h3><CheckCircle size={18}/> Amenities <span style={{fontSize:'0.8rem', fontWeight:'400', color:'#94a3b8'}}>(Select all that apply)</span></h3>
           <div className={style.featuresGrid}>
             {Object.keys(form.features).map((key) => (
-              <label key={key} className={style.checkboxLabel}>
+              <label key={key} className={style.toggleLabel}>
+                <span className={style.checkText}>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
                 <input
                   type="checkbox"
+                  className={style.toggleInput}
                   checked={form.features[key]}
                   onChange={() => toggleFeature(key)}
+                  disabled={loading} 
                 />
-                <span className={style.checkText}>
-                  {key.charAt(0).toUpperCase() + key.slice(1)}
-                </span>
+                <span className={style.toggleSwitch}></span>
               </label>
             ))}
           </div>
         </div>
 
-        {/* --- 4. Description --- */}
+        {/* 4. DESCRIPTION */}
         <div className={style.section}>
           <h3>Description</h3>
           <textarea
             className={style.textarea}
             rows="5"
-            placeholder="Describe the property in detail..."
+            placeholder="Describe the property..."
             value={form.description}
             onChange={(e) => update("description", e.target.value)}
+            disabled={loading}
           />
         </div>
 
-        {/* --- 5. Media --- */}
+        {/* 5. MEDIA */}
         <div className={style.section}>
-          <h3>Photos & Media</h3>
-          <div className={style.uploadArea} onClick={() => fileInputRef.current.click()}>
-            <UploadCloud size={32} />
-            <p><strong>Click to upload photos</strong> (Max 15)</p>
-            <input 
-              ref={fileInputRef} type="file" multiple accept="image/*" hidden 
-              onChange={handlePhotoPick}
-            />
+          <h3><UploadCloud size={18}/> Photos & Media</h3>
+          <div className={`${style.uploadArea} ${loading ? style.disabled : ''}`} onClick={() => !loading && fileInputRef.current.click()}>
+            <UploadCloud size={40} />
+            <p style={{marginTop:10}}><strong>Click to upload photos</strong> (Max 15)</p>
+            <input ref={fileInputRef} type="file" multiple accept="image/*" hidden onChange={handlePhotoPick} disabled={loading} />
           </div>
           {errors.photos && <span className={style.errorText}>{errors.photos}</span>}
 
@@ -541,69 +463,64 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
             {photoPreviews.map((src, i) => (
               <div key={i} className={style.previewItem}>
                 <img src={src} alt="Preview" />
-                <button type="button" onClick={() => removePhotoAt(i)}><X size={14} /></button>
+                <button type="button" onClick={() => removePhotoAt(i)} disabled={loading}><X size={14} /></button>
               </div>
             ))}
           </div>
 
           <div className={style.mediaRow}>
             <div className={style.mediaCol}>
-              <label>Property Video</label>
+              <label className={style.label} style={{marginBottom:5, display:'block'}}>Property Video <span className={style.optionalText}>(Optional)</span></label>
               {!form.video ? (
-                <button type="button" className={style.mediaBtn} onClick={() => videoInputRef.current.click()}>
+                <button type="button" className={style.mediaBtn} onClick={() => videoInputRef.current.click()} disabled={loading}>
                   <Video size={18} /> Upload Video
                 </button>
               ) : (
                 <div className={style.mediaPreview}>
                   <span>Video Added</span>
-                  <button type="button" onClick={removeVideo}><X size={14}/></button>
+                  <button type="button" onClick={() => !loading && update("video", null)} disabled={loading}><X size={14}/></button>
                 </div>
               )}
-              <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={handleVideoPick} />
+              <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={handleVideoPick} disabled={loading} />
             </div>
 
             <div className={style.mediaCol}>
-              <label>Virtual Tour</label>
+              <label className={style.label} style={{marginBottom:5, display:'block'}}>Virtual Tour <span className={style.optionalText}>(Optional)</span></label>
               {!form.virtualTour ? (
-                <button type="button" className={style.mediaBtn} onClick={() => virtualInputRef.current.click()}>
+                <button type="button" className={style.mediaBtn} onClick={() => virtualInputRef.current.click()} disabled={loading}>
                   <Globe size={18} /> Upload 360° Tour
                 </button>
               ) : (
                 <div className={style.mediaPreview}>
                   <span>Tour Added</span>
-                  <button type="button" onClick={removeVirtual}><X size={14}/></button>
+                  <button type="button" onClick={() => !loading && update("virtualTour", null)} disabled={loading}><X size={14}/></button>
                 </div>
               )}
-              <input ref={virtualInputRef} type="file" accept="video/*" hidden onChange={handleVirtualPick} />
+              <input ref={virtualInputRef} type="file" accept="video/*" hidden onChange={handleVirtualPick} disabled={loading} />
             </div>
           </div>
         </div>
 
-        {/* --- 6. Contact --- */}
+        {/* 6. CONTACT */}
         <div className={style.section}>
-          <h3>Contact Information</h3>
+          <h3><User size={18}/> Contact Information</h3>
           <div className={style.formGrid}>
-            <InputGroup id="cName" label="Name" value={form.contactName} onChange={e => update("contactName", e.target.value)} />
-            <InputGroup id="cEmail" label="Email" type="email" value={form.contactEmail} onChange={e => update("contactEmail", e.target.value)} error={errors.contactEmail} />
-            <InputGroup id="cPhone" label="Phone" type="tel" value={form.contactPhone} onChange={e => update("contactPhone", e.target.value)} error={errors.contactPhone} />
+            <InputGroup id="cName" label="Contact Name" icon={User} value={form.contactName} onChange={e => update("contactName", e.target.value)} disabled={loading} />
+            <InputGroup id="cEmail" label="Email" type="email" icon={Mail} value={form.contactEmail} onChange={e => update("contactEmail", e.target.value)} error={errors.contactEmail} disabled={loading} />
+            <InputGroup id="cPhone" label="Phone" type="tel" icon={Phone} value={form.contactPhone} onChange={e => update("contactPhone", e.target.value)} error={errors.contactPhone} disabled={loading} />
             <InputGroup 
-              id="cMethod" 
-              label="Preferred Method" 
-              options={[
-                { value: "email", label: "Email" },
-                { value: "phone", label: "Phone" },
-                { value: "text", label: "Text" },
-              ]}
-              value={form.contactMethod} 
-              onChange={e => update("contactMethod", e.target.value)} 
+              id="cMethod" label="Preferred Method" 
+              options={[{ value: "email", label: "Email" }, { value: "phone", label: "Phone" }]}
+              value={form.contactMethod} onChange={e => update("contactMethod", e.target.value)} disabled={loading} 
             />
           </div>
         </div>
 
+        {/* FOOTER */}
         <div className={style.footerActions}>
-          <button type="button" onClick={closeBtn} className={style.cancelBtn}>Cancel</button>
+          <button type="button" onClick={closeBtn} className={style.cancelBtn} disabled={loading}>Cancel</button>
           <button type="submit" className={style.submitBtn} disabled={loading}>
-            {loading ? "Processing..." : (initialData ? "Save Changes" : "Publish Listing")} <CheckCircle size={18} />
+            {loading ? <><Loader2 className="animate-spin" size={18}/> Processing...</> : <><CheckCircle size={18} /> {initialData ? "Save Changes" : "Publish Listing"}</>}
           </button>
         </div>
 

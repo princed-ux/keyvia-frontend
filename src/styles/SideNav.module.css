@@ -488,3 +488,97 @@
   color: red;
 }
 
+
+/* --- Custom Country Dropdown --- */
+.countryDropdown {
+  position: relative;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.selectedCountry {
+  width: 100%;
+  padding: 12px 15px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.selectedCountry:hover {
+  border-color: #09707d;
+  background: #fcfcfc;
+}
+
+.selectedCountry img {
+  width: 24px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.selectedCountry span {
+  font-size: 15px;
+  font-weight: 500;
+  color: #333;
+  flex: 1;
+}
+
+/* Dropdown List */
+.dropdownList {
+  position: absolute;
+  top: 100%; /* pushes it right below the button */
+  left: 0;
+  width: 100%;
+  max-height: 250px; /* limits height */
+  overflow-y: auto; /* adds scrollbar */
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  z-index: 100;
+  list-style: none;
+  padding: 0;
+  margin: 5px 0 0 0;
+}
+
+.dropdownList li {
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f9f9f9;
+  transition: background 0.1s;
+}
+
+.dropdownList li:hover {
+  background-color: #f0f9fa; /* Light teal hover */
+}
+
+.dropdownList li img {
+  width: 20px;
+  height: 15px;
+  border-radius: 2px;
+}
+
+.dropdownList li span {
+  font-size: 14px;
+  color: #333;
+  flex: 1;
+}
+
+.dropdownList li small {
+  font-size: 12px;
+  color: #888;
+  font-weight: 600;
+  background: #eee;
+  padding: 2px 6px;
+  border-radius: 4px;
+}

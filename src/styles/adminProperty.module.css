@@ -181,7 +181,7 @@
 .active { background: #ecfdf5; color: #047857; border: 1px solid #d1fae5; }
 .rejected { background: #fef2f2; color: #b91c1c; border: 1px solid #fee2e2; }
 
-.title { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;}
+.title { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0; line-height: 1.4; display: -webkit-box;  -webkit-box-orient: vertical; overflow: hidden;}
 .price { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
 
 .agentRow { 

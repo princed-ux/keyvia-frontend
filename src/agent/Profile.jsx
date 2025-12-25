@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import client from "../api/axios"; 
 import styles from "../styles/profile.module.css";
 import defaultPerson from "../assets/person.png";
@@ -7,11 +7,12 @@ import { toast } from 'react-toastify';
 import {
   User, Mail, Phone, MapPin, Building, FileText, Briefcase, Globe,
   Camera, Save, X, Instagram, Facebook, Linkedin, Twitter, Info,
-  Share2, CheckCircle2, ShieldAlert
+  Share2, CheckCircle2, ShieldAlert, AlertTriangle, UploadCloud, Clock, Sparkles, Send, RefreshCw
 } from "lucide-react";
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
+  const fileInputRef = useRef(null);
 
   // ------------------ Form State ------------------
   const [form, setForm] = useState({
@@ -26,38 +27,38 @@ const Profile = () => {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [remoteAvatarUrl, setRemoteAvatarUrl] = useState(null);
   
-  const [verificationStatus, setVerificationStatus] = useState("pending");
+  // Status Tracking
+  const [verificationStatus, setVerificationStatus] = useState("new"); 
   const [rejectionReason, setRejectionReason] = useState("");
-
+  
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState("profile");
+  
+  // Modals
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showUploadGuideline, setShowUploadGuideline] = useState(false);
 
   // ------------------ Fetch Profile ------------------
-  const fetchProfile = async () => {
+  const fetchProfile = async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true);
     try {
       const res = await client.get("/api/profile");
-      const data = res.data || {}; // Ensure data is object
+      const data = res.data || {}; 
       
-      // ✅ ROBUST MAPPING: Prefer Profile DB -> Then User Context -> Then Empty
       const profileData = {
         username: data.username || "",
         full_name: data.full_name || user?.name || "",
         email: data.email || user?.email || "",
-        
-        // 🔒 Locked Fields (Critical Fix)
         phone: data.phone || user?.phone || "", 
         country: data.country || user?.country || "", 
         license_number: data.license_number || user?.license_number || "", 
         experience: data.experience || user?.experience || "", 
-
         gender: data.gender || "",
         city: data.city || "",
         bio: data.bio || "",
         agency_name: data.agency_name || "",
-        
         social_tiktok: data.social_tiktok || "",
         social_instagram: data.social_instagram || "",
         social_facebook: data.social_facebook || "",
@@ -69,10 +70,10 @@ const Profile = () => {
       setInitialForm(profileData);
       setRemoteAvatarUrl(data.avatar_url || user?.avatar_url || null);
       
-      setVerificationStatus(data.verification_status || "pending"); 
+      // ✅ Status Logic
+      setVerificationStatus(data.verification_status || "new"); 
       setRejectionReason(data.rejection_reason || "");
-
-      // Sync Context
+      
       updateUser({
         name: profileData.full_name,
         avatar_url: data.avatar_url || null,
@@ -80,63 +81,72 @@ const Profile = () => {
         country: profileData.country
       });
 
+      if (isManualRefresh) toast.success("Status refreshed!");
+
     } catch (err) {
       console.error("Profile fetch error:", err);
-      // Don't toast error immediately on load, just log it.
-      // Falls back to user context defaults set above if API fails.
+      if (isManualRefresh) toast.error("Failed to refresh.");
+    } finally {
+      if (isManualRefresh) setRefreshing(false);
     }
   };
 
   useEffect(() => { fetchProfile(); }, []);
 
-  // ------------------ Avatar & Validation ------------------
+  // ------------------ Handlers ------------------
+  const handleCameraClick = () => setShowUploadGuideline(true);
+
+  const handleProceedToUpload = () => {
+    setShowUploadGuideline(false);
+    if(fileInputRef.current) fileInputRef.current.click();
+  };
+
   const onSelectAvatar = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file.");
+      toast.error("Please select a valid image file.");
       return;
     }
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
   };
 
-  const validate = () => {
-    const e = {};
-    if (!form.username.trim()) e.username = "Username is required.";
-    if (!form.full_name.trim()) e.full_name = "Full name is required.";
-    // Removed strict city validation to allow saving partial profile
-    
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
   const onSave = async () => {
-    if (!validate()) return;
+    // 🛑 VALIDATION: New User MUST upload photo
+    if (verificationStatus === 'new' && !avatarFile && !remoteAvatarUrl) {
+        toast.error("Please upload a profile photo to complete registration.");
+        return;
+    }
+
     setSaving(true);
     try {
-      // 1. Upload Avatar if changed
-      let newAvatarUrl = remoteAvatarUrl;
+      // 1. Upload Avatar (Only if changed)
       if (avatarFile) {
         const formData = new FormData();
         formData.append("avatar", avatarFile);
-        const avatarRes = await client.put("/api/avatar", formData, { headers: { "Content-Type": "multipart/form-data" }});
-        newAvatarUrl = avatarRes.data.avatar_url;
-        setRemoteAvatarUrl(newAvatarUrl);
-        updateUser({ avatar_url: newAvatarUrl });
+        
+        // ✅ CORRECT: Let Axios handle boundary automatically
+        const avatarRes = await client.put("/api/profile/avatar", formData);
+        
+        setRemoteAvatarUrl(avatarRes.data.avatar_url);
+        updateUser({ avatar_url: avatarRes.data.avatar_url });
+        
+        setAvatarFile(null); // Clear file state
       }
 
-      // 2. Update Profile
-      // Ensure phone/country are sent back even if disabled (just in case backend needs them)
+      // 2. Update Text Profile
       await client.put("/api/profile", form);
       
       setForm((f) => ({ ...f }));
       setInitialForm((f) => ({ ...f }));
       setEditing(false);
+      
+      // ✅ Optimistic Update
       setVerificationStatus('pending'); 
       updateUser({ name: form.full_name });
 
-      toast.success("Profile Updated Successfully!");
+      toast.success("Submitted for review!", { icon: "🚀" });
 
     } catch (err) {
       console.error(err);
@@ -146,64 +156,133 @@ const Profile = () => {
     }
   };
 
-  // ------------------ Render Input Helper ------------------
   const renderInput = (id, label, icon, type = "text", disabled = false) => (
     <div className={styles.inputGroup}>
       <label htmlFor={id} className={styles.label}>{icon} {label}</label>
       <input
         id={id} type={type}
-        className={`${styles.input} ${errors[id] ? styles.errorBorder : ""} ${disabled ? styles.inputDisabled : ""}`}
+        className={`${styles.input} ${disabled ? styles.inputDisabled : ""}`}
         value={form[id] || ""}
         onChange={(e) => setForm({ ...form, [id]: e.target.value })}
         disabled={disabled || !editing} 
         readOnly={disabled} 
         placeholder={!editing ? "" : `Enter ${label}`}
-        style={disabled ? { backgroundColor: '#f9f9f9', cursor: 'not-allowed', color: '#666' } : {}}
       />
-      {errors[id] && <span className={styles.errorText}>{errors[id]}</span>}
     </div>
   );
 
+  const hasPhoto = !!remoteAvatarUrl || !!avatarFile;
+
   return (
     <div className={styles.container}>
-      {/* ToastContainer is handled in SideNav */}
       
+      {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerContent}>
             <h1>Agent Profile</h1>
-            <p>Manage your public identity</p>
+            <p>Manage your public identity & credentials</p>
+        </div>
+        <div className={styles.headerActions}>
+             
+             {/* Refresh Button */}
+             <button 
+                className={styles.refreshBtn} 
+                onClick={() => fetchProfile(true)}
+                disabled={refreshing}
+                title="Refresh Status"
+             >
+                <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} /> Refresh
+             </button>
+
+             {/* Status Badge */}
+             <div className={`${styles.statusPill} ${
+                verificationStatus === 'approved' ? styles.statusVerified : 
+                verificationStatus === 'rejected' ? styles.statusRejected : 
+                verificationStatus === 'pending' ? styles.statusPending : ''
+             }`} style={verificationStatus === 'new' ? {display:'none'} : {}}>
+                {verificationStatus === 'approved' && <><CheckCircle2 size={16} /> APPROVED</>}
+                {verificationStatus === 'pending' && <><Clock size={16} /> PENDING</>}
+                {verificationStatus === 'rejected' && <><AlertTriangle size={16} /> REJECTED</>}
+            </div>
         </div>
       </div>
 
-      {/* Verification Status Banner */}
-      <div className={styles.layout} style={{display:'block', marginBottom:0}}>
-        {verificationStatus === 'pending' && <div className={`${styles.statusBanner} ${styles.statusWarning}`}><Info size={24} /><div><strong>Profile Under Review</strong><p style={{margin:0}}>Limited access until approved.</p></div></div>}
-        {verificationStatus === 'rejected' && <div className={`${styles.statusBanner} ${styles.statusRejected}`}><ShieldAlert size={24} /><div><strong>Verification Failed</strong><p style={{margin:0}}>Reason: {rejectionReason}</p></div></div>}
-        {verificationStatus === 'approved' && <div className={`${styles.statusBanner} ${styles.statusVerified}`}><CheckCircle2 size={24} /><div><strong>Verified Agent</strong><p style={{margin:0}}>Profile is public.</p></div></div>}
-      </div>
+      {/* --- Status Banners --- */}
+      {(verificationStatus === 'new' || !verificationStatus) && (
+        <div className={styles.actionBox}>
+            <Sparkles size={24} className={styles.actionIcon} />
+            <div>
+                <strong>Complete Your Profile</strong>
+                <p>Welcome! To start listing properties, please fill out your details and upload a photo. Click <strong>"Edit Profile"</strong> to begin.</p>
+            </div>
+        </div>
+      )}
 
+      {verificationStatus === 'pending' && (
+        <div className={styles.infoBox}>
+            <Clock size={24} className={styles.infoIcon} />
+            <div>
+                <strong>Profile Under Review</strong>
+                <p>Thanks for submitting! Our team is reviewing your details (approx 2-3 mins).</p>
+            </div>
+        </div>
+      )}
+
+      {verificationStatus === 'rejected' && (
+        <div className={styles.errorBox}>
+            <ShieldAlert size={24} className={styles.errorIcon} />
+            <div>
+                <strong>Verification Rejected:</strong> 
+                <p>{rejectionReason || "Please fix your profile details."}</p>
+            </div>
+        </div>
+      )}
+
+      {/* Main Layout */}
       <div className={styles.layout}>
         {/* Left Sidebar */}
         <div className={styles.sidebar}>
           <div className={styles.avatarCard}>
             <div className={styles.avatarWrapper}>
-                <img src={avatarPreview || remoteAvatarUrl || defaultPerson} alt="Avatar" className={styles.avatar} onClick={() => setShowImageModal(true)} />
-                {editing && <label className={styles.cameraBtn}><Camera size={20} /><input type="file" hidden accept="image/*" onChange={onSelectAvatar} /></label>}
+                <img 
+                    src={avatarPreview || remoteAvatarUrl || defaultPerson} 
+                    alt="Avatar" 
+                    className={styles.avatar} 
+                    onClick={() => setShowImageModal(true)} 
+                />
+                
+                {editing && (
+                    <button className={styles.cameraBtn} onClick={handleCameraClick} type="button">
+                        <Camera size={18} />
+                    </button>
+                )}
+                
+                <input type="file" hidden accept="image/*" ref={fileInputRef} onChange={onSelectAvatar} />
             </div>
-            <h2 className={styles.userName}>{form.full_name || "User Name"}</h2>
             
-            <div className={`${styles.badge} ${verificationStatus === 'approved' ? styles.badgeVerified : verificationStatus === 'rejected' ? styles.badgeRejected : styles.badgePending}`}>
-                {verificationStatus === 'approved' ? <CheckCircle2 size={12}/> : <Info size={12}/>} {verificationStatus.toUpperCase()}
+            <div className={styles.userInfo}>
+                <h2 className={styles.userName}>{form.full_name || "User Name"}</h2>
+                <p className={styles.userRole}>Real Estate Agent</p>
+                <div className={styles.locationTag}>
+                    <MapPin size={14} /> {form.city || "City"}, {form.country || "Country"}
+                </div>
             </div>
 
-            <p className={styles.userRole}>Real Estate Agent</p>
-            <div className={styles.locationTag}><MapPin size={14} /> {form.city || "City"}, {form.country || "Country"}</div>
-            
-            <button className={editing ? styles.cancelBtn : styles.editBtn} onClick={editing ? () => {setEditing(false); setForm(initialForm);} : () => setEditing(true)} disabled={saving}>
-                {editing ? <><X size={18} /> Cancel</> : <><Briefcase size={18} /> Edit Profile</>}
-            </button>
-            
-            {editing && <button className={styles.saveBtn} onClick={onSave} disabled={saving}>{saving ? "Saving..." : <><Save size={18} /> Submit</>}</button>}
+            <div className={styles.actionButtons}>
+                <button 
+                    className={editing ? styles.cancelBtn : styles.editBtn} 
+                    onClick={editing ? () => {setEditing(false); setForm(initialForm);} : () => setEditing(true)} 
+                    disabled={saving}
+                >
+                    {editing ? <><X size={18} /> Cancel</> : <><Briefcase size={18} /> Edit Profile</>}
+                </button>
+                
+                {editing && (
+                    <button className={styles.saveBtn} onClick={onSave} disabled={saving}>
+                        {saving ? "Saving..." : <><Send size={18} /> {verificationStatus === 'new' ? "Submit for Approval" : "Update Profile"}</>}
+                    </button>
+                )}
+            </div>
           </div>
         </div>
 
@@ -211,46 +290,94 @@ const Profile = () => {
         <div className={styles.content}>
             <div className={styles.tabs}>
                 {[{ id: "profile", label: "Overview", icon: <User size={18}/> }, { id: "about", label: "Bio", icon: <Info size={18}/> }, { id: "socials", label: "Socials", icon: <Share2 size={18}/> }].map(tab => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`${styles.tab} ${activeTab === tab.id ? styles.activeTab : ""}`}>{tab.icon} {tab.label}</button>
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`${styles.tab} ${activeTab === tab.id ? styles.activeTab : ""}`}>
+                        {tab.icon} {tab.label}
+                    </button>
                 ))}
             </div>
 
-            {activeTab === "profile" && (
-                <div className={styles.formGrid}>
-                    {renderInput("username", "Username", <User size={16}/>)}
-                    {renderInput("full_name", "Full Name", <FileText size={16}/>)}
-                    {renderInput("email", "Email", <Mail size={16}/>, "email", true)}
-                    
-                    {/* ✅ PHONE & COUNTRY ARE PERMANENTLY DISABLED (passed true) */}
-                    {renderInput("country", "Country", <Globe size={16}/>, "text", true)} 
-                    {renderInput("phone", "Phone Number", <Phone size={16}/>, "text", true)}
-
-                    {renderInput("agency_name", "Agency Name", <Building size={16}/>)}
-                    {renderInput("license_number", "License No.", <Briefcase size={16}/>)}
-                    {renderInput("experience", "Experience (Years)", <CheckCircle2 size={16}/>)}
-                    
-                    {renderInput("city", "City", <MapPin size={16}/>)}
-                    
-                    <div className={styles.inputGroup}>
-                        <label className={styles.label}><User size={16}/> Gender</label>
-                        <select id="gender" className={styles.select} value={form.gender} onChange={(e) => setForm({...form, gender: e.target.value})} disabled={!editing}>
-                            <option value="">Select Gender</option><option value="Male">Male</option><option value="Female">Female</option>
-                        </select>
+            <div className={styles.tabContent}>
+                {activeTab === "profile" && (
+                    <div className={styles.formGrid}>
+                        {renderInput("username", "Username", <User size={16}/>)}
+                        {renderInput("full_name", "Full Name", <FileText size={16}/>)}
+                        {renderInput("email", "Email", <Mail size={16}/>, "email", true)}
+                        {renderInput("country", "Country", <Globe size={16}/>, "text", true)} 
+                        {renderInput("phone", "Phone Number", <Phone size={16}/>, "text", true)}
+                        {renderInput("agency_name", "Agency Name", <Building size={16}/>)}
+                        {renderInput("license_number", "License No.", <Briefcase size={16}/>)}
+                        {renderInput("experience", "Experience (Years)", <CheckCircle2 size={16}/>)}
+                        {renderInput("city", "City", <MapPin size={16}/>)}
+                        
+                        <div className={styles.inputGroup}>
+                            <label className={styles.label}><User size={16}/> Gender</label>
+                            <select id="gender" className={styles.select} value={form.gender} onChange={(e) => setForm({...form, gender: e.target.value})} disabled={!editing}>
+                                <option value="">Select Gender</option><option value="Male">Male</option><option value="Female">Female</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {activeTab === "about" && (
-                <div><div className={styles.inputGroupFull}><label className={styles.label}><Info size={16}/> Bio</label><textarea rows={8} className={styles.textarea} value={form.bio} onChange={(e) => setForm({...form, bio: e.target.value})} disabled={!editing} placeholder="Tell us about yourself..." /></div></div>
-            )}
+                {activeTab === "about" && (
+                    <div className={styles.inputGroupFull}>
+                        <label className={styles.label}><Info size={16}/> Bio</label>
+                        <textarea rows={10} className={styles.textarea} value={form.bio} onChange={(e) => setForm({...form, bio: e.target.value})} disabled={!editing} placeholder="Tell us about yourself..." />
+                    </div>
+                )}
 
-            {activeTab === "socials" && (
-                <div><div className={styles.socialGrid}>{renderInput("social_instagram", "Instagram", <Instagram size={16}/>)}{renderInput("social_facebook", "Facebook", <Facebook size={16}/>)}{renderInput("social_linkedin", "LinkedIn", <Linkedin size={16}/>)}{renderInput("social_twitter", "Twitter", <Twitter size={16}/>)}{renderInput("social_tiktok", "TikTok", <Share2 size={16}/>)}</div></div>
-            )}
+                {activeTab === "socials" && (
+                    <div className={styles.socialGrid}>
+                        {renderInput("social_instagram", "Instagram", <Instagram size={16}/>)}
+                        {renderInput("social_facebook", "Facebook", <Facebook size={16}/>)}
+                        {renderInput("social_linkedin", "LinkedIn", <Linkedin size={16}/>)}
+                        {renderInput("social_twitter", "Twitter", <Twitter size={16}/>)}
+                        {renderInput("social_tiktok", "TikTok", <Share2 size={16}/>)}
+                    </div>
+                )}
+            </div>
         </div>
       </div>
 
-      {showImageModal && <div className={styles.modalOverlay} onClick={() => setShowImageModal(false)}><div className={styles.modalContent}><img src={avatarPreview || remoteAvatarUrl || defaultPerson} alt="Full" /></div></div>}
+      {showImageModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowImageModal(false)}>
+            <div className={styles.modalContent}>
+                <img src={avatarPreview || remoteAvatarUrl || defaultPerson} alt="Full" />
+            </div>
+        </div>
+      )}
+
+      {/* --- UPLOAD GUIDELINE MODAL --- */}
+      {showUploadGuideline && (
+        <div className={styles.modalOverlay}>
+            <div className={styles.guidelineModal}>
+                <div className={styles.guidelineHeader}>
+                    <AlertTriangle size={32} className={styles.guidelineIcon} />
+                    <h3>Photo Upload Rules</h3>
+                </div>
+                <div className={styles.guidelineBody}>
+                    <p>To verify your identity, you must upload a valid photo.</p>
+                    <ul className={styles.rulesList}>
+                        <li>✅ <strong>Real Photo:</strong> A clear picture of yourself.</li>
+                        <li>✅ <strong>Professional:</strong> Straight face, decent dressing.</li>
+                        <li>❌ <strong>No Animations:</strong> No cartoons, anime, or avatars.</li>
+                        <li>❌ <strong>No Styles/Forming:</strong> No heavy filters, side poses, or covering face.</li>
+                    </ul>
+                    <p className={styles.warningText}>
+                        Photos that are not well-mannered or unclear will be <strong>rejected</strong> by the admin immediately.
+                    </p>
+                </div>
+                <div className={styles.guidelineActions}>
+                    <button className={styles.cancelBtn} onClick={() => setShowUploadGuideline(false)}>Cancel</button>
+                    
+                    {/* ✅ DYNAMIC BUTTON TEXT */}
+                    <button className={styles.confirmBtn} onClick={handleProceedToUpload}>
+                        <UploadCloud size={18} /> I Understand, {hasPhoto ? "Change Photo" : "Select Photo"}
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
     </div>
   );
 };

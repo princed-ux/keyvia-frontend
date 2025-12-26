@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 import { 
-  CreditCard, History, Wallet, AlertCircle, 
-  Loader2, CheckCircle2, Plus, Zap, ArrowUpRight 
+  CreditCard, History, Wallet, AlertCircle, Lock,
+  Loader2, CheckCircle2, Plus, Zap, ArrowUpRight, ShieldCheck 
 } from "lucide-react";
 import { useAuth } from "../context/AuthProvider";
-import style from "../styles/Payments.module.css"; // ✅ Corrected Path
+import style from "../styles/Payments.module.css"; 
 
 // ================= CONFIG =================
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -14,8 +15,12 @@ const WALLET_PRICE = 15; // Discounted Price
 const DIRECT_PRICE = 20; // Standard Price
 
 const AgentPayments = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth(); // ✅ Get updateUser
+  const navigate = useNavigate();
   const agentId = user?.unique_id || user?.id;
+
+  // ✅ LOCAL STATUS: Ensures the UI unlocks INSTANTLY after refresh
+  const [localStatus, setLocalStatus] = useState(user?.verification_status || 'pending');
 
   // ================= STATE =================
   const [inactiveListings, setInactiveListings] = useState([]);
@@ -46,19 +51,32 @@ const AgentPayments = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Get Wallet Balance
-      const walletRes = await axios.get(`${API_BASE}/api/wallet`, authHeader());
+      // ✅ Fetch Profile, Wallet, and History ALL AT ONCE
+      const [profileRes, walletRes, listingsRes, historyRes] = await Promise.all([
+          axios.get(`${API_BASE}/api/profile`, authHeader()),
+          axios.get(`${API_BASE}/api/wallet`, authHeader()),
+          axios.get(`${API_BASE}/api/listings/agent`, authHeader()),
+          axios.get(`${API_BASE}/api/payments/history`, authHeader())
+      ]);
+
+      // 1. Update Status Immediately
+      const status = profileRes.data.verification_status;
+      setLocalStatus(status);
+      
+      // Update Global Context if needed
+      if (updateUser) {
+          updateUser(profileRes.data);
+      }
+
+      // 2. Set Financial Data
       setWalletBalance(Number(walletRes.data?.balance || 0));
 
-      // 2. Get Inactive Listings
-      const listingsRes = await axios.get(`${API_BASE}/api/listings/agent`, authHeader());
       const unpaid = Array.isArray(listingsRes.data)
         ? listingsRes.data.filter((l) => l.status === "approved" && !l.is_active)
         : [];
       setInactiveListings(unpaid);
 
-      // 3. Get History
-      const historyRes = await axios.get(`${API_BASE}/api/payments/history`, authHeader());
+      // 3. Set History Data
       setPayments(Array.isArray(historyRes.data) ? historyRes.data : []);
 
     } catch (err) {
@@ -92,7 +110,6 @@ const AgentPayments = () => {
 
   // ================= ACTION 1: FUND WALLET =================
   const handleFundWallet = async () => {
-    // 1. Ask for Amount (USD)
     const { value: amount } = await Swal.fire({
       title: 'Fund Your Wallet',
       text: 'Enter amount in USD (min $5).',
@@ -105,7 +122,6 @@ const AgentPayments = () => {
 
     if (!amount || amount < 5) return;
 
-    // 2. Ask for Currency
     const currency = await selectCurrency();
     if (!currency) return;
 
@@ -113,7 +129,7 @@ const AgentPayments = () => {
     try {
       const res = await axios.post(
         `${API_BASE}/api/wallet/fund`, 
-        { amount, currency }, // Send currency
+        { amount, currency }, 
         authHeader()
       );
       openFlutterwave(res.data, "FUND_WALLET");
@@ -163,7 +179,6 @@ const AgentPayments = () => {
 
   // ================= ACTION 3: DIRECT CARD PAYMENT ($20) =================
   const payDirect = async (listing) => {
-    // 1. Ask for Currency
     const currency = await selectCurrency();
     if (!currency) return;
 
@@ -186,8 +201,8 @@ const AgentPayments = () => {
     window.FlutterwaveCheckout({
       public_key: paymentData.public_key,
       tx_ref: paymentData.tx_ref,
-      amount: paymentData.amount, // Now Local Currency (e.g. NGN)
-      currency: paymentData.currency, // e.g. "NGN"
+      amount: paymentData.amount, 
+      currency: paymentData.currency, 
       payment_options: "card,mobilemoney,ussd",
       customer: {
         email: user?.email,
@@ -225,6 +240,34 @@ const AgentPayments = () => {
       setProcessingId(null);
     }
   };
+
+  // ✅ CHECK LOCAL STATUS
+  const isVerified = localStatus === 'approved';
+
+  // 🔒 LOCKED STATE (Only block Actions, not the whole page if you want history visible)
+  // BUT based on your previous request, you wanted the whole page blocked.
+  if (!isVerified) {
+    return (
+        <div className={style.lockedContainer}>
+            <div className={style.lockedCard}>
+                <div className={style.iconWrapper}>
+                    <Lock size={48} className={style.lockedIcon} />
+                </div>
+                <h2>Wallet Locked</h2>
+                <p>
+                    Your financial dashboard is currently restricted. 
+                    To fund your wallet or activate listings, your agent profile must be <b>Approved</b>.
+                </p>
+                <div className={style.statusBadge}>
+                    Current Status: <span>{localStatus.toUpperCase()}</span>
+                </div>
+                <button className={style.verifyBtn} onClick={() => navigate('/agent/profile')}>
+                    <ShieldCheck size={18} /> Go to Verification
+                </button>
+            </div>
+        </div>
+    );
+  }
 
   if (loading && !walletBalance) {
     return <div className={style.loaderContainer}><Loader2 className="animate-spin" size={40} color="#007983" /></div>;
@@ -270,7 +313,7 @@ const AgentPayments = () => {
                 </div>
                 <div className={style.expiryInfo}>
                   <span>STATUS</span>
-                  <strong>ACTIVE</strong>
+                  <strong className={style.activeText}>ACTIVE</strong>
                 </div>
               </div>
             </div>
@@ -359,7 +402,8 @@ const AgentPayments = () => {
                     {payments.map(p => (
                       <tr key={p.id}>
                         <td>
-                          <span className={style.statusBadge}>
+                          {/* ✅ Fixed TYPO: statusBadge1 -> statusBadge */}
+                          <span className={`${style.statusBadge1} ${p.purpose === 'wallet_funding' ? style.funding : style.activation}`}>
                             {p.purpose === 'wallet_funding' ? 'Top Up' : 'Activation'}
                           </span>
                         </td>

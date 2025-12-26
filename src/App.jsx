@@ -74,8 +74,8 @@ import DeveloperSettings from "./developer/Settings.jsx";
 // ---------- Admin Pages (Standard) ----------
 import AdminSideNav from "./admin/SideNav.jsx";
 import AdminDashboard from "./admin/Dashboard.jsx";
-import AdminProperties from "./admin/Properties.jsx";
-import AdminProfile from "./admin/ProfileReviews.jsx";
+import PropertyReviews from "./admin/Properties.jsx";
+import ProfileReviews from "./admin/ProfileReviews.jsx";
 import AdminMessages from "./admin/Messages.jsx";
 import AdminNotifications from "./admin/Notifications.jsx";
 import AdminSettings from "./admin/Settings.jsx";
@@ -221,10 +221,17 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<AdminDashboard />} />
+        {/* Redirect /admin to /admin/dashboard automatically */}
+        <Route index element={<Navigate to="dashboard" replace />} />
+        
         <Route path="dashboard" element={<AdminDashboard />} />
-        <Route path="properties" element={<AdminProperties />} />
-        <Route path="profile" element={<AdminProfile/>} />
+        
+        {/* ✅ AI Profile Verification (Matches SideNav) */}
+        <Route path="profile-reviews" element={<ProfileReviews />} /> 
+        
+        {/* ✅ Property Listings Approval (Matches SideNav) */}
+        <Route path="property-reviews" element={<PropertyReviews />} />
+        
         <Route path="messages" element={<AdminMessages />} />
         <Route path="notifications" element={<AdminNotifications />} />
         <Route path="settings" element={<AdminSettings />} />

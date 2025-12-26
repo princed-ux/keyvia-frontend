@@ -318,7 +318,7 @@ button:disabled {
   font-size: 14px;
 }
 
-.statusBadge {
+.statusBadge1 {
   background: #ecfdf5;
   color: #059669;
   padding: 4px 10px;
@@ -347,4 +347,87 @@ button:disabled {
   .pageWrapper {
     padding: 20px;
   }
+}
+
+
+/* --- LOCKED STATE --- */
+.lockedContainer {
+  height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+}
+
+.lockedCard {
+  background: white;
+  padding: 40px;
+  border-radius: 16px;
+  text-align: center;
+  max-width: 450px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.iconWrapper {
+  width: 80px;
+  height: 80px;
+  background: #f1f5f9;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.lockedIcon {
+  color: #64748b;
+}
+
+.lockedCard h2 {
+  color: #0f172a;
+  margin-bottom: 10px;
+  font-size: 1.5rem;
+}
+
+.lockedCard p {
+  color: #64748b;
+  margin-bottom: 25px;
+  line-height: 1.6;
+}
+
+.statusBadge {
+  background: #fff1f2;
+  color: #be123c;
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 25px;
+  border: 1px solid #fecaca;
+}
+
+.statusBadge span {
+  font-weight: 800;
+}
+
+.verifyBtn {
+  background: #007983;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 auto;
+  transition: all 0.2s;
+}
+
+.verifyBtn:hover {
+  background: #005f66;
+  transform: translateY(-2px);
 }

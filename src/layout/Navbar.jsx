@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { FaChevronDown, FaBell, FaUserCircle } from "react-icons/fa"; 
+import { FaChevronDown, FaBell } from "react-icons/fa"; 
 import style from "../styles/navbar.module.css";
 import logo from "../assets/logoImg.png";
-// You might want a dark logo for white navbar if the current one is white text
-// import logoDark from "../assets/logoDark.png"; 
 import defaultProfile from "../assets/person.png";
 import { useAuth } from "../context/AuthProvider.jsx";
 
@@ -24,21 +22,29 @@ const Navbar = () => {
     navigate("/"); 
   };
 
-  // ✅ Dashboard Link Logic
+  // ✅ Dashboard Link Logic (Fixed for Super Admin)
   const getDashboardLink = () => {
     if (!user) return "/";
+
+    // 1. Super Admin Check
+    if (user.is_super_admin || user.role === 'superadmin' || user.role === 'super_admin') {
+        return "/super-admin/dashboard";
+    }
+
+    // 2. Standard Roles
     const roleMap = {
       admin: "/admin/dashboard",
       agent: "/dashboard",
-      owner: "/owner/dashboard",
-      developer: "/developer/dashboard",
-      buyer: "/buyer/dashboard"
+      owner: "/owner",
+      developer: "/developer",
+      buyer: "/buyer"
     };
     return roleMap[user.role] || "/";
   };
 
   const getSettingsLink = () => {
     if (!user) return "/";
+    if (user.is_super_admin) return "/super-admin/settings";
     return user.role === "admin" ? "/admin/settings" : "/dashboard/settings/account";
   };
 
@@ -55,6 +61,9 @@ const Navbar = () => {
 
   const isLoggedIn = user && user.role !== "pending";
   const isActive = (path) => location.pathname === path;
+
+  // Safe Name Logic
+  const displayName = (user?.name || user?.full_name || "User").split(" ")[0];
 
   return (
     <nav className={`${style.navbar} ${isTransparent ? style.transparent : style.white}`}>
@@ -101,7 +110,7 @@ const Navbar = () => {
                 className={style.profileImage}
               />
               <span className={style.username}>
-                {user.name?.split(" ")[0] || "User"}
+                {displayName}
               </span>
               <FaChevronDown
                 className={`${style.dropdownArrow} ${dropdownOpen ? style.rotate : ""}`}
@@ -111,8 +120,22 @@ const Navbar = () => {
             {/* Dropdown */}
             {dropdownOpen && (
               <div className={style.dropdown}>
+                <div className={style.dropdownItem} style={{pointerEvents:'none', fontWeight:'bold', color:'#09707d', borderBottom:'1px solid #eee'}}>
+                    {user.role === 'superadmin' ? 'SUPER ADMIN' : user.role.toUpperCase()}
+                </div>
+                
                 <Link to="/profile" className={style.dropdownItem}>My Profile</Link>
-                <Link to={getDashboardLink()} className={style.dropdownItem}>Dashboard</Link>
+                
+                {/* ✅ DASHBOARD (Opens in New Tab) */}
+                <Link 
+                    to={getDashboardLink()} 
+                    className={style.dropdownItem}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                >
+                    Dashboard ↗
+                </Link>
+
                 <Link to={getSettingsLink()} className={style.dropdownItem}>Settings</Link>
                 <button onClick={handleLogout} className={style.dropdownItem}>Logout</button>
               </div>

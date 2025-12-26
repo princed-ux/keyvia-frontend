@@ -8,26 +8,27 @@ import {
   Settings,
   LogOut,
   Camera,
-} from "lucide-react"; // Removed 'Users' icon since they can't manage users
+  UserCheck,
+  ChevronDown,
+  ChevronUp
+} from "lucide-react";
 import Swal from "sweetalert2";
-import style from "../styles/SideNav.module.css";
+import style from "../styles/AdminSideNav.module.css"; // ✅ Uses new Admin CSS
 import { useAuth } from "../context/AuthProvider.jsx";
 import defaultAvatar from "../assets/person.png";
 
 // ---------------- IMAGE VALIDATION ----------------
-const MAX_BYTES = 2 * 1024 * 1024; // 2MB
-const ALLOWED_EXT = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"];
+const MAX_BYTES = 2 * 1024 * 1024;
+const ALLOWED_EXT = ["png", "jpg", "jpeg", "webp"];
 
 function isValidImage(file) {
   if (!file) return { ok: false, reason: "No file selected" };
   if (!file.type?.startsWith("image/")) return { ok: false, reason: "Not an image" };
-  const ext = file.name.split(".").pop().toLowerCase();
-  if (!ALLOWED_EXT.includes(ext)) return { ok: false, reason: "File type not allowed" };
   if (file.size > MAX_BYTES) return { ok: false, reason: "File too large (max 2MB)" };
   return { ok: true };
 }
 
-// ---------------- SIDENAV COMPONENT ----------------
+// ---------------- COMPONENT ----------------
 const AdminSideNav = () => {
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -39,86 +40,62 @@ const AdminSideNav = () => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showSpecialId, setShowSpecialId] = useState(false);
 
-  // ---------------- DROPDOWN BEHAVIOR ----------------
+  // ---------------- EVENTS ----------------
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
       }
     };
-
-    const handleEsc = (event) => event.key === "Escape" && setShowDropdown(false);
-    const handleScroll = () => setShowDropdown(false);
-
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEsc);
-    window.addEventListener("scroll", handleScroll, true);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEsc);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  // ---------------- IMAGE UPLOAD ----------------
-  const openPicker = () => inputRef.current?.click();
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     const check = isValidImage(file);
     if (!check.ok) {
       Swal.fire({ icon: "error", title: "Invalid Image", text: check.reason });
-      e.target.value = "";
       return;
     }
     const reader = new FileReader();
     reader.onload = (ev) => setAvatarSrc(ev.target.result);
     reader.readAsDataURL(file);
+    // TODO: Add API call to upload admin avatar here
   };
 
-  // ---------------- LOGOUT ----------------
   const handleLogout = async () => {
-    try {
-      await logout();
-      setShowLogoutModal(false);
-      navigate("/");
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Logout Failed", text: "Please try again." });
-    }
+    await logout();
+    navigate("/");
   };
 
-  // ---------------- COPY SPECIAL ID ----------------
   const copySpecialId = async () => {
-    try {
-      await navigator.clipboard.writeText(user?.special_id || "");
-      Swal.fire({
-        icon: "success",
-        title: "Copied!",
-        text: "Special ID copied to clipboard.",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
+    await navigator.clipboard.writeText(user?.unique_id || "");
+    Swal.fire({
+      icon: "success",
+      title: "Copied!",
+      timer: 1000,
+      showConfirmButton: false,
+      toast: true,
+      position: 'top-end'
+    });
   };
 
   return (
     <div className={style.allcontainer}>
-      {/* Sidebar */}
+      
+      {/* --- SIDEBAR --- */}
       <aside className={style.side}>
         <div className={style.logo}>
-          {/* Avatar */}
           <div className={style.avatarWrap}>
             <img
               src={avatarSrc}
-              alt="Admin avatar"
+              alt="Admin"
               className={style.avatar}
               onError={(e) => (e.currentTarget.src = defaultAvatar)}
             />
-            <div className={style.cameraIcon} onClick={openPicker}>
-              <Camera size={16} />
+            <div className={style.cameraIcon} onClick={() => inputRef.current?.click()}>
+              <Camera size={14} />
             </div>
             <input
               ref={inputRef}
@@ -128,70 +105,37 @@ const AdminSideNav = () => {
               className={style.fileInput}
             />
           </div>
-
-          {/* Admin Info */}
           <div className={style.agentInfo}>
-            <h4 className={style.agentName}>{user?.name || "Admin"}</h4>
-            <p className={style.agentTitle}>Moderator</p>
+            <h4>{user?.name || "System Admin"}</h4>
+            <p className={style.agentTitle}>Admin Console</p>
           </div>
         </div>
 
-        {/* Navigation Links */}
         <nav className={style.nav}>
-          <NavLink
-            to="/admin/dashboard"
-            end
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <LayoutDashboard size={18} /> Dashboard
+          <NavLink to="/admin/dashboard" end className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
+            <LayoutDashboard size={20} /> Dashboard
           </NavLink>
 
-          {/* REMOVED: Manage Users (Only for Super Admin) */}
-
-          <NavLink
-            to="/admin/profile"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <Building2 size={18} /> Review Profile
-          </NavLink>
-          <NavLink
-            to="/admin/properties"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <Building2 size={18} /> Review Properties
+          <NavLink to="/admin/profile-reviews" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
+            <UserCheck size={20} /> Agent Verification
           </NavLink>
 
-          <NavLink
-            to="/admin/messages"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <MessageSquare size={18} /> Support Messages
+          <NavLink to="/admin/property-reviews" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
+            <Building2 size={20} /> Property Listings
           </NavLink>
 
-          <NavLink
-            to="/admin/notifications"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <Bell size={18} /> Notifications
+          <NavLink to="/admin/messages" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
+            <MessageSquare size={20} /> Support Tickets
           </NavLink>
 
-          <NavLink
-            to="/admin/settings"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <Settings size={18} /> Settings
+          <NavLink to="/admin/notifications" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
+            <Bell size={20} /> System Alerts
+          </NavLink>
+
+          <div style={{flex:1}}></div> {/* Spacer */}
+
+          <NavLink to="/admin/settings" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
+            <Settings size={20} /> Platform Settings
           </NavLink>
         </nav>
 
@@ -202,69 +146,45 @@ const AdminSideNav = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* --- MAIN CONTENT --- */}
       <div className={style.mainContainer}>
+        
+        {/* Top Navbar */}
         <div className={style.topnav}>
-          <h2 className={style.topTitle}>Dashboard</h2>
+          <h2 className={style.topTitle}>Admin Portal</h2>
 
-          {/* Email + Dropdown */}
           <div className={style.userSection} ref={dropdownRef}>
-            <div
-              className={style.userEmail}
-              onClick={() => setShowDropdown(!showDropdown)}
-              role="button"
-              tabIndex={0}
-            >
-              {user?.email || "admin@keyvia.com"}
-              <i
-                className={`fas fa-chevron-${showDropdown ? "up" : "down"} ml-2`}
-              />
+            <div className={style.userEmail} onClick={() => setShowDropdown(!showDropdown)}>
+              {user?.email}
+              {showDropdown ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </div>
 
+            {/* Dropdown Menu */}
             {showDropdown && (
               <div className={style.dropdown}>
                 <div className={style.dropdownItem}>
-                  <strong>Role:</strong>
-                  <span className={style.roleValue}>
-                    {/* Dynamic Role instead of Hardcoded CEO */}
-                    <span className={style.ceo}>{user?.role?.toUpperCase() || "ADMIN"}</span>
-                  </span>
+                  <strong>Access Level:</strong>
+                  <span className={style.roleValue}>{user?.role?.toUpperCase()}</span>
                 </div>
-
                 <div className={style.dropdownItem}>
-                  <strong>Special ID:</strong>
+                  <strong>Admin ID:</strong>
                   <div className={style.uniqueBox}>
                     <span className={style.uniqueValue}>
-                      {showSpecialId
-                        ? user?.special_id || "N/A"
-                        : "•".repeat((user?.special_id || "").length || 8)}
+                      {showSpecialId ? user?.unique_id : "••••••••••••"}
                     </span>
-                    <button
-                      onClick={() => setShowSpecialId(!showSpecialId)}
-                      className={style.eyeBtn}
-                      title={showSpecialId ? "Hide" : "Show"}
-                    >
-                      <i className={`fas ${showSpecialId ? "fa-eye" : "fa-eye-slash"}`} />
+                    <button onClick={() => setShowSpecialId(!showSpecialId)} className={style.eyeBtn}>
+                       {/* Icon logic handled by CSS classes usually, simplified here */}
+                       {showSpecialId ? "Hide" : "Show"}
                     </button>
-                    <button
-                      onClick={copySpecialId}
-                      className={style.copyBtn}
-                      title="Copy"
-                    >
-                      <i className="fas fa-copy" />
-                    </button>
+                    <button onClick={copySpecialId} className={style.copyBtn}>Copy</button>
                   </div>
                 </div>
               </div>
             )}
           </div>
-
-          <div className={style.userSection}>
-            <Bell size={18} />
-            <Settings size={18} />
-          </div>
         </div>
 
+        {/* Dynamic Page Content */}
         <main className={style.main}>
           <div className={style.pageWrapper}>
             <Outlet />
@@ -276,18 +196,11 @@ const AdminSideNav = () => {
       {showLogoutModal && (
         <div className={style.modalOverlay}>
           <div className={style.modal}>
-            <h3>Confirm Logout</h3>
-            <p>Are you sure you want to log out?</p>
+            <h3>End Session?</h3>
+            <p>You will be returned to the login screen.</p>
             <div className={style.modalButtons}>
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                className={style.cancelBtn}
-              >
-                Cancel
-              </button>
-              <button onClick={handleLogout} className={style.confirmBtn}>
-                Logout
-              </button>
+              <button onClick={() => setShowLogoutModal(false)} className={style.cancelBtn}>Cancel</button>
+              <button onClick={handleLogout} className={style.confirmBtn}>Logout</button>
             </div>
           </div>
         </div>

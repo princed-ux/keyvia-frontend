@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
 import client, { attachToken } from "../api/axios.js";
 
@@ -8,6 +8,7 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // ================= STATE =================
   const [accessToken, setAccessToken] = useState(
@@ -27,141 +28,115 @@ export const AuthProvider = ({ children }) => {
 
   // ================= INIT =================
   useEffect(() => {
-    if (accessToken) attachToken(accessToken);
+    if (accessToken) {
+        attachToken(accessToken);
+    }
     setLoading(false);
   }, [accessToken]);
 
   // ================= HELPERS =================
   const showError = (title, msg) =>
-    Swal.fire({ icon: "error", title, text: msg });
+    Swal.fire({ icon: "error", title, text: msg, confirmButtonColor: '#d33' });
 
   const showSuccess = (title, msg) =>
     Swal.fire({
       icon: "success",
       title,
       text: msg,
-      timer: 1200,
+      timer: 1500,
       showConfirmButton: false,
     });
 
   const extractError = (err, fallback = "Something went wrong") =>
     err?.response?.data?.message || fallback;
 
-  // ✅ NEW HELPER: Allows Profile Page to update local user state
+  // ✅ ROBUST UPDATE USER FUNCTION (Persists to LocalStorage)
   const updateUser = (newData) => {
-    setUser((prev) => {
-      const updated = { ...prev, ...newData };
-      localStorage.setItem("user", JSON.stringify(updated));
-      return updated;
+    setUser((prevUser) => {
+      const updatedUser = { ...prevUser, ...newData };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      return updatedUser;
     });
   };
 
-
   // ====================================================
-  // ================= NEW SIGNUP FLOW ==================
+  // ================= SIGNUP FLOW ======================
   // ====================================================
 
-  // STEP 1 — REGISTER (Name, Email, Password) -> SEND OTP
   const signupStart = async (name, email, password) => {
     try {
-      // Updated endpoint to match new backend
       await client.post("/api/auth/signup", { name, email, password });
-      
-      // Save email for the OTP step
       sessionStorage.setItem("signupEmail", email);
-      
       navigate("/signup/verify");
     } catch (err) {
       showError("Signup Failed", extractError(err));
     }
   };
 
-  // STEP 2 — VERIFY OTP (Updated to prevent "Session Expired" error)
   const signupVerifyOtp = async (code) => {
     try {
       let email = sessionStorage.getItem("signupEmail");
 
-      // 🛑 FIX: If email is missing, ask the user for it instead of kicking them out
       if (!email) {
         const { value: userEmail } = await Swal.fire({
-          title: "Session Recovered",
-          text: "Please confirm your email address to continue:",
+          title: "Session Restored",
+          text: "Please confirm your email address:",
           input: "email",
-          inputPlaceholder: "Enter your email",
           allowOutsideClick: false,
-          showCancelButton: true
+          showCancelButton: true,
+          confirmButtonColor: '#09707d'
         });
-
-        if (!userEmail) return; // User cancelled
+        if (!userEmail) return; 
         email = userEmail;
-        sessionStorage.setItem("signupEmail", email); // Save it again
+        sessionStorage.setItem("signupEmail", email);
       }
 
-      const res = await client.post("/api/auth/signup/verify", {
-        email,
-        code,
-      });
+      const res = await client.post("/api/auth/signup/verify", { email, code });
 
-      // Save the temp token for the Role Selection step
       if (res.data.token) {
         sessionStorage.setItem("signupTempToken", res.data.token);
+        showSuccess("Verified!", "Please select your account type.");
+        navigate("/signup/role");
       } else {
-        throw new Error("Verification successful, but no token received.");
+        throw new Error("No token received.");
       }
-
-      showSuccess("Email Verified", "Please select your account type");
-      
-      // Skip password page, go straight to Role
-      navigate("/signup/role");
     } catch (err) {
-      console.error("Verification Error:", err);
-      showError("Verification Failed", extractError(err, "Invalid or expired code"));
+      showError("Verification Failed", extractError(err, "Invalid code"));
     }
   };
 
-  // STEP 2b — RESEND OTP (For the Timer)
   const signupResendOtp = async () => {
     try {
       const email = sessionStorage.getItem("signupEmail");
-      if (!email) return;
-
+      if (!email) return showError("Error", "Email not found.");
       await client.post("/api/auth/signup/resend", { email });
-      
-      Swal.fire({
-        icon: "info",
-        title: "Code Sent",
-        text: "A new verification code has been sent to your email.",
-        timer: 1500,
-        showConfirmButton: false
-      });
+      Swal.fire({ icon: "info", title: "Code Sent", timer: 1500, showConfirmButton: false });
     } catch (err) {
       showError("Resend Failed", extractError(err));
     }
   };
 
-  // STEP 3 — SET ROLE
   const setRole = async (role) => {
     try {
       const token = sessionStorage.getItem("signupTempToken");
+      if (!token) throw new Error("Session expired.");
 
       await client.post(
         "/api/auth/signup/role",
         { role },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       sessionStorage.clear();
-      Swal.fire({
+      await Swal.fire({
         icon: "success",
-        title: "Account Created",
-        text: "You can now log in.",
+        title: "Account Created!",
+        text: "Please log in.",
+        confirmButtonColor: '#09707d'
       });
-
       navigate("/login");
     } catch (err) {
-      showError("Role Setup Failed", extractError(err));
+      showError("Setup Failed", extractError(err));
     }
   };
 
@@ -169,83 +144,77 @@ export const AuthProvider = ({ children }) => {
   // ================= LOGIN FLOW =======================
   // ====================================================
 
-  // STEP 1 — PASSWORD CHECK + OTP SEND
   const loginStart = async (email, password) => {
     try {
       await client.post("/api/auth/login/start", { email, password });
       sessionStorage.setItem("loginEmail", email);
-      
-      // We return the promise here so the Login page can await it if needed
-      return true; 
+      return true;
     } catch (err) {
-      // Re-throw so component can stop loading spinner
-      throw err;
+      showError("Login Failed", extractError(err));
+      return false;
     }
   };
 
-  // STEP 2 — VERIFY LOGIN OTP
   const loginVerifyOtp = async (code) => {
     try {
       const email = sessionStorage.getItem("loginEmail");
+      if(!email) {
+          showError("Session Expired", "Please login again.");
+          navigate("/login");
+          return;
+      }
 
-      const res = await client.post("/api/auth/login/verify", {
-        email,
-        code,
-      });
+      const res = await client.post("/api/auth/login/verify", { email, code });
 
       const token = res.data.accessToken;
       const u = res.data.user;
 
-      // 1. Save Data
+      console.log("LOGIN RESPONSE USER:", u); // 🔍 Debugging
+
+      // Save Session
       setAccessToken(token);
       attachToken(token);
       localStorage.setItem("accessToken", token);
-
-      if (u) {
-        setUser(u);
-        localStorage.setItem("user", JSON.stringify(u));
-      }
-
-      showSuccess("Login Successful", `Welcome back, ${u.name}!`);
-
-      // 🛑 FIX: Do NOT clear sessionStorage here to avoid loop issues
+      
+      setUser(u);
+      localStorage.setItem("user", JSON.stringify(u));
       sessionStorage.removeItem("loginEmail"); 
+      
+      // ✅ FIX 1: Handle "Undefined" Name
+      // It tries 'name', then 'full_name', then extracts from email
+      const displayName = u.name || u.full_name || u.email?.split('@')[0] || "User"; 
+      showSuccess("Login Successful", `Welcome back, ${displayName}!`);
 
-      // 2. INTELLIGENT REDIRECT (Updated for Super Admin)
-      if (u.is_super_admin) {
-        navigate("/super-admin/dashboard"); // 🚀 CEO Redirect
-      } else if (u.role === "admin") {
-        navigate("/admin/dashboard");       // Standard Admin
-      } else if (u.role === "agent") {
-        navigate("/dashboard");
-      } else if (u.role === "owner") {
-        navigate("/owner");
-      } else if (u.role === "buyer") {
-        navigate("/buyer");
-      } else if (u.role === "developer") {
-        navigate("/developer");
+      // ✅ FIX 2: Stronger Super Admin Check
+      // Checks boolean true/1 OR string 'superadmin'/'super_admin'
+      const isSuper = u.is_super_admin === true || u.role === 'superadmin' || u.role === 'super_admin';
+
+      if (isSuper) {
+        navigate("/super-admin/dashboard");
       } else {
-        navigate("/"); 
+        switch(u.role) {
+            case "admin": navigate("/admin/dashboard"); break;
+            case "agent": navigate("/dashboard"); break;
+            case "owner": navigate("/owner"); break;
+            case "buyer": navigate("/buyer"); break;
+            case "developer": navigate("/developer"); break;
+            default: navigate("/"); 
+        }
       }
 
-      // Return data in case component needs it
-      return res.data;
-
+      return true;
     } catch (err) {
-      // Throw error so component handles UI
-      throw err;
+      showError("Verification Failed", extractError(err));
+      return false;
     }
   };
 
-  // ====================================================
-  // ================= SESSION ==========================
-  // ====================================================
-
   const logout = async () => {
     try {
-      await client.post("/api/auth/logout", {}, { withCredentials: true });
-    } catch {}
-    finally {
+      await client.post("/api/auth/logout");
+    } catch (err) {
+        console.error("Logout error", err);
+    } finally {
       setAccessToken(null);
       setUser(null);
       attachToken(null);
@@ -255,26 +224,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ================= CONTEXT =================
   const value = {
     accessToken,
     user,
     loading,
-
-    // SIGNUP
+    updateUser,
     signupStart,
     signupVerifyOtp,
     signupResendOtp, 
     setRole,
-
-    // LOGIN
     loginStart,
     loginVerifyOtp,
-
-    // SESSION
     logout,
-
-    updateUser,
   };
 
   return (

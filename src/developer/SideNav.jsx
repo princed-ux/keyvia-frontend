@@ -5,284 +5,194 @@ import img from "../assets/person.png";
 import { useAuth } from "../context/AuthProvider.jsx";
 import Swal from "sweetalert2";
 
-const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
-const ALLOWED_EXT = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"];
+/* =======================
+   IMAGE VALIDATION
+======================= */
+const MAX_BYTES = 2 * 1024 * 1024;
+const ALLOWED_EXT = ["png", "jpg", "jpeg", "gif", "webp"];
 
-function isValidImage(file) {
-  if (!file) return { ok: false, reason: "No file selected" };
-  if (!file.type?.startsWith("image/")) return { ok: false, reason: "Selected file is not an image" };
+const validateImage = (file) => {
+  if (!file) return { ok: false, msg: "No file selected" };
+  if (!file.type.startsWith("image/")) return { ok: false, msg: "Invalid image type" };
+  if (file.size > MAX_BYTES) return { ok: false, msg: "Image exceeds 2MB limit" };
+
   const ext = file.name.split(".").pop().toLowerCase();
-  if (!ALLOWED_EXT.includes(ext)) return { ok: false, reason: "File extension not allowed" };
-  if (file.size > MAX_BYTES) return { ok: false, reason: `File too large. Max ${MAX_BYTES / 1024 / 1024} MB` };
-  return { ok: true };
-}
+  if (!ALLOWED_EXT.includes(ext)) return { ok: false, msg: "Unsupported image format" };
 
-const SideNav = () => {
+  return { ok: true };
+};
+
+const DeveloperSideNav = () => {
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  const [avatarSrc, setAvatarSrc] = useState(user?.profileImage || img);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [showSpecialId, setShowSpecialId] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [avatar, setAvatar] = useState(user?.profileImage || img);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showId, setShowId] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
-  // =======================
-  // DROPDOWN HANDLERS
-  // =======================
+  /* =======================
+     DROPDOWN BEHAVIOR
+  ======================= */
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
+    const close = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
       }
     };
-    const handleEsc = (event) => {
-      if (event.key === "Escape") setShowDropdown(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEsc);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEsc);
-    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  // =======================
-  // IMAGE UPLOAD
-  // =======================
-  const openPicker = () => inputRef.current?.click();
+  /* =======================
+     IMAGE UPLOAD
+  ======================= */
+  const handleImage = (e) => {
+    const file = e.target.files[0];
+    const check = validateImage(file);
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    const check = isValidImage(file);
     if (!check.ok) {
-      Swal.fire({
-        icon: "error",
-        title: "Invalid Image",
-        text: check.reason,
-      });
-      e.target.value = "";
+      Swal.fire("Upload Error", check.msg, "error");
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = (ev) => setAvatarSrc(ev.target.result);
+    reader.onload = () => setAvatar(reader.result);
     reader.readAsDataURL(file);
+
+    // TODO: Upload to backend / cloud storage
   };
 
-  // =======================
-  // COPY SPECIAL ID
-  // =======================
-  const copySpecialId = async () => {
-    try {
-      await navigator.clipboard.writeText(user?.special_id || "");
-      Swal.fire({
-        icon: "success",
-        title: "Copied!",
-        text: "Special ID copied to clipboard.",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-    } catch (err) {
-      console.error("Copy failed:", err);
-    }
+  /* =======================
+     COPY SPECIAL ID
+  ======================= */
+  const copyId = async () => {
+    await navigator.clipboard.writeText(user?.special_id || "");
+    Swal.fire({
+      toast: true,
+      icon: "success",
+      title: "Special ID copied",
+      timer: 1500,
+      showConfirmButton: false,
+      position: "top-end",
+    });
   };
 
-  // =======================
-  // LOGOUT
-  // =======================
-  const confirmLogout = async () => {
-    try {
-      await logout();
-      setShowLogoutModal(false);
-      navigate("/");
-    } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Logout Failed",
-        text: "Please try again.",
-      });
-    }
+  /* =======================
+     LOGOUT
+  ======================= */
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
   };
 
-  // =======================
-  // JSX
-  // =======================
+  /* =======================
+     NAVIGATION
+  ======================= */
+  const navItems = [
+    { to: "/developer/dashboard", label: "Dashboard", icon: "fa-home", end: true },
+    { to: "/developer/projects", label: "Projects", icon: "fa-building" },
+    { to: "/developer/add-project", label: "Add Project", icon: "fa-plus-circle" },
+    { to: "/developer/investors", label: "Investors", icon: "fa-chart-line" },
+    { to: "/developer/messages", label: "Messages", icon: "fa-envelope" },
+    { to: "/developer/settings", label: "Settings", icon: "fa-cog" },
+  ];
+
   return (
     <div className={style.allcontainer}>
-      {/* Sidebar */}
-      <div className={style.side}>
+      {/* SIDEBAR */}
+      <aside className={style.side}>
         <div className={style.logo}>
           <div className={style.avatarWrap}>
-            <img
-              src={avatarSrc}
-              alt="Developer avatar"
-              className={style.avatar}
-              onError={(e) => (e.currentTarget.src = img)}
-            />
-            <div className={style.cameraIcon} onClick={openPicker}>
+            <img src={avatar} alt="Developer" className={style.avatar} />
+            <div className={style.cameraIcon} onClick={() => inputRef.current.click()}>
               <i className="fa-regular fa-camera" />
             </div>
             <input
               ref={inputRef}
               type="file"
               accept="image/*"
-              onChange={handleFileChange}
-              className={style.fileInput}
+              hidden
+              onChange={handleImage}
             />
           </div>
 
           <div className={style.agentInfo}>
-            <h4 className={style.agentName}>{user?.name || "Developer Name"}</h4>
-            <p className={style.agentTitle}>Real Estate Developer</p>
+            <h4>{user?.name || "Developer"}</h4>
+            <p>Real Estate Developer</p>
           </div>
-        </div> 
+        </div>
 
-        {/* Navigation Links */}
         <nav className={style.nav}>
-          <NavLink
-            to="/developer/dashboard"
-            end
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-home" /> <span>Dashboard</span>
-          </NavLink>
-
-          <NavLink
-            to="projects"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-building" /> <span>Projects</span>
-          </NavLink>
-
-          <NavLink
-            to="add-project"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-plus-circle" /> <span>Add Project</span>
-          </NavLink>
-
-          <NavLink
-            to="investors"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-handshake" /> <span>Investors</span>
-          </NavLink>
-
-          <NavLink
-            to="messages"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-message" /> <span>Chat Messages</span>
-          </NavLink>
-
-          <NavLink
-            to="settings/account"
-            className={({ isActive }) =>
-              isActive ? `${style.link} ${style.active}` : style.link
-            }
-          >
-            <i className="fas fa-cog" /> <span>Settings</span>
-          </NavLink>
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                isActive ? `${style.link} ${style.active}` : style.link
+              }
+            >
+              <i className={`fas ${item.icon}`} />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
         </nav>
 
-        <div className={style.footer}>
-          <button className={style.logout} onClick={() => setShowLogoutModal(true)}>
-            <i className="fas fa-sign-out-alt" /> <span>Logout</span>
-          </button>
-        </div>
-      </div>
+        <button className={style.logout} onClick={() => setConfirmLogout(true)}>
+          <i className="fas fa-sign-out-alt" /> Logout
+        </button>
+      </aside>
 
-      {/* Main Container */}
-      <div className={style.mainContainer}>
+      {/* MAIN */}
+      <main className={style.mainContainer}>
         <div className={style.topnav}>
-          <div className={style.topTitle}>Developer Dashboard</div>
-          <div className={style.userSection} ref={dropdownRef}>
-            <div
-              className={style.userEmail}
-              onClick={() => setShowDropdown(!showDropdown)}
-            >
-              {user?.email || "user@example.com"}
-              <i className={`fas fa-chevron-${showDropdown ? "up" : "down"} ml-2`} />
-            </div>
+          <span>Developer Console</span>
 
-            {showDropdown && (
+          <div ref={dropdownRef} className={style.userSection}>
+            <span onClick={() => setDropdownOpen(!dropdownOpen)}>
+              {user?.email}
+              <i className="fas fa-chevron-down" />
+            </span>
+
+            {dropdownOpen && (
               <div className={style.dropdown}>
-                <div className={style.dropdownItem}>
-                  <strong>Role:</strong>
-                  <span className={style.roleValue}>
-                    {user?.role || "Developer"}
-                  </span>
+                <div>
+                  <strong>Role:</strong> Developer
                 </div>
 
-                <div className={style.dropdownItem}>
-                  <strong>Special ID:</strong>
-                  <div className={style.uniqueBox}>
-                    <span className={style.uniqueValue}>
-                      {showSpecialId
-                        ? user?.special_id || "N/A"
-                        : "•".repeat((user?.special_id || "").length || 8)}
-                    </span>
-                    <button
-                      onClick={() => setShowSpecialId(!showSpecialId)}
-                      className={style.eyeBtn}
-                      title={showSpecialId ? "Hide ID" : "Show ID"}
-                    >
-                      <i
-                        className={`fas ${
-                          showSpecialId ? "fa-eye" : "fa-eye-slash"
-                        }`}
-                      />
-                    </button>
-                    <button
-                      onClick={copySpecialId}
-                      className={style.copyBtn}
-                      title="Copy Special ID"
-                    >
-                      <i className="fas fa-copy" />
-                    </button>
-                  </div>
+                <div className={style.uniqueBox}>
+                  <span>
+                    {showId ? user?.special_id : "••••••••"}
+                  </span>
+                  <button onClick={() => setShowId(!showId)}>
+                    <i className={`fas ${showId ? "fa-eye" : "fa-eye-slash"}`} />
+                  </button>
+                  <button onClick={copyId}>
+                    <i className="fas fa-copy" />
+                  </button>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Page Content */}
-        <div className={style.main}>
-          <div className={style.pageWrapper}>
-            <Outlet />
-          </div>
-        </div>
-      </div>
+        <section className={style.main}>
+          <Outlet />
+        </section>
+      </main>
 
-      {/* Logout Modal */}
-      {showLogoutModal && (
+      {/* LOGOUT CONFIRM */}
+      {confirmLogout && (
         <div className={style.modalOverlay}>
           <div className={style.modal}>
-            <h3>Confirm Logout</h3>
-            <p>Are you sure you want to log out?</p>
-            <div className={style.modalButtons}>
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                className={style.cancelBtn}
-              >
-                Cancel
-              </button>
-              <button onClick={confirmLogout} className={style.confirmBtn}>
-                Logout
-              </button>
+            <h3>Logout</h3>
+            <p>Do you want to exit the Developer Console?</p>
+            <div>
+              <button onClick={() => setConfirmLogout(false)}>Cancel</button>
+              <button onClick={handleLogout}>Logout</button>
             </div>
           </div>
         </div>
@@ -291,4 +201,4 @@ const SideNav = () => {
   );
 };
 
-export default SideNav;
+export default DeveloperSideNav;

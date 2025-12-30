@@ -22,7 +22,7 @@
     "crypto": "^1.0.1",
     "dayjs": "^1.11.19",
     "emoji-picker-react": "^4.16.1",
-    "firebase": "^12.1.0",
+    "firebase": "^12.7.0",
     "framer-motion": "^12.23.26",
     "fs": "^0.0.1-security",
     "leaflet": "^1.9.4",

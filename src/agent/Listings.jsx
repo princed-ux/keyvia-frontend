@@ -162,7 +162,7 @@ export default function Listings() {
             showCancelButton: true,
             cancelButtonText: 'Close'
         }).then((result) => {
-            if (result.isConfirmed) navigate('/agent/profile'); 
+            if (result.isConfirmed) navigate('/dashboard/profile'); 
         });
         return; 
     }

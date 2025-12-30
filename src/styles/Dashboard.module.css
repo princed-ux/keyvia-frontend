@@ -1,17 +1,193 @@
 .dashboardContainer {
   padding: 2rem;
-  background: #f9f9f9;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
 }
 
-.dashboardContainer h2 {
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.header h2 {
   font-size: 1.8rem;
-  margin-bottom: 0.5rem;
-  color: #333;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
 }
 
-.dashboardContainer p {
-  font-size: 1rem;
-  color: #555;
+.header p {
+  color: #6b7280;
+}
+
+.createBtn {
+  background-color: #1f2937;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.createBtn:hover {
+  background-color: #374151;
+}
+
+/* Stats Grid */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.statCard {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.iconBox {
+  padding: 1rem;
+  border-radius: 10px;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.statInfo h3 {
+  font-size: 1.5rem;
+  margin: 0;
+  color: #111827;
+}
+
+.statInfo p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+/* Content Section (Table + Activity) */
+.contentSection {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+}
+
+/* Projects Table */
+.projectsTable {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.sectionTitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.link {
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  color: #6b7280;
+  font-size: 0.85rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+td {
+  padding: 1rem 0;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.projectName {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* Status Badges */
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.planning { background-color: #fef3c7; color: #d97706; }
+.construction { background-color: #dbeafe; color: #2563eb; }
+.completed { background-color: #d1fae5; color: #059669; }
+
+/* Progress Bar */
+.progressBarContainer {
+  width: 100px;
+  height: 6px;
+  background-color: #e5e7eb;
+  border-radius: 3px;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background-color: #2563eb;
+  border-radius: 3px;
+}
+
+/* Activity Panel */
+.activityPanel {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.activityList {
+  list-style: none;
+  padding: 0;
+  margin-top: 1rem;
+}
+
+.activityList li {
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.activityList li:last-child {
+  border-bottom: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .contentSection {
+    grid-template-columns: 1fr;
+  }
 }

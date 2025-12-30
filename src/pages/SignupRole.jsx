@@ -1,44 +1,37 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
-import axios from "axios"; // 👈 Using raw axios to bypass interceptors
+import axios from "axios"; 
 import style from "../styles/signupRole.module.css";
 import {
   Briefcase,
   Home,
-  Code2,
-  ShoppingCart,
+  Search, 
   CheckCircle2,
   Building2,
   ArrowRight,
   Loader2,
 } from "lucide-react";
 
-// Updated Role Data with better descriptions
+// ✅ REMOVED DEVELOPER ROLE
 const roles = [
+  {
+    key: "buyer",
+    title: "Home Seeker",
+    description: "I am looking to buy or rent my dream home.",
+    icon: <Search size={32} />,
+  },
   {
     key: "agent",
     title: "Real Estate Agent",
-    description: "I want to list properties, manage clients, and close deals.",
+    description: "I want to list properties and manage clients.",
     icon: <Briefcase size={32} />,
   },
   {
     key: "owner",
-    title: "Property Owner",
-    description: "I own property and want to list it for rent or sale.",
+    title: "Landlord / Owner",
+    description: "I own a property and want to list it myself.",
     icon: <Home size={32} />,
-  },
-  {
-    key: "buyer",
-    title: "Buyer / Tenant",
-    description: "I am looking for a dream home to buy or a place to rent.",
-    icon: <ShoppingCart size={32} />,
-  },
-  {
-    key: "developer",
-    title: "Developer",
-    description: "I want to showcase new projects and developments.",
-    icon: <Code2 size={32} />,
   },
 ];
 
@@ -46,12 +39,19 @@ const SignupRole = () => {
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  
+  // ✅ NEW: Success Flag to prevent race conditions
+  const [isSuccess, setIsSuccess] = useState(false); 
 
   // Retrieve the temp token
   const token = sessionStorage.getItem("signupTempToken");
 
   // 🚨 Security Guard
   useEffect(() => {
+    // If we just finished successfully, STOP checking the token.
+    // This prevents the "Session Expired" error from popping up while redirecting.
+    if (isSuccess) return;
+
     if (!token) {
       Swal.fire({
         icon: "warning",
@@ -61,7 +61,7 @@ const SignupRole = () => {
       });
       navigate("/signup");
     }
-  }, [token, navigate]);
+  }, [token, navigate, isSuccess]);
 
   // ---------------- Submit Logic ----------------
   const handleSubmit = async () => {
@@ -70,63 +70,72 @@ const SignupRole = () => {
     try {
       setSubmitting(true);
 
-      // 🛑 Using raw axios to prevent global interceptor conflicts
+      // 🛑 Using raw axios
       await axios.post(
         "http://localhost:5000/api/auth/signup/role",
         { role: selectedRole },
         {
           headers: {
-            Authorization: `Bearer ${token}`, // Manual Header
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         }
       );
 
+      // ✅ MARK SUCCESS BEFORE CLEANUP
+      setIsSuccess(true);
+
       // Success Animation
-      Swal.fire({
+      await Swal.fire({
         icon: "success",
-        title: "Welcome Aboard!",
-        text: "Your account is fully set up.",
-        confirmButtonText: "Go to Login",
-        confirmButtonColor: "#09707D",
-        allowOutsideClick: false,
-        backdrop: `rgba(0,0,123,0.4)`,
-      }).then(() => {
-        sessionStorage.removeItem("signupTempToken");
-        sessionStorage.removeItem("signupEmail");
-        navigate("/login");
+        title: "Profile Configured!",
+        text: "Your account is ready. Redirecting to login...",
+        timer: 2000,
+        showConfirmButton: false,
+        backdrop: `rgba(9, 112, 125, 0.2)`, 
       });
+
+      // Cleanup
+      sessionStorage.removeItem("signupTempToken");
+      sessionStorage.removeItem("signupEmail");
+      
+      navigate("/login");
+
     } catch (err) {
       console.error("Role Error:", err);
+      // Reset success flag on error
+      setIsSuccess(false); 
+      
       Swal.fire({
         icon: "error",
         title: "Setup Failed",
         text: err?.response?.data?.message || "Something went wrong.",
       });
     } finally {
-      setSubmitting(false);
+      // Only stop loading state if we FAILED.
+      // If we succeeded, we want the button to stay disabled while redirecting.
+      if (!isSuccess) {
+          setSubmitting(false);
+      }
     }
   };
 
   return (
     <div className={style.container}>
-      {/* Background Decor */}
-      <div className={style.bgCircle1}></div>
-      <div className={style.bgCircle2}></div>
-
-      <div className={style.contentWrapper}>
-        {/* Header Section */}
+      <div className={style.glassWrapper}>
+        
+        {/* Header */}
         <div className={style.header}>
-          <div className={style.logoIcon}>
-            <Building2 size={40} color="#09707D" />
+          <div className={style.brandBadge}>
+            <Building2 size={24} color="#fff" />
           </div>
-          <h1 className={style.title}>How will you use Keyvia?</h1>
+          <h1 className={style.title}>Select Your Profile</h1>
           <p className={style.subtitle}>
-            Select your primary role to customize your experience.
+            How will you use Keyvia? This helps us customize your dashboard.
           </p>
         </div>
 
-        {/* Grid Selection */}
+        {/* Roles Grid */}
         <div className={style.grid}>
           {roles.map((role) => (
             <div
@@ -136,25 +145,24 @@ const SignupRole = () => {
               }`}
               onClick={() => setSelectedRole(role.key)}
             >
-              <div className={style.cardHeader}>
-                <div
-                  className={`${style.iconWrapper} ${
-                    selectedRole === role.key ? style.activeIcon : ""
-                  }`}
-                >
-                  {role.icon}
-                </div>
-                {selectedRole === role.key && (
-                  <CheckCircle2 className={style.checkIcon} size={24} />
-                )}
+              {/* Checkmark Badge */}
+              <div className={`${style.checkBadge} ${selectedRole === role.key ? style.showCheck : ""}`}>
+                <CheckCircle2 size={18} />
               </div>
+
+              <div className={style.iconWrapper}>
+                {React.cloneElement(role.icon, {
+                    color: selectedRole === role.key ? "#09707D" : "#64748b"
+                })}
+              </div>
+              
               <h3 className={style.roleTitle}>{role.title}</h3>
               <p className={style.roleDesc}>{role.description}</p>
             </div>
           ))}
         </div>
 
-        {/* Action Section */}
+        {/* Footer Action */}
         <div className={style.footer}>
           <button
             className={style.submitBtn}
@@ -164,15 +172,16 @@ const SignupRole = () => {
             {submitting ? (
               <>
                 <Loader2 className={style.spinner} size={20} />
-                Setting up profile...
+                Finalizing...
               </>
             ) : (
               <>
-                Finish Setup <ArrowRight size={20} />
+                Complete Setup <ArrowRight size={20} />
               </>
             )}
           </button>
         </div>
+
       </div>
     </div>
   );

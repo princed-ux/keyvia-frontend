@@ -1,8 +1,11 @@
-// src/firebase.js
+// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth"; // ✅ Essential for Phone Auth
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your specific Keyvia configuration
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyAP-cKIU2o9Y7pOpvk624uoIQxMeJg5Vjo",
   authDomain: "keyvia-auth.firebaseapp.com",
@@ -15,6 +18,4 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// Export 'auth' so we can use it in PhoneVerification.jsx
-export const auth = getAuth(app);
+const analytics = getAnalytics(app);

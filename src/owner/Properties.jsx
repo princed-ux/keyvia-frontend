@@ -3,50 +3,68 @@ import { Link, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  MapPin, 
-  Home, 
-  CreditCard,
-  X,
-  AlertCircle,
-  CheckCircle2,
-  ExternalLink
+  Plus, Edit, Trash2, MapPin, Home, CreditCard, X, 
+  AlertTriangle, ChevronLeft, ChevronRight, Bed, Bath, Square, Loader2, RefreshCcw, ExternalLink
 } from "lucide-react";
 
-import client from "../api/axios"; // Adjust path if needed
+import client from "../api/axios";  
 import { useAuth } from "../context/AuthProvider";
 import style from "../styles/Listings.module.css"; 
 
 export default function OwnerProperties() {
   const navigate = useNavigate();
-  const { user } = useAuth(); 
+  const { user, updateUser } = useAuth(); 
+
+  // ✅ LOCAL STATUS: Ensures UI unlocks instantly after profile update
+  const [localStatus, setLocalStatus] = useState(user?.verification_status || 'pending');
 
   // State
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState(null); 
+  
+  // Preview Modal State
   const [previewListing, setPreviewListing] = useState(null);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   const lottieUrl = "https://lottie.host/37a0df00-47f6-43d0-873c-01acfb5d1e7d/wvtiKE3P1d.lottie";
 
-  // -------------------- Fetch Listings --------------------
-  useEffect(() => {
-    fetchListings();
-  }, []);
+  // -------------------- Fetch Listings & Status --------------------
+  const fetchListings = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
 
-  const fetchListings = async () => {
-    setLoading(true);
     try {
-      const res = await client.get("/api/listings/agent"); 
-      setListings(Array.isArray(res.data) ? res.data : []);
+      // 1. Parallel Fetch (Listings + Profile Status)
+      const [listingsRes, profileRes] = await Promise.all([
+          client.get("/api/listings/agent"), // Should return agent_id specific listings
+          client.get("/api/profile") 
+      ]);
+
+      setListings(Array.isArray(listingsRes.data) ? listingsRes.data : []);
+      
+      const serverStatus = profileRes.data.verification_status;
+      setLocalStatus(serverStatus);
+
+      if (profileRes.data && updateUser) {
+          updateUser(profileRes.data); 
+      }
+
+      if(isRefresh) setTimeout(() => setRefreshing(false), 800); 
     } catch (err) {
-      console.error("Fetch listings error:", err);
+      console.error("Fetch error:", err);
+      // 🚨 Graceful Error Handling to prevent redirect loops
+      if (err.response?.status === 403 || err.response?.status === 401) {
+         // Do nothing here, let the interceptor handle logout if needed, 
+         // but don't try to render broken state.
+      }
     } finally {
-      setLoading(false);
+      if (!isRefresh) setLoading(false);
     }
   };
+
+  useEffect(() => { fetchListings(); }, []);
 
   // -------------------- Actions --------------------
   
@@ -67,20 +85,19 @@ export default function OwnerProperties() {
 
     setBusyId(listing.product_id);
     try {
-      await client.put(`/api/listings/${listing.product_id}/activate`);
-      
-      // Update UI immediately
-      setListings(prev => prev.map(l => 
-        l.product_id === listing.product_id 
-          ? { ...l, is_active: true, payment_status: 'paid', status: 'approved' } 
-          : l
-      ));
-
-      Swal.fire("Live!", "Your listing is now visible to buyers/renters.", "success");
+        const res = await client.post('/api/payments/create-session', {
+            productId: listing.product_id,
+            amount: 10, 
+            currency: 'USD',
+            email: user.email
+        });
+        
+        if (res.data && res.data.url) {
+            window.location.href = res.data.url; 
+        }
     } catch (err) {
       console.error(err);
-      Swal.fire("Error", "Payment failed", "error");
-    } finally {
+      Swal.fire("Error", "Payment initialization failed.", "error");
       setBusyId(null);
     }
   };
@@ -114,7 +131,7 @@ export default function OwnerProperties() {
     }
   };
 
-  // 3. Edit Navigation
+  // 3. Edit Navigation (Fixed to Owner Path)
   const handleEdit = (listing, e) => {
     e.stopPropagation();
     navigate("/owner/add-property", { state: { editingListing: listing } });
@@ -123,8 +140,60 @@ export default function OwnerProperties() {
   // 4. View Public Listing
   const handleViewLive = (id, e) => {
     e.stopPropagation();
-    navigate(`/listing/${id}`); // Goes to the public details page
+    navigate(`/listing/${id}`);
   };
+
+  // 5. Create Button Logic (Verification Lock)
+  const handleCreateClick = (e) => {
+    if (localStatus !== 'approved') {
+        e.preventDefault();
+        let title = "Verification Required";
+        let text = "You must verify your profile before posting listings.";
+        
+        if (localStatus === 'pending') {
+            title = "Under Review";
+            text = "Your profile is currently under review by our admin team.";
+        } else if (localStatus === 'rejected') {
+            title = "Profile Rejected";
+            text = "Your verification was rejected. Please check your profile.";
+        }
+
+        Swal.fire({
+            icon: 'warning',
+            title,
+            text,
+            confirmButtonText: 'Go to Profile',
+            confirmButtonColor: '#09707d',
+            showCancelButton: true,
+            cancelButtonText: 'Close'
+        }).then((result) => {
+            if (result.isConfirmed) navigate('/owner/profile'); 
+        });
+    }
+  };
+
+  // 6. Show Rejection Reason
+  const showRejectionReason = (listing, e) => {
+    e.stopPropagation();
+    Swal.fire({
+      icon: 'error',
+      title: 'Action Required',
+      text: listing.admin_notes || "General quality standards not met.",
+      confirmButtonText: 'Edit & Fix',
+      confirmButtonColor: '#09707d'
+    }).then((result) => {
+        if(result.isConfirmed) handleEdit(listing, e);
+    });
+  };
+
+  // -------------------- Preview Logic --------------------
+  const handlePreview = (l, e) => { if(e) e.stopPropagation(); setPreviewListing(l); setCurrentPhotoIndex(0); };
+  const nextImage = (e) => { e.stopPropagation(); if(previewListing?.photos) setCurrentPhotoIndex((p) => (p + 1) % previewListing.photos.length); };
+  const prevImage = (e) => { e.stopPropagation(); if(previewListing?.photos) setCurrentPhotoIndex((p) => (p - 1 + previewListing.photos.length) % previewListing.photos.length); };
+  const getPhotoUrl = (l, i=0) => { if(!l?.photos?.length) return "/placeholder.png"; const p = l.photos[i]; return typeof p === 'string' ? p : (p.url || "/placeholder.png"); };
+  const getFeaturesList = (f) => { if(!f) return []; let p={}; if(typeof f==='string'){try{p=JSON.parse(f)}catch{}}else{p=f} return Object.keys(p).filter(k=>p[k]); };
+
+  const isVerified = localStatus === 'approved';
 
   return (
     <div className={style.container}>
@@ -135,70 +204,86 @@ export default function OwnerProperties() {
           <h1>My Properties</h1>
           <p>Manage your rental portfolio and sales</p>
         </div>
-        <Link to="/owner/add-property" className={style.addButton}>
-          <Plus size={20} /> Add New Property
-        </Link>
+        <div className={style.headerActions}>
+            <button onClick={() => fetchListings(true)} className={style.iconBtn} title="Refresh Listings">
+                <RefreshCcw size={18} className={refreshing ? style.spin : ''} /> Refresh
+            </button>
+            <Link 
+                to={isVerified ? "/owner/add-property" : "#"} 
+                onClick={handleCreateClick}
+                className={style.addButton}
+                style={!isVerified ? { background: '#94a3b8', cursor: 'not-allowed' } : {}}
+            >
+                <Plus size={20} /> Add New Property
+            </Link>
+        </div>
       </div>
 
       {/* --- LISTINGS GRID --- */}
       {loading ? (
-        <div className={style.loadingContainer}>
-          <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 150, height: 150 }} />
-          <p>Loading your portfolio...</p>
+        <div className={style.loadingContainer} style={{textAlign:'center', padding:50}}>
+          <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 150, height: 150, margin:'0 auto' }} />
+          <p style={{color:'#6b7280'}}>Loading your portfolio...</p>
         </div>
       ) : listings.length === 0 ? (
         <div className={style.emptyState}>
-          <div>
-            <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 250, height: 250, alignSelf: 'center' }} />
-          </div>
-          <div>
-            <h3>No Properties Yet</h3>
-            <p>List your first property to start finding tenants.</p>
-            <Link to="/owner/add-property" className={style.addButtonSecondary}>
-              Create Listing
-            </Link>
-          </div>
+          <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 200, height: 200, margin:'0 auto' }} />
+          <h3>No Properties Yet</h3>
+          <p>List your first property to start finding tenants.</p>
+          
+          {/* ✅ BLUE UNDERLINED LINK */}
+          <Link 
+            to={isVerified ? "/owner/add-property" : "#"} 
+            onClick={handleCreateClick}
+            style={{ 
+                color: '#2563eb', 
+                textDecoration: 'underline', 
+                fontSize: '18px',
+                fontWeight: '500',
+                cursor: isVerified ? 'pointer' : 'not-allowed',
+                opacity: isVerified ? 1 : 0.5,
+                marginTop: '15px',
+                display: 'inline-block'
+            }}
+          >
+            Create Listing
+          </Link>
         </div>
       ) : (
         <div className={style.grid}>
           {listings.map((listing) => {
-            // Determine Status Logic
             let badgeClass = style.pending;
-            let statusText = "Pending";
-            let statusIcon = <AlertCircle size={12} />;
+            let statusText = "Pending Review";
 
-            if (listing.status === 'rejected') {
-              badgeClass = style.rejected; 
-              statusText = "Rejected";
-              statusIcon = <X size={12} />;
+            if (listing.status === 'rejected') { 
+                badgeClass = style.rejected; 
+                statusText = "Verification Failed"; 
             } else if (listing.status === 'approved') {
-              if (listing.is_active) {
-                  badgeClass = style.active; 
-                  statusText = "Active (Live)";
-                  statusIcon = <CheckCircle2 size={12} />;
-              } else {
-                  badgeClass = style.pending; 
-                  statusText = "Approved (Unpaid)";
-              }
+                if (listing.is_active) {
+                    badgeClass = style.active; 
+                    statusText = "Active (Live)";
+                } else {
+                    badgeClass = style.pending; 
+                    statusText = "Approved (Unpaid)";
+                }
             }
 
-            const photoUrl = listing.photos?.[0]?.url || listing.photos?.[0] || "/placeholder.png";
-
             return (
-              <div 
-                key={listing.product_id} 
-                className={style.card}
-                onClick={() => setPreviewListing(listing)}
-              >
-                {/* Image Section */}
+              <div key={listing.product_id} className={style.card} onClick={(e) => handlePreview(listing, e)}>
                 <div className={style.imageWrapper}>
-                  <img src={photoUrl} alt={listing.title} className={style.cardImage} />
+                  <img src={getPhotoUrl(listing, 0)} alt={listing.title} className={style.cardImage} />
                   <span className={`${style.badge} ${badgeClass}`}>
-                    {statusIcon} {statusText}
+                    {statusText}
                   </span>
                 </div>
 
-                {/* Details Section */}
+                {listing.status === 'rejected' && (
+                    <div className={style.rejectionBanner}>
+                        <div className={style.rejectionText}><AlertTriangle size={14} /> Admin Rejected</div>
+                        <button className={style.viewReasonBtn} onClick={(e) => showRejectionReason(listing, e)}>Why?</button>
+                    </div>
+                )}
+
                 <div className={style.cardBody}>
                   <h3 className={style.cardTitle}>{listing.title || "Untitled Property"}</h3>
                   <p className={style.cardAddress}>
@@ -206,55 +291,51 @@ export default function OwnerProperties() {
                   </p>
                   
                   <div className={style.cardMeta}>
-                    <span><Home size={14}/> {listing.property_type}</span>
+                    <span><Home size={14} style={{marginBottom:-2}}/> {listing.property_type}</span>
                     <span className={style.price}>
                       {Number(listing.price).toLocaleString()} {listing.price_currency}
                     </span>
                   </div>
 
-                  {/* Action Buttons */}
                   <div className={style.actions}>
                     
-                    {/* CASE 1: APPROVED BUT NOT PAID */}
+                    {/* 1. PAY BUTTON */}
                     {listing.status === 'approved' && !listing.is_active && (
                       <button 
                         className={style.actionBtn} 
                         style={{ backgroundColor: '#dcfce7', color: '#166534', borderColor: '#86efac' }}
                         onClick={(e) => handleActivate(listing, e)}
                         disabled={busyId === listing.product_id}
-                        title="Pay Activation Fee"
                       >
-                        <CreditCard size={16} /> Pay
+                        {busyId === listing.product_id ? <Loader2 size={16} className="animate-spin"/> : <CreditCard size={16} />} Pay
                       </button>
                     )}
 
-                    {/* CASE 2: ACTIVE (Show View Live Button) */}
+                    {/* 2. VIEW LIVE */}
                     {listing.is_active && (
-                      <button 
-                        className={style.actionBtn}
-                        style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
-                        onClick={(e) => handleViewLive(listing.product_id, e)}
-                        title="View Public Page"
-                      >
-                        <ExternalLink size={16} /> Live
-                      </button>
+                        <button 
+                            className={style.actionBtn} 
+                            style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
+                            onClick={(e) => handleViewLive(listing.product_id, e)}
+                        >
+                            <ExternalLink size={16}/> Live
+                        </button>
                     )}
 
-                    {/* EDIT */}
+                    {/* 3. EDIT */}
                     <button 
                       className={style.actionBtn}
                       onClick={(e) => handleEdit(listing, e)}
-                      title="Edit"
+                      disabled={listing.is_active} 
                     >
                       <Edit size={16} /> Edit
                     </button>
 
-                    {/* DELETE */}
+                    {/* 4. DELETE */}
                     <button 
                       className={`${style.actionBtn} ${style.deleteBtn}`}
                       onClick={(e) => handleDelete(listing, e)}
                       disabled={busyId === listing.product_id}
-                      title="Delete"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -270,30 +351,37 @@ export default function OwnerProperties() {
       {previewListing && (
         <div className={style.modalOverlay} onClick={() => setPreviewListing(null)}>
           <div className={style.modalContent} onClick={e => e.stopPropagation()}>
-            <button className={style.closeModal} onClick={() => setPreviewListing(null)}>
-              <X size={24} />
-            </button>
-            
-            <img 
-              src={previewListing.photos?.[0]?.url || previewListing.photos?.[0] || "/placeholder.png"} 
-              alt="Preview" 
-              className={style.modalImage} 
-            />
-            
-            <div className={style.modalDetails}>
-              <h2>{previewListing.title}</h2>
-              <p className={style.modalPrice}>
-                {Number(previewListing.price).toLocaleString()} {previewListing.price_currency}
-              </p>
-              <p className={style.modalAddress}>
-                {previewListing.address}, {previewListing.city}, {previewListing.country}
-              </p>
-              <div className={style.modalTags}>
-                <span>{previewListing.bedrooms} Beds</span>
-                <span>{previewListing.bathrooms} Baths</span>
-                <span>{previewListing.square_footage} sqft</span>
-              </div>
-              <p className={style.modalDesc}>{previewListing.description || "No description."}</p>
+            <div className={style.modalGallery}>
+                <img src={getPhotoUrl(previewListing, currentPhotoIndex)} className={style.modalImage} alt="Main" />
+                <button className={style.closeModal} onClick={() => setPreviewListing(null)}><X size={20}/></button>
+                {previewListing.photos?.length > 1 && (
+                    <>
+                        <button className={`${style.navBtn} ${style.prevBtn}`} onClick={prevImage}><ChevronLeft size={20}/></button>
+                        <button className={`${style.navBtn} ${style.nextBtn}`} onClick={nextImage}><ChevronRight size={20}/></button>
+                    </>
+                )}
+                <div style={{position:'absolute', bottom:15, right:15, background:'rgba(0,0,0,0.6)', color:'white', padding:'4px 10px', borderRadius:10, fontSize:'0.8rem'}}>{currentPhotoIndex + 1} / {previewListing.photos.length}</div>
+            </div>
+            <div className={style.modalBody}>
+                <div className={style.modalMain}>
+                    <h2 style={{fontSize:'1.8rem', margin:'0 0 10px 0', color:'#111827'}}>{previewListing.title}</h2>
+                    <div className={style.modalAddress}><MapPin size={18} style={{color:'#09707d'}}/> {previewListing.address}, {previewListing.city}</div>
+                    <div className={style.modalPrice}>{Number(previewListing.price).toLocaleString()} <span style={{fontSize:'1rem', color:'#6b7280'}}>{previewListing.price_currency}</span></div>
+                    <div className={style.featGrid}>
+                        <div className={style.featItem}><Bed size={18}/> {previewListing.bedrooms} Beds</div>
+                        <div className={style.featItem}><Bath size={18}/> {previewListing.bathrooms} Baths</div>
+                        <div className={style.featItem}><Square size={18}/> {previewListing.square_footage} sqft</div>
+                        <div className={style.featItem}><Home size={18}/> {previewListing.property_type}</div>
+                    </div>
+                    <h3>Description</h3>
+                    <p style={{lineHeight: 1.6, color: '#4b5563', whiteSpace:'pre-line'}}>{previewListing.description}</p>
+                    <div style={{marginTop: 30}}>
+                          <h4 style={{marginBottom:10}}>Amenities</h4>
+                          <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
+                             {getFeaturesList(previewListing.features).map((f, i) => <span key={i} style={{background:'#e0f2f1', color:'#00695c', padding:'6px 14px', borderRadius:20, fontSize:'0.85rem', textTransform:'capitalize'}}>{f}</span>)}
+                          </div>
+                    </div>
+                </div>
             </div>
           </div>
         </div>

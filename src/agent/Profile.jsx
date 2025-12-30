@@ -1,14 +1,30 @@
 import React, { useEffect, useState, useRef } from "react";
 import client from "../api/axios"; 
 import styles from "../styles/profile.module.css";
-import defaultPerson from "../assets/person.png";
 import { useAuth } from "../context/AuthProvider.jsx";
 import { toast } from 'react-toastify'; 
+import Swal from "sweetalert2"; 
 import {
   User, Mail, Phone, MapPin, Building, FileText, Briefcase, Globe,
-  Camera, Save, X, Instagram, Facebook, Linkedin, Twitter, Info,
-  Share2, CheckCircle2, ShieldAlert, AlertTriangle, UploadCloud, Clock, Sparkles, Send, RefreshCw
+  Camera, X, Instagram, Facebook, Linkedin, Twitter, Info,
+  Share2, CheckCircle2, ShieldAlert, AlertTriangle, UploadCloud, Clock, Sparkles, Send, RefreshCw, Loader2
 } from "lucide-react";
+
+// ✅ HELPER: Generate a consistent color based on the user's name
+const getAvatarColor = (name) => {
+  if (!name) return "#09707D"; // Brand color fallback
+  const colors = [
+    "#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5",
+    "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50",
+    "#8BC34A", "#CDDC39", "#FFC107", "#FF9800", "#FF5722", 
+    "#795548", "#607D8B"
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+};
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
@@ -31,6 +47,7 @@ const Profile = () => {
   const [verificationStatus, setVerificationStatus] = useState("new"); 
   const [rejectionReason, setRejectionReason] = useState("");
   
+  const [loading, setLoading] = useState(true); // ✅ Initial Loading State
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -43,6 +60,8 @@ const Profile = () => {
   // ------------------ Fetch Profile ------------------
   const fetchProfile = async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
+    else setLoading(true);
+
     try {
       const res = await client.get("/api/profile");
       const data = res.data || {}; 
@@ -70,7 +89,6 @@ const Profile = () => {
       setInitialForm(profileData);
       setRemoteAvatarUrl(data.avatar_url || user?.avatar_url || null);
       
-      // ✅ Status Logic
       setVerificationStatus(data.verification_status || "new"); 
       setRejectionReason(data.rejection_reason || "");
       
@@ -87,7 +105,8 @@ const Profile = () => {
       console.error("Profile fetch error:", err);
       if (isManualRefresh) toast.error("Failed to refresh.");
     } finally {
-      if (isManualRefresh) setRefreshing(false);
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -112,27 +131,45 @@ const Profile = () => {
     setAvatarPreview(URL.createObjectURL(file));
   };
 
-  const onSave = async () => {
-    // 🛑 VALIDATION: New User MUST upload photo
+  // ✅ Wrapper to handle Warnings before Saving
+  const handleSaveRequest = async () => {
+    // 1. Validation: New User MUST upload photo
     if (verificationStatus === 'new' && !avatarFile && !remoteAvatarUrl) {
         toast.error("Please upload a profile photo to complete registration.");
         return;
     }
 
+    // 2. Warning: If user is APPROVED, warn them about losing status
+    if (verificationStatus === 'approved') {
+        const result = await Swal.fire({
+            title: 'Update Profile?',
+            text: "Modifying your profile will reset your status to 'Pending'. An admin must re-approve you before your listings go live again.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#09707D',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, update it!'
+        });
+
+        if (!result.isConfirmed) return; // Stop if they cancel
+    }
+
+    // 3. Proceed to Save
+    executeSave();
+  };
+
+  const executeSave = async () => {
     setSaving(true);
     try {
       // 1. Upload Avatar (Only if changed)
       if (avatarFile) {
         const formData = new FormData();
         formData.append("avatar", avatarFile);
-        
-        // ✅ CORRECT: Let Axios handle boundary automatically
         const avatarRes = await client.put("/api/profile/avatar", formData);
         
         setRemoteAvatarUrl(avatarRes.data.avatar_url);
         updateUser({ avatar_url: avatarRes.data.avatar_url });
-        
-        setAvatarFile(null); // Clear file state
+        setAvatarFile(null); 
       }
 
       // 2. Update Text Profile
@@ -142,7 +179,7 @@ const Profile = () => {
       setInitialForm((f) => ({ ...f }));
       setEditing(false);
       
-      // ✅ Optimistic Update
+      // ✅ Optimistic Update: Set status to pending immediately
       setVerificationStatus('pending'); 
       updateUser({ name: form.full_name });
 
@@ -172,6 +209,70 @@ const Profile = () => {
   );
 
   const hasPhoto = !!remoteAvatarUrl || !!avatarFile;
+
+  // ✅ Render Dynamic Avatar (Image or Initials)
+  const renderAvatar = () => {
+    const source = avatarPreview || remoteAvatarUrl;
+    
+    if (source) {
+        return (
+            <img 
+                src={source} 
+                alt="Avatar" 
+                className={styles.avatar} 
+                onClick={() => setShowImageModal(true)} 
+            />
+        );
+    }
+
+    // Generate Initials (e.g., "John Doe" -> "JD")
+    const name = form.full_name?.trim() || "User";
+    const nameParts = name.split(" ");
+    
+    let initials = "";
+    
+    if (nameParts.length > 1) {
+        initials = (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase();
+    } else {
+        initials = nameParts[0][0]?.toUpperCase() || "U";
+    }
+
+    const bgColor = getAvatarColor(name);
+
+    return (
+        <div 
+            className={styles.avatar} 
+            onClick={() => setShowImageModal(true)}
+            style={{
+                backgroundColor: bgColor,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: '40px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                letterSpacing: '1px'
+            }}
+        >
+            {initials}
+        </div>
+    );
+  };
+
+  // ✅ LOADING STATE
+  if (loading) {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+            <style>{`
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+                .custom-spinner { animation: spin 1s linear infinite; }
+            `}</style>
+            <Loader2 size={50} color="#09707D" className="custom-spinner" />
+            <p style={{ marginTop: '15px', color: '#09707D', fontSize: '18px', fontWeight: '600' }}>Loading profile...</p>
+        </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
@@ -244,12 +345,9 @@ const Profile = () => {
         <div className={styles.sidebar}>
           <div className={styles.avatarCard}>
             <div className={styles.avatarWrapper}>
-                <img 
-                    src={avatarPreview || remoteAvatarUrl || defaultPerson} 
-                    alt="Avatar" 
-                    className={styles.avatar} 
-                    onClick={() => setShowImageModal(true)} 
-                />
+                
+                {/* ✅ Render the Dynamic Avatar */}
+                {renderAvatar()}
                 
                 {editing && (
                     <button className={styles.cameraBtn} onClick={handleCameraClick} type="button">
@@ -278,7 +376,8 @@ const Profile = () => {
                 </button>
                 
                 {editing && (
-                    <button className={styles.saveBtn} onClick={onSave} disabled={saving}>
+                    /* ✅ Call handleSaveRequest instead of onSave */
+                    <button className={styles.saveBtn} onClick={handleSaveRequest} disabled={saving}>
                         {saving ? "Saving..." : <><Send size={18} /> {verificationStatus === 'new' ? "Submit for Approval" : "Update Profile"}</>}
                     </button>
                 )}
@@ -300,7 +399,8 @@ const Profile = () => {
                 {activeTab === "profile" && (
                     <div className={styles.formGrid}>
                         {renderInput("username", "Username", <User size={16}/>)}
-                        {renderInput("full_name", "Full Name", <FileText size={16}/>)}
+                        {/* ✅ Full Name LOCKED */}
+                        {renderInput("full_name", "Full Name", <FileText size={16}/>, "text", true)}
                         {renderInput("email", "Email", <Mail size={16}/>, "email", true)}
                         {renderInput("country", "Country", <Globe size={16}/>, "text", true)} 
                         {renderInput("phone", "Phone Number", <Phone size={16}/>, "text", true)}
@@ -341,7 +441,33 @@ const Profile = () => {
       {showImageModal && (
         <div className={styles.modalOverlay} onClick={() => setShowImageModal(false)}>
             <div className={styles.modalContent}>
-                <img src={avatarPreview || remoteAvatarUrl || defaultPerson} alt="Full" />
+                {/* ✅ Modal now supports Large Letter Avatar */}
+                {(avatarPreview || remoteAvatarUrl) ? (
+                    <img src={avatarPreview || remoteAvatarUrl} alt="Full" />
+                ) : (
+                    <div style={{
+                        width: '100%', 
+                        height: '100%', 
+                        minHeight: '300px',
+                        backgroundColor: getAvatarColor(form.full_name),
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '100px', // Large text for modal
+                        fontWeight: 'bold',
+                        borderRadius: '8px' 
+                    }}>
+                        {/* Same logic for the modal display */}
+                        {(() => {
+                            const n = form.full_name?.trim() || "User";
+                            const parts = n.split(" ");
+                            return parts.length > 1 
+                                ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() 
+                                : parts[0][0]?.toUpperCase();
+                        })()}
+                    </div>
+                )}
             </div>
         </div>
       )}

@@ -1,69 +1,210 @@
+/* Container & Background */
 .container {
   min-height: 100vh;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #eef2ff, #f8fafc);
+  background-color: #f8fafc; /* Light gray-blue background */
+  position: relative;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
 }
 
-.card {
+/* Background Blobs (Decoration) */
+.bgCircle1, .bgCircle2 {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  filter: blur(80px); /* Creates the soft glow effect */
+  z-index: 1;
+  opacity: 0.6;
+}
+
+.bgCircle1 {
+  background-color: #ccfbf1; /* Very light teal */
+  top: 10%;
+  left: 10%;
+}
+
+.bgCircle2 {
+  background-color: #e0f2f1; /* Light teal */
+  bottom: 10%;
+  right: 10%;
+}
+
+/* Main Content Wrapper */
+.right {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  padding: 20px;
+}
+
+/* The White Card */
+.form {
   background: white;
-  padding: 3rem;
-  border-radius: 16px;
+  padding: 2.5rem;
+  border-radius: 24px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   width: 100%;
-  max-width: 420px;
-  text-align: center;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+  max-width: 450px; /* Limits width on desktop */
+  margin: 0 auto; /* Centers it */
+  animation: slideUp 0.5s ease-out;
 }
 
-.card h2 {
-  font-size: 1.6rem;
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Back Button */
+.backButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  transition: color 0.2s;
+}
+
+.backButton:hover {
+  color: #1e293b;
+}
+
+/* Text Headers */
+.form h2 {
+  font-size: 1.5rem;
   font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
 }
 
-.subtitle {
-  color: #6b7280;
-  margin-top: 0.5rem;
+.text-muted {
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
-.otpInput {
-  margin-top: 2rem;
-  width: 100%;
-  font-size: 2rem;
-  letter-spacing: 0.5rem;
-  padding: 1rem;
+/* OTP Input Grid */
+.otpContainer {
+  display: flex;
+  justify-content: center;
+  gap: 10px; /* Space between boxes */
+  margin: 2rem 0;
+}
+
+/* Individual OTP Box */
+.otpBox {
+  width: 50px;
+  height: 60px;
+  font-size: 1.5rem;
+  font-weight: 600;
   text-align: center;
+  border: 2px solid #e2e8f0;
   border-radius: 12px;
-  border: 2px solid #e5e7eb;
+  background-color: #fff;
+  color: #1e293b;
+  transition: all 0.2s ease;
   outline: none;
 }
 
-.otpInput:focus {
-  border-color: #6366f1;
+/* Focus State (Teal Brand Color) */
+.otpBox:focus {
+  border-color: #09707D;
+  box-shadow: 0 0 0 4px rgba(9, 112, 125, 0.1);
+  transform: translateY(-2px);
 }
 
-.submit {
-  margin-top: 2rem;
-  width: 100%;
-  padding: 0.9rem;
+/* Timer Section */
+.timerSection {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.timerText {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.highlight {
+  color: #09707D; /* Brand color */
   font-weight: 600;
-  background: #6366f1;
+  font-variant-numeric: tabular-nums; /* Prevents numbers from jumping */
+}
+
+.expiredText {
+  color: #ef4444; /* Red for expired */
+  font-weight: 500;
+}
+
+/* Primary Button */
+.button {
+  width: 100%;
+  padding: 1rem;
+  background-color: #09707D;
   color: white;
   border: none;
   border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  box-shadow: 0 4px 12px rgba(9, 112, 125, 0.2);
 }
 
-.submit:disabled {
-  opacity: 0.6;
+.button:hover:not(:disabled) {
+  background-color: #075a64;
+  transform: translateY(-1px);
+}
+
+.button:disabled {
+  background-color: #94a3b8;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
-.resend {
+/* Secondary Resend Button */
+.resendButton {
   margin-top: 1.5rem;
   background: none;
   border: none;
-  color: #6366f1;
+  color: #09707D;
   font-weight: 600;
+  font-size: 0.9rem;
   cursor: pointer;
+  width: 100%;
+  transition: opacity 0.2s;
+}
+
+.resendButton:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.resendButton:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+/* Responsive Tweak */
+@media (max-width: 480px) {
+  .form {
+    padding: 1.5rem;
+  }
+  .otpBox {
+    width: 40px;
+    height: 50px;
+    font-size: 1.25rem;
+  }
 }

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthProvider";
 import { useNavigate } from "react-router-dom";
-import style from "../styles/signup.module.css"; 
+import style from "../styles/loginOtp.module.css"; 
 import { Timer, ShieldCheck, ArrowLeft } from "lucide-react";
 import Swal from "sweetalert2";
-import { toast } from "react-toastify";
 
 const LoginVerifyOtp = () => {
   const { loginVerifyOtp } = useAuth();
@@ -17,7 +16,7 @@ const LoginVerifyOtp = () => {
   const [verifying, setVerifying] = useState(false);
   const inputRefs = useRef([]);
 
-  // 🚨 Guard
+  // 🚨 Guard: Ensure we have an email to verify
   useEffect(() => {
     if (verifying) return; 
     if (!email) {
@@ -32,7 +31,7 @@ const LoginVerifyOtp = () => {
     }
   }, [email, navigate, verifying]);
 
-  // Timer
+  // Timer Countdown
   useEffect(() => {
     let interval = null;
     if (timer > 0) {
@@ -41,7 +40,31 @@ const LoginVerifyOtp = () => {
     return () => clearInterval(interval);
   }, [timer]);
 
-  // Input Handling
+  // ==========================================
+  // ✅ CORE SUBMIT LOGIC
+  // ==========================================
+  const triggerSubmit = async (code) => {
+    setVerifying(true);
+    try {
+      // We just call the function. AuthProvider handles the Toast & Redirect.
+      await loginVerifyOtp(code);
+    } catch (err) {
+      // Only handle errors here if AuthProvider throws them up
+      setVerifying(false);
+      // Note: AuthProvider usually handles the error alert too, 
+      // but we reset 'verifying' state here just in case.
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    triggerSubmit(otp.join(""));
+  };
+
+  // ==========================================
+  // INPUT HANDLERS (With Copy/Paste)
+  // ==========================================
+  
   const handleChange = (index, e) => {
     const value = e.target.value;
     if (value && !/^[a-zA-Z0-9]$/.test(value.slice(-1))) return;
@@ -50,55 +73,49 @@ const LoginVerifyOtp = () => {
     newOtp[index] = value.slice(-1).toUpperCase(); 
     setOtp(newOtp);
 
+    // Auto-focus next
     if (value && index < 5) inputRefs.current[index + 1].focus();
+
+    // Auto-submit on last digit
+    if (index === 5 && value) {
+        const fullCode = newOtp.join("");
+        if (fullCode.length === 6) triggerSubmit(fullCode);
+    }
+  };
+
+  // ✅ PASTE HANDLER
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").trim().toUpperCase();
+
+    // Validate (Alphanumeric)
+    if (!/^[A-Z0-9]+$/.test(pastedData)) return;
+
+    // Slice first 6 chars
+    const chars = pastedData.split("").slice(0, 6);
+    const newOtp = [...otp];
+
+    chars.forEach((char, index) => {
+      newOtp[index] = char;
+      if (inputRefs.current[index]) {
+        inputRefs.current[index].value = char;
+      }
+    });
+
+    setOtp(newOtp);
+
+    // Focus management & Auto Submit
+    if (chars.length < 6) {
+      inputRefs.current[chars.length].focus();
+    } else {
+      inputRefs.current[5].focus();
+      triggerSubmit(chars.join(""));
+    }
   };
 
   const handleKeyDown = (index, e) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputRefs.current[index - 1].focus();
-    }
-  };
-
-  // ----------------- SUBMIT & REDIRECT LOGIC -----------------
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setVerifying(true);
-    const code = otp.join("");
-    
-    try {
-      // 1. Verify and get User Data response
-      const res = await loginVerifyOtp(code); 
-      
-      // 2. Intelligent Redirect based on Role & Flags
-      // Note: res needs to be the response object returned by apiRequest in AuthProvider
-      const user = res?.user || res; // Handle if wrapper returns just user or full response
-
-      if (user) {
-        toast.success(`Welcome, ${user.name}`);
-
-        if (user.is_super_admin) {
-          navigate("/super-admin/dashboard");
-        } else if (user.role === "admin") {
-          navigate("/admin/dashboard");
-        } else if (user.role === "agent") {
-          navigate("/dashboard");
-        } else if (user.role === "owner") {
-          navigate("/owner/dashboard");
-        } else if (user.role === "buyer") {
-          navigate("/buyer/dashboard");
-        } else if (user.role === "developer") {
-          navigate("/developer/dashboard");
-        } else {
-          navigate("/");
-        }
-      }
-    } catch (err) {
-      setVerifying(false);
-      Swal.fire({
-        icon: "error",
-        title: "Verification Failed",
-        text: err?.response?.data?.message || "Invalid Code"
-      });
     }
   };
 
@@ -137,6 +154,7 @@ const LoginVerifyOtp = () => {
                 value={digit}
                 onChange={(e) => handleChange(index, e)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
+                onPaste={index === 0 ? handlePaste : undefined} // ✅ Paste Listener attached here
                 className={style.otpBox}
                 style={{ width: "45px", height: "55px", fontSize: "22px", borderRadius: "12px", textTransform: "uppercase" }}
               />

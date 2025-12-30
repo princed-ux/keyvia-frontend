@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthProvider";
-import style from "../styles/signup.module.css";
+import style from "../styles/loginOtp.module.css";
 import { Timer } from "lucide-react";
-import Swal from "sweetalert2"; // Import Swal here
+import Swal from "sweetalert2";
 
 const SignupVerifyOtp = () => {
-  // 1. Get the function
   const { signupVerifyOtp, signupResendOtp } = useAuth();
   
-  // 2. Try to get email from session, or default to empty
   const [storedEmail, setStoredEmail] = useState(
     sessionStorage.getItem("signupEmail") || ""
   );
@@ -19,6 +17,7 @@ const SignupVerifyOtp = () => {
   const [verifying, setVerifying] = useState(false);
   const inputRefs = useRef([]);
 
+  // Timer Logic
   useEffect(() => {
     let interval = null;
     if (timer > 0) {
@@ -30,13 +29,97 @@ const SignupVerifyOtp = () => {
     return () => clearInterval(interval);
   }, [timer]);
 
+  // ==========================================
+  // ✅ CORE VERIFICATION LOGIC (Reusable)
+  // ==========================================
+  const triggerVerify = async (codeToVerify) => {
+    setVerifying(true);
+
+    // 1. Ensure Email Exists
+    let currentEmail = storedEmail;
+    
+    if (!currentEmail) {
+       const { value: userEmail } = await Swal.fire({
+         title: "Confirm Email",
+         text: "Please confirm your email address:",
+         input: "email",
+         inputPlaceholder: "name@example.com",
+         allowOutsideClick: false,
+       });
+       
+       if (!userEmail) {
+         setVerifying(false); 
+         return; 
+       }
+       currentEmail = userEmail;
+       setStoredEmail(userEmail);
+       sessionStorage.setItem("signupEmail", userEmail);
+    }
+
+    try {
+      await signupVerifyOtp(codeToVerify, currentEmail);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // ==========================================
+  // HANDLERS
+  // ==========================================
+
   const handleChange = (index, e) => {
     const value = e.target.value;
     if (isNaN(value)) return;
+    
     const newOtp = [...otp];
+    // Take only the last character entered
     newOtp[index] = value.substring(value.length - 1);
     setOtp(newOtp);
-    if (value && index < 5) inputRefs.current[index + 1].focus();
+
+    // Move focus to next box
+    if (value && index < 5) {
+      inputRefs.current[index + 1].focus();
+    }
+    
+    // Optional: Auto-submit if typing manually fills the last box
+    const combinedCode = newOtp.join("");
+    if (combinedCode.length === 6 && index === 5) {
+        triggerVerify(combinedCode);
+    }
+  };
+
+  // ✅ NEW: PASTE HANDLER
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").trim();
+
+    // Check if it's a number
+    if (!/^\d+$/.test(pastedData)) return;
+
+    // Slice only first 6 digits
+    const digits = pastedData.split("").slice(0, 6);
+    const newOtp = [...otp];
+
+    // Fill the array
+    digits.forEach((digit, index) => {
+      newOtp[index] = digit;
+      if (inputRefs.current[index]) {
+        inputRefs.current[index].value = digit; // Visual update immediately
+      }
+    });
+
+    setOtp(newOtp);
+
+    // Focus management
+    if (digits.length < 6) {
+      inputRefs.current[digits.length].focus();
+    } else {
+      inputRefs.current[5].focus(); // Focus last box
+      // ✅ AUTO SUBMIT IMMEDIATELY
+      triggerVerify(digits.join(""));
+    }
   };
 
   const handleKeyDown = (index, e) => {
@@ -45,38 +128,9 @@ const SignupVerifyOtp = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setVerifying(true);
-    const code = otp.join("");
-
-    // 🛑 BULLETPROOF CHECK:
-    // If we don't have the email in the UI, ask for it HERE before calling AuthProvider
-    let currentEmail = storedEmail;
-    
-    if (!currentEmail) {
-       const { value: userEmail } = await Swal.fire({
-          title: "Confirm Email",
-          text: "Please confirm your email address:",
-          input: "email",
-          inputPlaceholder: "name@example.com",
-          allowOutsideClick: false,
-       });
-       if (!userEmail) {
-         setVerifying(false); 
-         return; 
-       }
-       currentEmail = userEmail;
-       setStoredEmail(userEmail); // Update state
-       sessionStorage.setItem("signupEmail", userEmail); // Update session
-    }
-
-    try {
-      // Pass BOTH code AND email to the verify function
-      await signupVerifyOtp(code, currentEmail);
-    } finally {
-      setVerifying(false);
-    }
+    triggerVerify(otp.join(""));
   };
 
   const handleResend = () => {
@@ -104,11 +158,13 @@ const SignupVerifyOtp = () => {
                 key={index}
                 ref={(el) => (inputRefs.current[index] = el)}
                 type="text"
-                maxLength="1"
+                maxLength="1" // Note: handlePaste overrides this for the event only
                 value={digit}
                 onChange={(e) => handleChange(index, e)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
+                onPaste={index === 0 ? handlePaste : undefined} // ✅ Attach paste to first box
                 className={style.otpBox}
+                inputMode="numeric"
               />
             ))}
           </div>

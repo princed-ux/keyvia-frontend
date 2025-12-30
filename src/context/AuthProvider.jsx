@@ -35,8 +35,16 @@ export const AuthProvider = ({ children }) => {
   }, [accessToken]);
 
   // ================= HELPERS =================
-  const showError = (title, msg) =>
-    Swal.fire({ icon: "error", title, text: msg, confirmButtonColor: '#d33' });
+  const showError = (title, msg) => {
+    // Only redirect if it's strictly a 401 session issue, handled by axios interceptor mostly
+    // Here we just show the alert
+    Swal.fire({ 
+        icon: "error", 
+        title, 
+        text: msg, 
+        confirmButtonColor: '#d33' 
+    });
+  };
 
   const showSuccess = (title, msg) =>
     Swal.fire({
@@ -47,10 +55,13 @@ export const AuthProvider = ({ children }) => {
       showConfirmButton: false,
     });
 
-  const extractError = (err, fallback = "Something went wrong") =>
-    err?.response?.data?.message || fallback;
+  const extractError = (err, fallback = "Something went wrong") => {
+    // If it's a network error
+    if (!err.response) return "Network Error. Please check your connection.";
+    return err.response?.data?.message || fallback;
+  };
 
-  // ✅ ROBUST UPDATE USER FUNCTION (Persists to LocalStorage)
+  // ✅ ROBUST UPDATE USER FUNCTION
   const updateUser = (newData) => {
     setUser((prevUser) => {
       const updatedUser = { ...prevUser, ...newData };
@@ -73,17 +84,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signupVerifyOtp = async (code) => {
+  const signupVerifyOtp = async (code, manualEmail = null) => {
     try {
-      let email = sessionStorage.getItem("signupEmail");
+      // Allow manual email override (for the copy-paste fix we did earlier)
+      let email = manualEmail || sessionStorage.getItem("signupEmail");
 
       if (!email) {
+        // Double check safeguard
         const { value: userEmail } = await Swal.fire({
-          title: "Session Restored",
+          title: "Confirm Email",
           text: "Please confirm your email address:",
           input: "email",
           allowOutsideClick: false,
-          showCancelButton: true,
           confirmButtonColor: '#09707d'
         });
         if (!userEmail) return; 
@@ -119,24 +131,38 @@ export const AuthProvider = ({ children }) => {
   const setRole = async (role) => {
     try {
       const token = sessionStorage.getItem("signupTempToken");
-      if (!token) throw new Error("Session expired.");
+      
+      // Explicit check to avoid generic 500 error being confused
+      if (!token) {
+          Swal.fire({ icon: 'warning', title: 'Session Expired', text: 'Please sign up again.' });
+          navigate("/signup");
+          return;
+      }
 
       await client.post(
         "/api/auth/signup/role",
         { role },
+        // IMPORTANT: We send the temp token manually here because 
+        // it is NOT the main AccessToken yet.
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      sessionStorage.clear();
+      // Cleanup registration data
+      sessionStorage.removeItem("signupTempToken");
+      sessionStorage.removeItem("signupEmail");
+
       await Swal.fire({
         icon: "success",
         title: "Account Created!",
-        text: "Please log in.",
+        text: "Your profile is ready. Please log in.",
         confirmButtonColor: '#09707d'
       });
       navigate("/login");
+      
     } catch (err) {
+      console.error("Set Role Error:", err);
       showError("Setup Failed", extractError(err));
+      // Do NOT navigate away on error, let them try again
     }
   };
 
@@ -148,7 +174,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await client.post("/api/auth/login/start", { email, password });
       sessionStorage.setItem("loginEmail", email);
-      return true;
+      return true; // Return true to signal UI to move to next step
     } catch (err) {
       showError("Login Failed", extractError(err));
       return false;
@@ -169,7 +195,7 @@ export const AuthProvider = ({ children }) => {
       const token = res.data.accessToken;
       const u = res.data.user;
 
-      console.log("LOGIN RESPONSE USER:", u); // 🔍 Debugging
+      // console.log("LOGIN SUCCESS:", u); 
 
       // Save Session
       setAccessToken(token);
@@ -180,14 +206,11 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(u));
       sessionStorage.removeItem("loginEmail"); 
       
-      // ✅ FIX 1: Handle "Undefined" Name
-      // It tries 'name', then 'full_name', then extracts from email
       const displayName = u.name || u.full_name || u.email?.split('@')[0] || "User"; 
       showSuccess("Login Successful", `Welcome back, ${displayName}!`);
 
-      // ✅ FIX 2: Stronger Super Admin Check
-      // Checks boolean true/1 OR string 'superadmin'/'super_admin'
-      const isSuper = u.is_super_admin === true || u.role === 'superadmin' || u.role === 'super_admin';
+      // Redirect Logic
+      const isSuper = u.is_super_admin === true || u.role === 'superadmin';
 
       if (isSuper) {
         navigate("/super-admin/dashboard");
@@ -195,9 +218,8 @@ export const AuthProvider = ({ children }) => {
         switch(u.role) {
             case "admin": navigate("/admin/dashboard"); break;
             case "agent": navigate("/dashboard"); break;
-            case "owner": navigate("/owner"); break;
-            case "buyer": navigate("/buyer"); break;
-            case "developer": navigate("/developer"); break;
+            case "owner": navigate("/owner/dashboard"); break; // Assuming Owner Dashboard is here
+            case "buyer": navigate("/buyer/dashboard"); break;
             default: navigate("/"); 
         }
       }
@@ -213,8 +235,9 @@ export const AuthProvider = ({ children }) => {
     try {
       await client.post("/api/auth/logout");
     } catch (err) {
-        console.error("Logout error", err);
+        console.warn("Logout endpoint error (ignoring):", err);
     } finally {
+      // Always clear local state even if server fails
       setAccessToken(null);
       setUser(null);
       attachToken(null);

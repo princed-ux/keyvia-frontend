@@ -1,105 +1,90 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Heart, Share2, MapPin, Bed, Bath, Square, Calendar, Check, Mail, ChevronLeft, ChevronRight, PlayCircle, Video } from "lucide-react";
-import { MapContainer, TileLayer, Marker } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import { X, Heart, Share2, MapPin, Bed, Bath, Square, Calendar, Check, Mail, ChevronLeft, ChevronRight, PlayCircle, Video, User, Building } from "lucide-react";
 import { getCurrencySymbol, formatPrice } from "../utils/format";
 import style from "../styles/ListingModal.module.css"; 
 import keyviaLogo from "../assets/mainLogo.png"; 
 
-// Fix Leaflet Icons
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-});
-
-const ListingModal = ({ listing, onClose }) => {
+const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
   const navigate = useNavigate();
   const [showGallery, setShowGallery] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
 
   if (!listing) return null;
 
-  // --- 1. PREPARE MEDIA LIST (Photos + Video + Tour) ---
+  // --- 1. MEDIA PREP ---
   const photos = listing.photos?.map(p => ({ type: 'image', url: p.url })) || [];
-  
   const allMedia = [...photos];
   if (listing.video_url) allMedia.push({ type: 'video', url: listing.video_url });
   if (listing.virtual_tour_url) allMedia.push({ type: 'tour', url: listing.virtual_tour_url });
 
-  // Fill placeholders if < 5 images for the grid
   const gridPhotos = [...photos];
   while (gridPhotos.length < 5) gridPhotos.push({ type: 'placeholder', url: "/placeholder.png" });
-
-  // Calculate remaining photos for the "+X" overlay
   const remainingPhotos = allMedia.length > 5 ? allMedia.length - 5 : 0;
 
+  // --- 2. DYNAMIC PROFILE LOGIC ---
+  // Determine if the poster is an Agent or Landlord based on role or data
+  const isAgent = listing.agent_role === 'agent' || !!listing.license_number;
+  const profileLabel = isAgent ? "Agent" : "Landlord";
+
   // --- HANDLERS ---
-  const handleAgentClick = () => {
-    // Uses the new fields from the Backend JOIN
+  const handleProfileClick = () => {
     const id = listing.agent_username || listing.agent_unique_id;
     if (id) navigate(`/user/${id}`);
   };
 
-  const openGallery = (index = 0) => {
-    setGalleryIndex(index);
-    setShowGallery(true);
+  // ✅ GATED ACTIONS
+  const handleRequestTour = () => {
+    if (onActionAttempt) {
+        onActionAttempt(() => {
+            console.log("Opening Tour Request for logged in user...");
+            // Add your tour scheduling logic here
+        });
+    }
   };
 
-  const nextSlide = (e) => {
-    e.stopPropagation();
-    setGalleryIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1));
+  const handleMessage = () => {
+    if (onActionAttempt) {
+        onActionAttempt(() => {
+            console.log("Opening Message Chat...");
+            // Add your messaging logic here (e.g. navigate to chat)
+        });
+    }
   };
 
-  const prevSlide = (e) => {
-    e.stopPropagation();
-    setGalleryIndex((prev) => (prev === 0 ? allMedia.length - 1 : prev - 1));
-  };
+  const openGallery = (index = 0) => { setGalleryIndex(index); setShowGallery(true); };
+  
+  const nextSlide = (e) => { e.stopPropagation(); setGalleryIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1)); };
+  const prevSlide = (e) => { e.stopPropagation(); setGalleryIndex((prev) => (prev === 0 ? allMedia.length - 1 : prev - 1)); };
 
-  // --- RENDER GALLERY OVERLAY ---
+  // --- GALLERY OVERLAY ---
   if (showGallery) {
     const current = allMedia[galleryIndex];
     return (
         <div className={style.galleryOverlay} onClick={() => setShowGallery(false)}>
             <button className={style.closeGalleryBtn} onClick={() => setShowGallery(false)}><X size={24} /></button>
-            
             <button className={style.navBtnLeft} onClick={prevSlide}><ChevronLeft size={32} /></button>
-            
             <div className={style.galleryContent} onClick={(e) => e.stopPropagation()}>
                 {current.type === 'image' && <img src={current.url} alt="Gallery" />}
-                {current.type === 'video' && (
-                    <video controls autoPlay className={style.mediaPlayer}>
-                        <source src={current.url} type="video/mp4" />
-                        Your browser does not support the video tag.
-                    </video>
-                )}
-                {current.type === 'tour' && (
-                    <div className={style.iframeWrapper}>
-                        <iframe src={current.url} title="Virtual Tour" frameBorder="0" allowFullScreen></iframe>
-                    </div>
-                )}
+                {current.type === 'video' && <video controls autoPlay className={style.mediaPlayer}><source src={current.url} type="video/mp4" /></video>}
+                {current.type === 'tour' && <div className={style.iframeWrapper}><iframe src={current.url} title="Virtual Tour" frameBorder="0" allowFullScreen></iframe></div>}
                 <div className={style.galleryCounter}>{galleryIndex + 1} / {allMedia.length}</div>
             </div>
-
             <button className={style.navBtnRight} onClick={nextSlide}><ChevronRight size={32} /></button>
         </div>
     );
   }
 
-  // --- MAIN MODAL RENDER ---
+  // --- MAIN RENDER ---
   return (
     <div className={style.overlay} onClick={onClose}>
       <div className={style.modalContainer} onClick={(e) => e.stopPropagation()}>
         
-        {/* --- HEADER --- */}
+        {/* HEADER */}
         <div className={style.topControls}>
             <div className={style.leftNav}>
                 <button className={style.backBtn} onClick={onClose}>‹ Back to search</button>
             </div>
-            {/* ✅ LOGO CENTERED IN TOP NAV */}
             <div className={style.centerLogo}>
                 <img src={keyviaLogo} alt="KEYVIA" />
             </div>
@@ -110,69 +95,42 @@ const ListingModal = ({ listing, onClose }) => {
             </div>
         </div>
 
-        {/* --- IMAGE GRID --- */}
+        {/* IMAGE GRID */}
         <div className={style.imageGrid}>
-          {/* Main Large Image */}
           <div className={style.mainImage} onClick={() => openGallery(0)}>
             <img src={gridPhotos[0].url} alt="Main" />
-            <div className={style.logoOverlay}>
-                <img src={keyviaLogo} alt="KEYVIA" />
-            </div>
+            <div className={style.logoOverlay}><img src={keyviaLogo} alt="KEYVIA" /></div>
           </div>
-
-          {/* Sub Images (2x2) */}
           <div className={style.subImages}>
             {gridPhotos.slice(1, 5).map((photo, index) => (
                 <div key={index} className={style.imageWrapper} onClick={() => openGallery(index + 1)}>
                     <img src={photo.url} alt={`Sub ${index}`} />
-                    
-                    {/* Overlay for +X photos on the LAST image block */}
-                    {index === 3 && remainingPhotos > 0 && (
-                        <div className={style.moreOverlay}>
-                            +{remainingPhotos}
-                        </div>
-                    )}
+                    {index === 3 && remainingPhotos > 0 && <div className={style.moreOverlay}>+{remainingPhotos}</div>}
                 </div>
             ))}
           </div>
-
-          {/* ✅ "See All Photos" Button */}
           <button className={style.seeAllBtn} onClick={() => openGallery(0)}>
             <Square size={16} /> See all {allMedia.length} photos
           </button>
         </div>
 
         <div className={style.contentLayout}>
-          {/* --- LEFT: INFO --- */}
+          {/* LEFT COLUMN */}
           <div className={style.leftColumn}>
             <div className={style.header}>
               <div className={style.headerTop}>
                 <h1>{listing.title}</h1>
-                <div className={style.priceTag}>
-                  {getCurrencySymbol(listing.price_currency)}{formatPrice(listing.price)}
-                </div>
+                <div className={style.priceTag}>{getCurrencySymbol(listing.price_currency)}{formatPrice(listing.price)}</div>
               </div>
-              <p className={style.addressText}>
-                <MapPin size={16} /> {listing.address}, {listing.city}, {listing.state}
-              </p>
+              <p className={style.addressText}><MapPin size={16} /> {listing.address}, {listing.city}, {listing.state}</p>
               
               <div className={style.keyStats}>
-                <div className={style.statBox}>
-                  <span className={style.statVal}>{listing.bedrooms}</span>
-                  <span className={style.statLabel}>Beds</span>
-                </div>
-                <div className={style.statBox}>
-                  <span className={style.statVal}>{listing.bathrooms}</span>
-                  <span className={style.statLabel}>Baths</span>
-                </div>
-                <div className={style.statBox}>
-                  <span className={style.statVal}>{formatPrice(listing.square_footage)}</span>
-                  <span className={style.statLabel}>Sqft</span>
-                </div>
+                <div className={style.statBox}><span className={style.statVal}>{listing.bedrooms}</span><span className={style.statLabel}>Beds</span></div>
+                <div className={style.statBox}><span className={style.statVal}>{listing.bathrooms}</span><span className={style.statLabel}>Baths</span></div>
+                <div className={style.statBox}><span className={style.statVal}>{formatPrice(listing.square_footage)}</span><span className={style.statLabel}>Sqft</span></div>
               </div>
             </div>
 
-            {/* Media Indicators */}
             {(listing.video_url || listing.virtual_tour_url) && (
                 <div className={style.mediaLinks}>
                     {listing.video_url && <button onClick={() => { const idx = allMedia.findIndex(m => m.type === 'video'); openGallery(idx); }}><PlayCircle size={16}/> Watch Video</button>}
@@ -188,39 +146,43 @@ const ListingModal = ({ listing, onClose }) => {
             <div className={style.section}>
               <h3>Features</h3>
               <div className={style.featureGrid}>
-                {listing.features?.map((f, i) => (
-                  <span key={i} className={style.featureItem}><Check size={14}/> {f}</span>
-                ))}
+                {listing.features?.map((f, i) => <span key={i} className={style.featureItem}><Check size={14}/> {f}</span>)}
               </div>
             </div>
 
+            {/* ✅ GOOGLE MAPS EMBED (Shows Schools/Stores) */}
             <div className={style.section}>
-              <h3>Location</h3>
-              <div className={style.mapWrapper}>
-                {listing.latitude && (
-                  <MapContainer center={[listing.latitude, listing.longitude]} zoom={15} scrollWheelZoom={false} style={{height: "100%"}} zoomControl={false}>
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                    <Marker position={[listing.latitude, listing.longitude]} />
-                  </MapContainer>
-                )}
+              <h3>Neighborhood & Schools</h3>
+              <div className={style.mapWrapper} style={{ borderRadius: '12px', overflow: 'hidden', height: '400px' }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://www.google.com/maps?q=${listing.latitude},${listing.longitude}&hl=en&z=15&output=embed`}
+                ></iframe>
               </div>
             </div>
           </div>
 
-          {/* --- RIGHT: AGENT & CONTACT --- */}
+          {/* RIGHT COLUMN */}
           <div className={style.rightColumn}>
             <div className={style.stickyCard}>
               <div className={style.agentHeader}>
-                <img 
-                    src={listing.agent_avatar || "/person.png"} 
-                    alt="Agent" 
-                    className={style.agentAvatar} 
-                />
+                <img src={listing.agent_avatar || "/person.png"} alt="User" className={style.agentAvatar} />
                 <div className={style.agentInfo}>
-                  <h4>{listing.agent_name || "Listing Agent"}</h4>
-                  <p>{listing.agency_name || "Real Estate Professional"}</p>
-                  <button className={style.viewProfileLink} onClick={handleAgentClick}>
-                    View Agent's Profile
+                  <h4>{listing.agent_name || "Property Manager"}</h4>
+                  
+                  {/* ✅ DYNAMIC ROLE LABEL */}
+                  <p style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {isAgent ? <Building size={14} /> : <User size={14} />}
+                    {isAgent ? (listing.agency_name || "Real Estate Agent") : "Property Landlord"}
+                  </p>
+
+                  <button className={style.viewProfileLink} onClick={handleProfileClick}>
+                    View {profileLabel}'s Profile
                   </button>
                 </div>
               </div>
@@ -235,8 +197,9 @@ const ListingModal = ({ listing, onClose }) => {
                     <option>This Weekend</option>
                   </select>
                 </div>
-                <button className={style.tourBtn}>Request Tour</button>
-                <button className={style.messageBtn}><Mail size={16}/> Message Agent</button>
+                {/* ✅ GATED BUTTONS */}
+                <button className={style.tourBtn} onClick={handleRequestTour}>Request Tour</button>
+                <button className={style.messageBtn} onClick={handleMessage}><Mail size={16}/> Message {profileLabel}</button>
               </div>
             </div>
           </div>

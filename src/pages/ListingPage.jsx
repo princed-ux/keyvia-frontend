@@ -1,17 +1,19 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom"; // ✅ Added useNavigate
 import client from "../api/axios"; 
-import { Search, Loader2, Heart, ChevronDown, Mail, Globe, X, Maximize, AlertCircle, CheckCircle } from "lucide-react"; 
+import { Search, Loader2, Heart, ChevronDown, Mail, Globe, X, Maximize, AlertCircle, CheckCircle, WifiOff, Lock } from "lucide-react"; 
 import Navbar from "../layout/Navbar"; 
 import MapLibreMapViewer from "../components/MapLibreMapViewer";
 import ListingModal from "../components/ListingModal";
 import { getCurrencySymbol, formatPrice } from "../utils/format";
 import style from "../styles/Buy.module.css"; 
+import Swal from "sweetalert2"; // ✅ Ensure Swal is imported
+import { useAuth } from "../context/AuthProvider"; // ✅ Import Auth Context
 
-// --- 1. CUSTOM TOAST COMPONENT (Professional Popup) ---
+// --- 1. CUSTOM TOAST COMPONENT ---
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
-    const timer = setTimeout(onClose, 4000); // Auto hide after 4s
+    const timer = setTimeout(onClose, 4000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
@@ -33,12 +35,7 @@ const Toast = ({ message, type, onClose }) => {
       <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#666" }}>
         <X size={16} />
       </button>
-      <style>{`
-        @keyframes slideDown {
-          from { opacity: 0; transform: translate(-50%, -20px); }
-          to { opacity: 1; transform: translate(-50%, 0); }
-        }
-      `}</style>
+      <style>{`@keyframes slideDown { from { opacity: 0; transform: translate(-50%, -20px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
     </div>
   );
 };
@@ -61,17 +58,21 @@ const FilterDropdown = ({ title, onClose, children, onApply, width = "300px" }) 
 
 const ListingPage = ({ pageType }) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth(); // ✅ Get User from Context
+  const navigate = useNavigate();
+
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hoveredId, setHoveredId] = useState(null);
+  
+  // ✅ NETWORK STATE
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   // --- FILTERS ---
   const [locationQuery, setLocationQuery] = useState("");
   const [countryQuery, setCountryQuery] = useState(""); 
   const [activeDropdown, setActiveDropdown] = useState(null);
-  
-  // ✅ TOAST STATE
-  const [toast, setToast] = useState(null); // { message: "", type: "error" | "success" }
+  const [toast, setToast] = useState(null); 
 
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
   const [beds, setBeds] = useState("any");
@@ -84,7 +85,21 @@ const ListingPage = ({ pageType }) => {
   const selectedProductId = searchParams.get("listing");
   const selectedListing = useMemo(() => properties.find(p => p.product_id === selectedProductId), [properties, selectedProductId]);
 
-  // --- 1. INITIALIZE LOCATION (Storage -> Geolocation) ---
+  // --- 0. NETWORK LISTENER ---
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // --- 1. INITIALIZE LOCATION ---
   useEffect(() => {
     const savedLoc = localStorage.getItem("lastMapLocation");
     if (savedLoc) {
@@ -99,6 +114,7 @@ const ListingPage = ({ pageType }) => {
 
   // --- 2. FETCH LISTINGS ---
   const fetchListings = useCallback(async (params = {}) => {
+    if (isOffline) return; // Don't fetch if offline
     try {
       setLoading(true);
       const category = pageType === 'buy' ? 'Sale' : 'Rent';
@@ -107,10 +123,12 @@ const ListingPage = ({ pageType }) => {
       setProperties(res.data || []);
     } catch (err) {
       console.error("Error fetching listings:", err);
+      // Optional: If API fails specifically due to network, trigger offline mode
+      if (err.message === "Network Error") setIsOffline(true);
     } finally {
       setLoading(false);
     }
-  }, [pageType]);
+  }, [pageType, isOffline]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
 
@@ -149,22 +167,16 @@ const ListingPage = ({ pageType }) => {
     }
   }, [filteredProperties, hoveredId]);
 
-  // --- 4. SMART SEARCH HANDLER (With Toast Alert) ---
+  // --- 4. SMART SEARCH ---
   const handleAddressSearch = async () => {
-    setToast(null); // Clear previous toast
+    setToast(null);
     let query = locationQuery;
-    
-    if (countryQuery) {
-        query = query ? `${query}, ${countryQuery}` : countryQuery;
-    }
+    if (countryQuery) query = query ? `${query}, ${countryQuery}` : countryQuery;
     if (!query) return;
 
-    // 1. Filter Backend (Filter Lists)
     fetchListings({ search: query });
 
-    // 2. Geocode Location (Move Map)
     try {
-      // Note: addressdetails=1 gives us the breakdown (city, country, etc.)
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1`);
       const data = await res.json();
       
@@ -172,26 +184,22 @@ const ListingPage = ({ pageType }) => {
         const result = data[0];
         const resultName = result.display_name.toLowerCase();
         
-        // ✅ STRICT CHECK: Does the result actually contain the City & Country requested?
         const missingAddress = locationQuery && !resultName.includes(locationQuery.toLowerCase());
         const missingCountry = countryQuery && !resultName.includes(countryQuery.toLowerCase());
 
         if (missingAddress || missingCountry) {
-            // ❌ Mismatch found (e.g. User typed "Manchester", Map found "Russia")
             setToast({
                 type: "error",
                 message: `Could not find "${locationQuery}" in ${countryQuery || "the specified area"}.`
             });
-            return; // 🛑 Stop here. Do not move map.
+            return;
         }
 
-        // ✅ Valid Match found -> Move Map
         const newCoords = { lat: parseFloat(result.lat), lng: parseFloat(result.lon) };
         localStorage.setItem("lastMapLocation", JSON.stringify(newCoords));
         setFlyToCoords(newCoords);
         
       } else {
-        // ❌ No results at all
         setToast({ type: "error", message: "Location not found. Please check spelling." });
       }
     } catch (error) { 
@@ -208,16 +216,78 @@ const ListingPage = ({ pageType }) => {
     if (e.key === 'Enter') handleAddressSearch();
   };
 
+  // ✅ AUTH GATING HELPER
+  // This function checks if user is logged in. If not, prompts signup.
+  const handleAuthAction = (actionCallback) => {
+    if (!user) {
+        Swal.fire({
+            title: "Join Keyvia!",
+            text: "Sign up to favorite homes, contact agents, and get the full experience.",
+            icon: "info",
+            showCancelButton: true,
+            confirmButtonColor: "#09707D",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Sign Up Now",
+            cancelButtonText: "Not now"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                navigate("/signup"); // Redirect to signup
+            }
+        });
+        return;
+    }
+    // If logged in, proceed with action
+    actionCallback();
+  };
+
   const toggleFavorite = async (e, listingId) => {
     e.stopPropagation();
-    setProperties(prev => prev.map(p => p.product_id === listingId ? { ...p, is_favorited: !p.is_favorited } : p));
-    try { await client.post(`/api/favorites/toggle`, { product_id: listingId }); } 
-    catch (err) { console.error(err); }
+    
+    // ✅ WRAP IN AUTH CHECK
+    handleAuthAction(async () => {
+        setProperties(prev => prev.map(p => p.product_id === listingId ? { ...p, is_favorited: !p.is_favorited } : p));
+        try { await client.post(`/api/favorites/toggle`, { product_id: listingId }); } 
+        catch (err) { console.error(err); }
+    });
   };
 
   const openModal = (id) => setSearchParams({ listing: id });
   const closeModal = () => setSearchParams({});
   const toggleDropdown = (name) => setActiveDropdown(activeDropdown === name ? null : name);
+
+  // --- RENDER ---
+
+  // 🔴 NETWORK ERROR FULL PAGE OVERLAY
+  if (isOffline) {
+    return (
+        <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+            backgroundColor: '#ffffff', zIndex: 99999,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            textAlign: 'center', padding: '20px'
+        }}>
+            <div style={{
+                backgroundColor: '#fee2e2', padding: '30px', borderRadius: '50%', marginBottom: '20px',
+                boxShadow: '0 0 0 20px #fef2f2'
+            }}>
+                <WifiOff size={64} color="#dc2626" />
+            </div>
+            <h1 style={{ color: '#1f2937', fontSize: '24px', marginBottom: '10px' }}>No Internet Connection</h1>
+            <p style={{ color: '#6b7280', maxWidth: '400px', lineHeight: '1.6' }}>
+                It looks like you've lost your connection. Please check your internet settings. We'll try to reconnect automatically.
+            </p>
+            <button 
+                onClick={() => window.location.reload()} 
+                style={{
+                    marginTop: '30px', padding: '12px 24px', backgroundColor: '#09707D', color: 'white',
+                    border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '16px'
+                }}
+            >
+                Try Again
+            </button>
+        </div>
+    );
+  }
 
   return (
     <div className={style.pageWrapper}>
@@ -228,8 +298,6 @@ const ListingPage = ({ pageType }) => {
 
       <div className={style.filterBar} style={{zIndex: 20}}>
         <div className={style.searchGroup}>
-          
-          {/* Address Input */}
           <div className={style.searchContainer}>
             <Search size={16} className={style.searchIcon} />
             <input 
@@ -241,7 +309,6 @@ const ListingPage = ({ pageType }) => {
             {locationQuery && <button onClick={()=>setLocationQuery("")} style={{border:"none",background:"transparent",cursor:"pointer"}}><X size={14}/></button>}
           </div>
 
-          {/* Country Input */}
           <div className={style.searchContainer} style={{width: '160px'}}>
              <Globe size={16} className={style.searchIcon} />
              <input 
@@ -333,12 +400,12 @@ const ListingPage = ({ pageType }) => {
       <div className={style.contentContainer}>
         <div className={style.mapSection}>
           <MapLibreMapViewer
-  properties={filteredProperties} // 👈 MUST be filteredProperties, not properties
-  hoveredId={hoveredId}
-  onMarkerClick={openModal}
-  onSearchArea={handleMapSearch} 
-  flyToCoords={flyToCoords} 
-/>
+            properties={filteredProperties} 
+            hoveredId={hoveredId}
+            onMarkerClick={openModal}
+            onSearchArea={handleMapSearch} 
+            flyToCoords={flyToCoords} 
+          />
         </div>
 
         <div className={style.listSection}>
@@ -382,15 +449,14 @@ const ListingPage = ({ pageType }) => {
                   <div className={style.cardImageWrapper}>
                     <img src={prop.photos?.[0]?.url || "/placeholder.png"} alt={prop.title} />
                     <div className={style.cardOverlay}>
-  {/* ✅ SHOW TITLE (Truncated) INSTEAD OF "FOR SALE" */}
-  <span className={style.badge} title={prop.title}>
-    {prop.title.length > 25 ? prop.title.substring(0, 25) + "..." : prop.title}
-  </span>
+                        <span className={style.badge} title={prop.title}>
+                            {prop.title.length > 25 ? prop.title.substring(0, 25) + "..." : prop.title}
+                        </span>
 
-  <button className={style.favBtn} onClick={(e) => toggleFavorite(e, prop.product_id)}>
-    <Heart size={18} fill={prop.is_favorited ? "#ef4444" : "none"} color={prop.is_favorited ? "#ef4444" : "#666"} />
-  </button>
-</div>
+                        <button className={style.favBtn} onClick={(e) => toggleFavorite(e, prop.product_id)}>
+                            <Heart size={18} fill={prop.is_favorited ? "#09707d" : "none"} color={prop.is_favorited ? "#09707d" : "#666"} />
+                        </button>
+                    </div>
                   </div>
                   <div className={style.cardDetails}>
                     <div className={style.priceRow}>
@@ -409,7 +475,17 @@ const ListingPage = ({ pageType }) => {
           )}
         </div>
       </div>
-      {selectedListing && <ListingModal listing={selectedListing} onClose={closeModal} />}
+      
+      {/* ✅ PASS AUTH AND ACTION HANDLER TO MODAL */}
+      {selectedListing && (
+        <ListingModal 
+            listing={selectedListing} 
+            onClose={closeModal} 
+            currentUser={user} // Pass user
+            onActionAttempt={handleAuthAction} // Pass the gating function
+        />
+      )}
+      
       <style>{`.active { background-color: #e6f7f8 !important; color: #007983 !important; border-color: #007983 !important; }`}</style>
     </div>
   );

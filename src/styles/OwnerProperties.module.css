@@ -1,0 +1,336 @@
+/* client/src/styles/OwnerProperties.module.css */
+
+.container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: 'Inter', sans-serif;
+  color: #334155;
+}
+
+/* --- Header Section --- */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+.titleSection h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.titleSection p {
+  color: #64748b;
+  margin-top: 0.5rem;
+  font-size: 1rem;
+}
+
+/* Green Add Button (Matches your screenshot) */
+.addButton {
+  background-color: #0f766e; /* Teal/Green shade */
+  color: white;
+  border: none;
+  padding: 0.75rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  text-decoration: none; /* In case it's a Link */
+  transition: background-color 0.2s;
+}
+
+.addButton:hover:not(:disabled) {
+  background-color: #0d9488;
+}
+
+.addButton:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.iconBtn {
+  background: white;
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #64748b;
+  margin-right: 10px;
+}
+
+/* --- Controls Bar (Search & Tabs) --- */
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 0.5rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+.searchWrapper {
+  position: relative;
+  flex: 1;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  border: none;
+  font-size: 0.95rem;
+  outline: none;
+  background: transparent;
+}
+
+.tabs {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.tab {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.activeTab {
+  background: white;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* --- Grid Layout --- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 2rem;
+}
+
+/* --- Property Card --- */
+.card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.imageWrapper {
+  position: relative;
+  height: 200px;
+  background: #f1f5f9;
+}
+
+.cardImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Floating Status Badge */
+.badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.activeBadge { color: #059669; border: 1px solid #10b981; }
+.pendingBadge { color: #d97706; border: 1px solid #f59e0b; }
+.rejectedBadge { color: #dc2626; border: 1px solid #ef4444; }
+
+/* Card Content */
+.cardBody {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.price {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.25rem;
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 0.5rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.address {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #64748b;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.metaRow {
+  display: flex;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+  margin-bottom: 1rem;
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+/* Card Actions */
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.btn {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: white;
+  color: #475569;
+  transition: all 0.2s;
+}
+
+.btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+.btnPrimary { background: #f0fdfa; color: #0f766e; border-color: #ccfbf1; }
+.btnPrimary:hover { background: #ccfbf1; }
+
+.btnDanger { flex: 0; padding: 0.5rem 0.8rem; background: #fef2f2; color: #ef4444; border-color: #fee2e2; }
+.btnDanger:hover { background: #fee2e2; border-color: #fca5a5; }
+
+/* Empty State */
+.emptyState {
+  text-align: center;
+  padding: 6rem 2rem;
+  background: white;
+  border-radius: 16px;
+  border: 1px dashed #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 1rem;
+}
+
+.emptyDesc {
+  color: #64748b;
+  margin-bottom: 1rem;
+}
+
+/* ✅ SPECIFIC STYLE FOR THE BLUE LINK IN EMPTY STATE */
+.createLink {
+  color: #3b82f6; /* Bright Blue */
+  text-decoration: underline;
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  transition: opacity 0.2s;
+}
+
+.createLink:hover {
+  opacity: 0.8;
+}
+
+.createLink:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* Loading */
+.loader { display: flex; flex-direction: column; align-items: center; padding: 4rem; color: #0f766e; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+/* Verification Lock */
+.lockedContainer { display: flex; justify-content: center; align-items: center; height: 60vh; }
+.lockedCard { text-align: center; padding: 3rem; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-width: 400px; }
+.lockedIcon { color: #94a3b8; margin-bottom: 1rem; }
+.verifyBtn { margin-top: 1rem; background: #0f766e; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; }
+
+/* Modal handled by reusable logic or simple overlay styles */
+.modalOverlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.modalContent { background: white; width: 90%; max-width: 900px; height: 80vh; display: flex; border-radius: 12px; overflow: hidden; position: relative; }
+.closeModal { position: absolute; top: 10px; right: 10px; z-index: 10; background: rgba(0,0,0,0.5); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.modalGallery { flex: 1.5; background: black; position: relative; display: flex; align-items: center; justify-content: center; }
+.modalImage { max-width: 100%; max-height: 100%; object-fit: contain; }
+.modalBody { flex: 1; padding: 2rem; overflow-y: auto; }
+.navBtn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px; cursor: pointer; border-radius: 50%; }
+.prevBtn { left: 10px; }
+.nextBtn { right: 10px; }
+.headerActions{
+    display: flex;
+}

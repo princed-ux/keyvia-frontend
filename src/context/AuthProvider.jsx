@@ -36,8 +36,6 @@ export const AuthProvider = ({ children }) => {
 
   // ================= HELPERS =================
   const showError = (title, msg) => {
-    // Only redirect if it's strictly a 401 session issue, handled by axios interceptor mostly
-    // Here we just show the alert
     Swal.fire({ 
         icon: "error", 
         title, 
@@ -56,7 +54,6 @@ export const AuthProvider = ({ children }) => {
     });
 
   const extractError = (err, fallback = "Something went wrong") => {
-    // If it's a network error
     if (!err.response) return "Network Error. Please check your connection.";
     return err.response?.data?.message || fallback;
   };
@@ -64,8 +61,13 @@ export const AuthProvider = ({ children }) => {
   // ✅ ROBUST UPDATE USER FUNCTION
   const updateUser = (newData) => {
     setUser((prevUser) => {
+      if (!prevUser) return null; // Safety check
+      
       const updatedUser = { ...prevUser, ...newData };
+      
+      // Persist to storage immediately
       localStorage.setItem("user", JSON.stringify(updatedUser));
+      
       return updatedUser;
     });
   };
@@ -86,11 +88,9 @@ export const AuthProvider = ({ children }) => {
 
   const signupVerifyOtp = async (code, manualEmail = null) => {
     try {
-      // Allow manual email override (for the copy-paste fix we did earlier)
       let email = manualEmail || sessionStorage.getItem("signupEmail");
 
       if (!email) {
-        // Double check safeguard
         const { value: userEmail } = await Swal.fire({
           title: "Confirm Email",
           text: "Please confirm your email address:",
@@ -132,7 +132,6 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = sessionStorage.getItem("signupTempToken");
       
-      // Explicit check to avoid generic 500 error being confused
       if (!token) {
           Swal.fire({ icon: 'warning', title: 'Session Expired', text: 'Please sign up again.' });
           navigate("/signup");
@@ -142,12 +141,9 @@ export const AuthProvider = ({ children }) => {
       await client.post(
         "/api/auth/signup/role",
         { role },
-        // IMPORTANT: We send the temp token manually here because 
-        // it is NOT the main AccessToken yet.
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Cleanup registration data
       sessionStorage.removeItem("signupTempToken");
       sessionStorage.removeItem("signupEmail");
 
@@ -162,7 +158,6 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error("Set Role Error:", err);
       showError("Setup Failed", extractError(err));
-      // Do NOT navigate away on error, let them try again
     }
   };
 
@@ -174,7 +169,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await client.post("/api/auth/login/start", { email, password });
       sessionStorage.setItem("loginEmail", email);
-      return true; // Return true to signal UI to move to next step
+      return true; 
     } catch (err) {
       showError("Login Failed", extractError(err));
       return false;
@@ -195,9 +190,6 @@ export const AuthProvider = ({ children }) => {
       const token = res.data.accessToken;
       const u = res.data.user;
 
-      // console.log("LOGIN SUCCESS:", u); 
-
-      // Save Session
       setAccessToken(token);
       attachToken(token);
       localStorage.setItem("accessToken", token);
@@ -209,7 +201,6 @@ export const AuthProvider = ({ children }) => {
       const displayName = u.name || u.full_name || u.email?.split('@')[0] || "User"; 
       showSuccess("Login Successful", `Welcome back, ${displayName}!`);
 
-      // Redirect Logic
       const isSuper = u.is_super_admin === true || u.role === 'superadmin';
 
       if (isSuper) {
@@ -218,7 +209,7 @@ export const AuthProvider = ({ children }) => {
         switch(u.role) {
             case "admin": navigate("/admin/dashboard"); break;
             case "agent": navigate("/dashboard"); break;
-            case "owner": navigate("/owner/dashboard"); break; // Assuming Owner Dashboard is here
+            case "owner": navigate("/owner/dashboard"); break; 
             case "buyer": navigate("/buyer/dashboard"); break;
             default: navigate("/"); 
         }
@@ -237,7 +228,6 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
         console.warn("Logout endpoint error (ignoring):", err);
     } finally {
-      // Always clear local state even if server fails
       setAccessToken(null);
       setUser(null);
       attachToken(null);

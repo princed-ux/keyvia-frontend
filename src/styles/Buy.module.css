@@ -283,7 +283,10 @@
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.favBtn:hover { color: #ef4444; }
+.favBtn:hover {
+  color: #09707d;
+  transform: scale(1.1);
+}
 
 /* --- Card Details --- */
 .cardDetails {

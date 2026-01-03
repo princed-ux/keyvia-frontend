@@ -5,10 +5,11 @@ import client from "../api/axios";
 import styles from "../styles/profile.module.css"; 
 import { useAuth } from "../context/AuthProvider.jsx";
 import { toast } from 'react-toastify';
+// ✅ ADDED 'Clock' to imports below
 import {
   User, Mail, Phone, MapPin, Building, FileText, Briefcase, Globe,
   Camera, Save, X, Instagram, Facebook, Linkedin, Twitter, Info,
-  Share2, CheckCircle2, ShieldAlert, AlertTriangle, UploadCloud, Clock, Sparkles, Send, RefreshCw, Loader2
+  Share2, CheckCircle2, ShieldAlert, AlertTriangle, Sparkles, RefreshCw, Loader2, Clock
 } from "lucide-react";
 
 // ✅ HELPER: Generate Consistent Color
@@ -49,8 +50,8 @@ const OwnerProfile = () => {
     country: "",
     city: "",
     bio: "",
-    company_name: "", // agency_name in DB
-    experience: "",   // experience in DB
+    company_name: "", 
+    experience: "", 
     social_tiktok: "",
     social_instagram: "",
     social_facebook: "",
@@ -67,7 +68,7 @@ const OwnerProfile = () => {
   const [verificationStatus, setVerificationStatus] = useState("new"); 
   const [rejectionReason, setRejectionReason] = useState("");
 
-  const [loading, setLoading] = useState(true); // Initial loading
+  const [loading, setLoading] = useState(true); 
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -159,10 +160,7 @@ const OwnerProfile = () => {
   const validate = () => {
     const e = {};
     if (!form.username.trim()) e.username = "Username is required.";
-    // Full name is read-only, but strict check anyway
-    if (!form.full_name.trim()) e.full_name = "Full name is required.";
-    if (!form.phone.trim()) e.phone = "Phone is required.";
-    if (!form.country) e.country = "Required.";
+    // Note: Full name, phone, country are locked, so we assume they are valid from onboarding
     if (!form.city.trim()) e.city = "Required.";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -214,7 +212,6 @@ const OwnerProfile = () => {
         updateUser({ avatar_url: newAvatarUrl });
       }
 
-      // Map UI 'company_name' back to DB 'agency_name'
       const payload = { ...form, agency_name: form.company_name };
 
       const res = await client.put("/api/profile", payload);
@@ -265,7 +262,6 @@ const OwnerProfile = () => {
         );
     }
 
-    // Initials Logic
     const name = form.full_name?.trim() || "User";
     const nameParts = name.split(" ");
     let initials = "";
@@ -309,39 +305,19 @@ const OwnerProfile = () => {
         className={`${styles.input} ${errors[id] ? styles.errorBorder : ""}`}
         value={form[id] || ""}
         onChange={onChange}
-        disabled={!editing || disabled}
+        disabled={!editing || disabled} // Use the passed 'disabled' prop
         placeholder={!editing ? "" : `Enter ${label}`}
       />
       {errors[id] && <span className={styles.errorText}>{errors[id]}</span>}
     </div>
   );
 
-  // ------------------ Loading State (Brand Color & Animated) ------------------
   if (loading) {
       return (
-          <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              height: '80vh' 
-          }}>
-              {/* ✅ Guaranteed Spin Animation */}
-              <style>{`
-                  @keyframes spin { 100% { transform: rotate(360deg); } }
-                  .custom-spinner { animation: spin 1s linear infinite; }
-              `}</style>
-              
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+              <style>{`@keyframes spin { 100% { transform: rotate(360deg); } } .custom-spinner { animation: spin 1s linear infinite; }`}</style>
               <Loader2 size={50} color="#09707D" className="custom-spinner" />
-              
-              <p style={{ 
-                  marginTop: '15px', 
-                  color: '#09707D', 
-                  fontSize: '18px', 
-                  fontWeight: '600' 
-              }}>
-                  Loading profile...
-              </p>
+              <p style={{ marginTop: '15px', color: '#09707D', fontSize: '18px', fontWeight: '600' }}>Loading profile...</p>
           </div>
       );
   }
@@ -356,7 +332,6 @@ const OwnerProfile = () => {
             <p>Manage your public identity & properties</p>
         </div>
         <div className={styles.headerActions}>
-             
              <button 
                 className={styles.refreshBtn} 
                 onClick={() => fetchProfile(true)}
@@ -366,7 +341,6 @@ const OwnerProfile = () => {
                 <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} /> Refresh
              </button>
 
-             {/* Status Badge */}
              <div className={`${styles.statusPill} ${
                 verificationStatus === 'approved' ? styles.statusVerified : 
                 verificationStatus === 'rejected' ? styles.statusRejected : 
@@ -417,9 +391,7 @@ const OwnerProfile = () => {
         <div className={styles.sidebar}>
           <div className={styles.avatarCard}>
             <div className={styles.avatarWrapper}>
-                
                 {renderAvatar()}
-
                 {editing && (
                     <label className={styles.cameraBtn}>
                         <Camera size={20} />
@@ -456,7 +428,6 @@ const OwnerProfile = () => {
 
         {/* --- RIGHT CONTENT (Tabs & Forms) --- */}
         <div className={styles.content}>
-            
             <div className={styles.tabs}>
                 {[
                     { id: "profile", label: "Overview", icon: <User size={18}/> },
@@ -479,16 +450,16 @@ const OwnerProfile = () => {
                     <div className={styles.formGrid}>
                         {renderInput("username", "Username", <User size={16}/>)}
                         
-                        {/* ✅ FULL NAME LOCKED (READ ONLY) */}
+                        {/* ✅ LOCKED FIELDS: Full Name, Email, Phone */}
                         {renderInput("full_name", "Full Name", <FileText size={16}/>, "text", true)}
-                        
                         {renderInput("email", "Email Address", <Mail size={16}/>, "email", true)}
-                        {renderInput("phone", "Phone Number", <Phone size={16}/>)}
+                        {renderInput("phone", "Phone Number", <Phone size={16}/>, "tel", true)}
                         
                         {renderInput("company_name", "Company Name", <Building size={16}/>)}
                         {renderInput("experience", "Years as Landlord", <Briefcase size={16}/>)}
                         {renderInput("city", "City", <MapPin size={16}/>)}
                         
+                        {/* ✅ LOCKED COUNTRY DROPDOWN */}
                         <div className={styles.inputGroup}>
                             <label className={styles.label}><Globe size={16}/> Country</label>
                             <select 
@@ -496,7 +467,7 @@ const OwnerProfile = () => {
                                 className={styles.select} 
                                 value={form.country} 
                                 onChange={onChange}
-                                disabled={!editing}
+                                disabled={true} // 🔒 Always Disabled
                             >
                                 <option value="">Select Country</option>
                                 {countries.map(c => <option key={c} value={c}>{c}</option>)}
@@ -554,32 +525,18 @@ const OwnerProfile = () => {
         </div>
       </div>
 
-      {/* Image Modal (Supports Initials) */}
+      {/* Image Modal */}
       {showImageModal && (
         <div className={styles.modalOverlay} onClick={() => setShowImageModal(false)}>
             <div className={styles.modalContent}>
                 {(avatarPreview || remoteAvatarUrl) ? (
                     <img src={avatarPreview || remoteAvatarUrl} alt="Full" />
                 ) : (
-                    <div style={{
-                        width: '100%', 
-                        height: '100%', 
-                        minHeight: '300px', 
-                        backgroundColor: getAvatarColor(form.full_name),
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontSize: '100px', 
-                        fontWeight: 'bold',
-                        borderRadius: '8px' 
-                    }}>
+                    <div style={{ width: '100%', height: '100%', minHeight: '300px', backgroundColor: getAvatarColor(form.full_name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '100px', fontWeight: 'bold', borderRadius: '8px' }}>
                         {(() => {
                             const n = form.full_name?.trim() || "User";
                             const parts = n.split(" ");
-                            return parts.length > 1 
-                                ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() 
-                                : parts[0][0]?.toUpperCase();
+                            return parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : parts[0][0]?.toUpperCase();
                         })()}
                     </div>
                 )}

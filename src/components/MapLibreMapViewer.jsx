@@ -18,6 +18,8 @@ import {
   Map as MapIcon,
   RotateCcw,
   MapPin,
+  Globe, 
+  Satellite
 } from "lucide-react";
 
 // Brand Color Constant
@@ -36,15 +38,14 @@ const MapLibreMapViewer = ({
     latitude: 0,
     longitude: 0,
     zoom: 1,
-    pitch: 45,
+    pitch: 0, 
     bearing: 0,
   });
 
   const [showSearchBtn, setShowSearchBtn] = useState(false);
-  const [mapStyle, setMapStyle] = useState("streets");
+  // ✅ Default to "google" (Streets)
+  const [mapStyle, setMapStyle] = useState("google"); 
   const [popupInfo, setPopupInfo] = useState(null);
-
-  // State for the Location Pin visibility
   const [showLocationPin, setShowLocationPin] = useState(false);
 
   // --- 1. DATA PREP ---
@@ -96,7 +97,6 @@ const MapLibreMapViewer = ({
           padding: 100,
           maxZoom: 14,
           duration: 2000,
-          pitch: 45,
         });
       }
     }
@@ -105,12 +105,13 @@ const MapLibreMapViewer = ({
   // --- 3. SEARCH FLY-TO & SHOW PIN ---
   useEffect(() => {
     if (flyToCoords && mapRef.current) {
-      setShowLocationPin(true); // ✅ Keep pin visible
+      setShowLocationPin(true);
       mapRef.current.flyTo({
         center: [flyToCoords.lng, flyToCoords.lat],
-        zoom: 13,
-        pitch: 45,
-        duration: 2500,
+        // ✅ Zoom 16: This is where Shops and POIs appear clearly
+        zoom: 16, 
+        pitch: 0,
+        duration: 2000,
         essential: true,
       });
     }
@@ -126,32 +127,87 @@ const MapLibreMapViewer = ({
     }
   }, [hoveredId, points]);
 
+  // ✅ DEFINED MAP STYLES (Optimized for Clarity)
   const styles = {
-    streets: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-    satelliteSource: {
+    // 1. Google Maps (Standard Roadmap)
+    // lyrs=m : Standard Roadmap
+    // hl=en  : Force English Labels (Best for clarity)
+    google: {
+        version: 8,
+        sources: {
+            "google-tiles": {
+                type: "raster",
+                tiles: [
+                    "https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}",
+                    "https://mt1.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}",
+                    "https://mt2.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}",
+                    "https://mt3.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}"
+                ],
+                tileSize: 256,
+                attribution: "Google Maps"
+            }
+        },
+        layers: [
+            {
+                id: "google-tiles-layer",
+                type: "raster",
+                source: "google-tiles",
+                minzoom: 0,
+                maxzoom: 22
+            }
+        ]
+    },
+
+    // 2. Google Hybrid (Satellite + Streets/Shops Overlay)
+    // lyrs=y : Hybrid (Satellite + Labels) - This shows streets ON TOP of satellite
+    satellite: {
       version: 8,
       sources: {
-        raster: {
+        "google-sat": {
           type: "raster",
           tiles: [
-            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            "https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}",
+            "https://mt1.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}",
+            "https://mt2.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}",
+            "https://mt3.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}"
           ],
           tileSize: 256,
+          attribution: "Google Maps Satellite"
         },
       },
-      layers: [{ id: "raster", type: "raster", source: "raster" }],
+      layers: [{ id: "google-sat-layer", type: "raster", source: "google-sat" }],
     },
+
+    // 3. OpenStreetMap
+    osm: {
+        version: 8,
+        sources: {
+            "osm-tiles": {
+                type: "raster",
+                tiles: [
+                    "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                    "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                    "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                ],
+                tileSize: 256,
+                attribution: '&copy; OpenStreetMap',
+            },
+        },
+        layers: [
+            {
+                id: "osm-tiles-layer",
+                type: "raster",
+                source: "osm-tiles",
+                minzoom: 0,
+                maxzoom: 19,
+            },
+        ],
+    }
   };
 
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        height: "100%",
-        background: "#e5e7eb",
-      }}
-    >
+    <div style={{ position: "relative", width: "100%", height: "100%", background: "#e5e7eb" }}>
+      
       {/* --- FLOATING SEARCH BUTTON --- */}
       {showSearchBtn && (
         <button
@@ -167,32 +223,13 @@ const MapLibreMapViewer = ({
             setShowSearchBtn(false);
           }}
           style={{
-            position: "absolute",
-            top: 20,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 10,
-            background: "rgba(255, 255, 255, 0.9)",
-            backdropFilter: "blur(8px)",
-            color: BRAND_COLOR,
-            padding: "10px 24px",
-            borderRadius: 50,
-            border: "1px solid rgba(255,255,255,0.3)",
-            fontWeight: "600",
-            fontSize: "14px",
-            cursor: "pointer",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
-            display: "flex",
-            gap: 8,
-            alignItems: "center",
-            transition: "all 0.2s ease",
+            position: "absolute", top: 20, left: "50%", transform: "translateX(-50%)",
+            zIndex: 10, background: "rgba(255, 255, 255, 0.95)", backdropFilter: "blur(8px)",
+            color: BRAND_COLOR, padding: "10px 24px", borderRadius: 50,
+            border: "1px solid rgba(0,0,0,0.1)", fontWeight: "600", fontSize: "14px",
+            cursor: "pointer", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", display: "flex",
+            gap: 8, alignItems: "center", transition: "all 0.2s ease",
           }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.transform = "translateX(-50%) scale(1.05)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.transform = "translateX(-50%) scale(1)")
-          }
         >
           <RotateCcw size={16} /> Search this area
         </button>
@@ -201,50 +238,54 @@ const MapLibreMapViewer = ({
       {/* --- STYLE TOGGLE --- */}
       <div
         style={{
-          position: "absolute",
-          top: 20,
-          left: 20,
-          zIndex: 10,
-          background: "rgba(255, 255, 255, 0.95)",
-          borderRadius: 12,
-          backdropFilter: "blur(4px)",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-          overflow: "hidden",
-          border: "1px solid rgba(255,255,255,0.5)",
+          position: "absolute", top: 20, left: 20, zIndex: 10,
+          background: "rgba(255, 255, 255, 0.95)", borderRadius: 12,
+          backdropFilter: "blur(4px)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          overflow: "hidden", border: "1px solid rgba(255,255,255,0.5)",
+          display: "flex", flexDirection: "column"
         }}
       >
+        {/* Google Streets Button */}
         <button
-          onClick={() => setMapStyle("streets")}
+          onClick={() => setMapStyle("google")}
           style={{
-            padding: "10px",
-            background: mapStyle === "streets" ? "#f3f4f6" : "transparent",
-            border: "none",
-            cursor: "pointer",
-            transition: "background 0.2s",
+            padding: "12px", background: mapStyle === "google" ? "#eff6ff" : "transparent",
+            border: "none", cursor: "pointer", transition: "background 0.2s",
+            borderLeft: mapStyle === "google" ? `3px solid ${BRAND_COLOR}` : "3px solid transparent"
           }}
-          title="Street View"
+          title="Google Maps"
         >
-          <MapIcon
-            size={20}
-            color={mapStyle === "streets" ? BRAND_COLOR : "#666"}
-          />
+          <MapIcon size={20} color={mapStyle === "google" ? BRAND_COLOR : "#666"} />
         </button>
+        
         <div style={{ height: 1, background: "#eee" }} />
+
+        {/* Satellite Button */}
         <button
           onClick={() => setMapStyle("satellite")}
           style={{
-            padding: "10px",
-            background: mapStyle === "satellite" ? "#f3f4f6" : "transparent",
-            border: "none",
-            cursor: "pointer",
-            transition: "background 0.2s",
+            padding: "12px", background: mapStyle === "satellite" ? "#eff6ff" : "transparent",
+            border: "none", cursor: "pointer", transition: "background 0.2s",
+             borderLeft: mapStyle === "satellite" ? `3px solid ${BRAND_COLOR}` : "3px solid transparent"
           }}
           title="Satellite View"
         >
-          <Layers
-            size={20}
-            color={mapStyle === "satellite" ? BRAND_COLOR : "#666"}
-          />
+          <Satellite size={20} color={mapStyle === "satellite" ? BRAND_COLOR : "#666"} />
+        </button>
+
+        <div style={{ height: 1, background: "#eee" }} />
+
+        {/* OSM Button */}
+        <button
+          onClick={() => setMapStyle("osm")}
+          style={{
+            padding: "12px", background: mapStyle === "osm" ? "#eff6ff" : "transparent",
+            border: "none", cursor: "pointer", transition: "background 0.2s",
+             borderLeft: mapStyle === "osm" ? `3px solid ${BRAND_COLOR}` : "3px solid transparent"
+          }}
+          title="OpenStreetMap"
+        >
+          <Globe size={20} color={mapStyle === "osm" ? BRAND_COLOR : "#666"} />
         </button>
       </div>
 
@@ -255,46 +296,28 @@ const MapLibreMapViewer = ({
           setViewState(evt.viewState);
           if (!showSearchBtn) setShowSearchBtn(true);
         }}
-        // ❌ REMOVED: onMoveStart logic so pin stays persistent
-        mapStyle={
-          mapStyle === "streets" ? styles.streets : styles.satelliteSource
-        }
+        mapStyle={styles[mapStyle]} // ✅ Dynamically pick style
         style={{ width: "100%", height: "100%" }}
         maxPitch={60}
       >
-        <NavigationControl
-          position="bottom-right"
-          visualizePitch={true}
-          showCompass={true}
-        />
+        <NavigationControl position="bottom-right" visualizePitch={true} showCompass={true} />
         <GeolocateControl position="top-right" />
         <FullscreenControl position="top-left" />
         <ScaleControl />
 
-        {/* ✅ SEARCH LOCATION PIN (Pulse Effect) */}
+        {/* SEARCH LOCATION PIN */}
         {showLocationPin && flyToCoords && (
-          <Marker
-            longitude={flyToCoords.lng}
-            latitude={flyToCoords.lat}
-            anchor="bottom"
-          >
+          <Marker longitude={flyToCoords.lng} latitude={flyToCoords.lat} anchor="bottom">
             <div className="location-pin-container">
-              <MapPin
-                size={42}
-                fill={BRAND_COLOR} // 🟢 Updated Color
-                color="#ffffff"
-                strokeWidth={1.5}
-                style={{
-                  filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))",
-                  transform: "translateY(-5px)",
-                }}
+              <MapPin size={48} fill={BRAND_COLOR} color="#ffffff" strokeWidth={1.5}
+                style={{ filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))", transform: "translateY(-5px)" }}
               />
               <div className="pulse-ring" />
             </div>
           </Marker>
         )}
 
-        {/* --- CLUSTERS & MARKERS --- */}
+        {/* CLUSTERS & MARKERS */}
         {clusters.map((cluster) => {
           const [lng, lat] = cluster.geometry.coordinates;
           const { cluster: isCluster, point_count } = cluster.properties;
@@ -304,39 +327,19 @@ const MapLibreMapViewer = ({
               <Marker key={cluster.id} longitude={lng} latitude={lat}>
                 <div
                   onClick={() => {
-                    const expansionZoom = Math.min(
-                      supercluster.getClusterExpansionZoom(cluster.id),
-                      20
-                    );
-                    mapRef.current.flyTo({
-                      center: [lng, lat],
-                      zoom: expansionZoom,
-                      pitch: 45,
-                      duration: 500,
-                    });
+                    const expansionZoom = Math.min(supercluster.getClusterExpansionZoom(cluster.id), 20);
+                    mapRef.current.flyTo({ center: [lng, lat], zoom: expansionZoom, pitch: 0, duration: 500 });
                   }}
                   style={{
                     width: `${32 + (point_count / points.length) * 20}px`,
                     height: `${32 + (point_count / points.length) * 20}px`,
-                    background: BRAND_COLOR,
-                    color: "#fff",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: "700",
-                    cursor: "pointer",
-                    border: "3px solid rgba(255,255,255,0.9)",
-                    boxShadow: "0 6px 12px rgba(0,0,0,0.25)",
-                    fontSize: "14px",
-                    transition: "all 0.2s ease",
+                    background: BRAND_COLOR, color: "#fff", borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: "700", cursor: "pointer", border: "3px solid rgba(255,255,255,0.9)",
+                    boxShadow: "0 6px 12px rgba(0,0,0,0.25)", fontSize: "14px", transition: "all 0.2s ease",
                   }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.transform = "scale(1.1)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.transform = "scale(1)")
-                  }
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
                 >
                   {point_count}
                 </div>
@@ -344,83 +347,38 @@ const MapLibreMapViewer = ({
             );
           }
 
-          const isHovered = hoveredId === cluster.properties.productId;
           return (
-            <Marker
-              key={cluster.properties.productId}
-              longitude={lng}
-              latitude={lat}
-              anchor="bottom"
-            >
+            <Marker key={cluster.properties.productId} longitude={lng} latitude={lat} anchor="bottom">
               <div
                 onClick={() => onMarkerClick(cluster.properties.productId)}
-                onMouseEnter={() =>
-                  setPopupInfo({
-                    ...cluster.properties,
-                    longitude: lng,
-                    latitude: lat,
-                  })
-                }
+                onMouseEnter={() => setPopupInfo({ ...cluster.properties, longitude: lng, latitude: lat })}
                 onMouseLeave={() => setPopupInfo(null)}
-                style={{
-                  zIndex: isHovered ? 100 : 1,
-                  cursor: "pointer",
-                  transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
-                }}
+                style={{ zIndex: hoveredId === cluster.properties.productId ? 100 : 1, cursor: "pointer", transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
               >
                 {viewState.zoom < 11 ? (
-                  // Small Dot for wide view
-                  <div
-                    style={{
-                      width: "16px",
-                      height: "16px",
-                      backgroundColor: BRAND_COLOR,
-                      borderRadius: "50%",
-                      border: "3px solid white",
-                      boxShadow: "0 3px 8px rgba(0,0,0,0.3)",
-                      transform: isHovered ? "scale(1.8)" : "scale(1)",
-                      transition: "transform 0.2s ease",
-                    }}
-                  />
+                  <div style={{
+                    width: "16px", height: "16px", backgroundColor: BRAND_COLOR,
+                    borderRadius: "50%", border: "3px solid white", boxShadow: "0 3px 8px rgba(0,0,0,0.3)",
+                    transform: hoveredId === cluster.properties.productId ? "scale(1.8)" : "scale(1)", transition: "transform 0.2s ease",
+                  }} />
                 ) : (
-                  // Price Tag for close view
-                  <div
-                    style={{
-                      transform: isHovered
-                        ? "scale(1.15) translateY(-4px)"
-                        : "scale(1)",
-                      position: "relative",
-                      transition: "all 0.2s ease",
-                    }}
-                  >
-                    <div
-                      style={{
-                        backgroundColor: isHovered ? "#111827" : BRAND_COLOR,
-                        color: "white",
-                        padding: "6px 12px",
-                        borderRadius: "20px",
-                        fontSize: "13px",
-                        fontWeight: "700",
-                        border: "2px solid white",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
+                  <div style={{
+                    transform: hoveredId === cluster.properties.productId ? "scale(1.15) translateY(-4px)" : "scale(1)",
+                    position: "relative", transition: "all 0.2s ease",
+                  }}>
+                    <div style={{
+                      backgroundColor: hoveredId === cluster.properties.productId ? "#111827" : BRAND_COLOR,
+                      color: "white", padding: "6px 12px", borderRadius: "20px", fontSize: "13px",
+                      fontWeight: "700", border: "2px solid white", boxShadow: "0 4px 12px rgba(0,0,0,0.25)", whiteSpace: "nowrap",
+                    }}>
                       {getCurrencySymbol(cluster.properties.price_currency)}
                       {formatPrice(cluster.properties.price)}
                     </div>
-                    <div
-                      style={{
-                        width: 0,
-                        height: 0,
-                        borderLeft: "6px solid transparent",
-                        borderRight: "6px solid transparent",
-                        borderTop: `8px solid ${
-                          isHovered ? "#111827" : BRAND_COLOR
-                        }`,
-                        margin: "-2px auto 0 auto",
-                      }}
-                    />
+                    <div style={{
+                      width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent",
+                      borderTop: `8px solid ${hoveredId === cluster.properties.productId ? "#111827" : BRAND_COLOR}`,
+                      margin: "-2px auto 0 auto",
+                    }} />
                   </div>
                 )}
               </div>
@@ -428,102 +386,27 @@ const MapLibreMapViewer = ({
           );
         })}
 
-        {/* --- POPUP --- */}
+        {/* POPUP INFO */}
         {popupInfo && (
-          <Marker
-            longitude={popupInfo.longitude}
-            latitude={popupInfo.latitude}
-            anchor="bottom"
-            offset={[0, -55]}
-          >
-            <div
-              style={{
-                width: 250,
-                background: "#fff",
-                borderRadius: 16,
-                overflow: "hidden",
-                boxShadow: "0 20px 40px rgba(0,0,0,0.25)",
-                zIndex: 200,
-                animation: "fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-              }}
-            >
+          <Marker longitude={popupInfo.longitude} latitude={popupInfo.latitude} anchor="bottom" offset={[0, -55]}>
+            <div style={{ width: 250, background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 20px 40px rgba(0,0,0,0.25)", zIndex: 200, animation: "fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
               <div style={{ position: "relative", height: 150 }}>
-                <img
-                  src={popupInfo.photos?.[0]?.url || "/placeholder.png"}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  alt=""
-                />
-
-                {/* ✅ UPDATED BADGE: Shows "FOR SALE" instead of just "sale" */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 10,
-                    left: 10,
-                    background: "rgba(0,0,0,0.75)",
-                    backdropFilter: "blur(4px)",
-                    color: "#fff",
-                    padding: "4px 8px",
-                    borderRadius: 6,
-                    fontSize: "10px",
-                    fontWeight: "700",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                  }}
-                >
+                <img src={popupInfo.photos?.[0]?.url || "/placeholder.png"} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+                <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", color: "#fff", padding: "4px 8px", borderRadius: 6, fontSize: "10px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                   {popupInfo.listing_type === "rent" ? "For Rent" : "For Sale"}
                 </div>
               </div>
               <div style={{ padding: "14px 16px" }}>
-                <div
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: "800",
-                    color: "#111",
-                    lineHeight: 1.2,
-                  }}
-                >
+                <div style={{ fontSize: "18px", fontWeight: "800", color: "#111", lineHeight: 1.2 }}>
                   {getCurrencySymbol(popupInfo.price_currency)}
                   {formatPrice(popupInfo.price)}
                 </div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    color: "#555",
-                    marginTop: 6,
-                    fontWeight: "600",
-                    display: "flex",
-                    gap: "10px",
-                    alignItems: "center",
-                  }}
-                >
-                  <span
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
-                  >
-                    <Bed size={15} strokeWidth={2} /> {popupInfo.bedrooms}
-                  </span>
-                  <span
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
-                  >
-                    <Bath size={15} strokeWidth={2} /> {popupInfo.bathrooms}
-                  </span>
-                  <span
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
-                  >
-                    <Square size={15} strokeWidth={2} />{" "}
-                    {formatPrice(popupInfo.square_footage)}
-                  </span>
+                <div style={{ fontSize: "13px", color: "#555", marginTop: 6, fontWeight: "600", display: "flex", gap: "10px", alignItems: "center" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Bed size={15} strokeWidth={2} /> {popupInfo.bedrooms}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Bath size={15} strokeWidth={2} /> {popupInfo.bathrooms}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Square size={15} strokeWidth={2} /> {formatPrice(popupInfo.square_footage)}</span>
                 </div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "#888",
-                    marginTop: 8,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
+                <div style={{ fontSize: "12px", color: "#888", marginTop: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {popupInfo.address}, {popupInfo.city}
                 </div>
               </div>
@@ -532,35 +415,11 @@ const MapLibreMapViewer = ({
         )}
       </Map>
 
-      {/* --- GLOBAL STYLES FOR ANIMATIONS --- */}
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        
-        .location-pin-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        .pulse-ring {
-            position: absolute;
-            bottom: 2px;
-            width: 14px;
-            height: 14px;
-            background-color: ${BRAND_COLOR};
-            border-radius: 50%;
-            box-shadow: 0 0 0 6px rgba(9, 112, 125, 0.25);
-            animation: pulse 2s infinite;
-            z-index: -1;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(9, 112, 125, 0.6); }
-            70% { box-shadow: 0 0 0 20px rgba(9, 112, 125, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(9, 112, 125, 0); }
-        }
+        .location-pin-container { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        .pulse-ring { position: absolute; bottom: 2px; width: 14px; height: 14px; background-color: ${BRAND_COLOR}; border-radius: 50%; box-shadow: 0 0 0 6px rgba(9, 112, 125, 0.25); animation: pulse 2s infinite; z-index: -1; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(9, 112, 125, 0.6); } 70% { box-shadow: 0 0 0 20px rgba(9, 112, 125, 0); } 100% { box-shadow: 0 0 0 0 rgba(9, 112, 125, 0); } }
       `}</style>
     </div>
   );

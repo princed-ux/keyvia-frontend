@@ -1,64 +1,63 @@
-import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom"; 
 import Swal from "sweetalert2";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { 
-  Plus, Edit, Trash2, MapPin, Home, CreditCard, X, 
-  AlertTriangle, ChevronLeft, ChevronRight, Bed, Bath, Square, Loader2, RefreshCcw, ExternalLink
+  Plus, Edit, Trash2, MapPin, Home, RefreshCcw, X, CreditCard,
+  AlertTriangle, ChevronLeft, ChevronRight, Bed, Bath, Square, Loader2, Lock, Search, Eye
 } from "lucide-react";
 
-import client from "../api/axios";  
+import client from "../api/axios"; 
 import { useAuth } from "../context/AuthProvider";
-import style from "../styles/Listings.module.css"; 
+import style from "../styles/OwnerProperties.module.css"; 
 
 export default function OwnerProperties() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth(); 
 
-  // ✅ LOCAL STATUS: Ensures UI unlocks instantly after profile update
   const [localStatus, setLocalStatus] = useState(user?.verification_status || 'pending');
-
-  // State
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState(null); 
   
-  // Preview Modal State
+  // Search & Filter State
+  const [filter, setFilter] = useState("all"); // 'all', 'active', 'pending'
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Preview Modal
   const [previewListing, setPreviewListing] = useState(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   const lottieUrl = "https://lottie.host/37a0df00-47f6-43d0-873c-01acfb5d1e7d/wvtiKE3P1d.lottie";
 
-  // -------------------- Fetch Listings & Status --------------------
+  // --- Fetch ---
   const fetchListings = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
     try {
-      // 1. Parallel Fetch (Listings + Profile Status)
       const [listingsRes, profileRes] = await Promise.all([
-          client.get("/api/listings/agent"), // Should return agent_id specific listings
+          client.get("/api/listings/agent"), 
           client.get("/api/profile") 
       ]);
 
       setListings(Array.isArray(listingsRes.data) ? listingsRes.data : []);
       
-      const serverStatus = profileRes.data.verification_status;
-      setLocalStatus(serverStatus);
+      const serverData = profileRes.data;
+      setLocalStatus(serverData.verification_status);
 
-      if (profileRes.data && updateUser) {
-          updateUser(profileRes.data); 
+      if (updateUser && serverData) {
+          updateUser({ 
+              verification_status: serverData.verification_status,
+              name: serverData.full_name || user.name,
+              avatar_url: serverData.avatar_url || user.avatar_url
+          }); 
       }
 
       if(isRefresh) setTimeout(() => setRefreshing(false), 800); 
     } catch (err) {
       console.error("Fetch error:", err);
-      // 🚨 Graceful Error Handling to prevent redirect loops
-      if (err.response?.status === 403 || err.response?.status === 401) {
-         // Do nothing here, let the interceptor handle logout if needed, 
-         // but don't try to render broken state.
-      }
     } finally {
       if (!isRefresh) setLoading(false);
     }
@@ -66,24 +65,61 @@ export default function OwnerProperties() {
 
   useEffect(() => { fetchListings(); }, []);
 
-  // -------------------- Actions --------------------
-  
-  // 1. Activate / Pay Logic
+  // --- Filter Logic ---
+  const filteredListings = useMemo(() => {
+    return listings.filter(l => {
+      const matchesSearch = l.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            l.city.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesFilter = filter === 'all' 
+        ? true 
+        : filter === 'active' 
+          ? (l.status === 'approved' && l.is_active) 
+          : (l.status !== 'approved' || !l.is_active);
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [listings, searchTerm, filter]);
+
+  // --- Actions ---
+  const isVerified = localStatus === 'approved';
+
+  const handleNavigateToAdd = (e) => {
+    if(e) e.preventDefault();
+    if (!isVerified) {
+        Swal.fire({
+            icon: 'warning',
+            title: "Verification Required",
+            text: "You must be an approved landlord to create listings.",
+            confirmButtonText: 'Check Profile',
+            confirmButtonColor: '#0f766e'
+        }).then((res) => { if(res.isConfirmed) navigate('/owner/profile'); });
+        return;
+    }
+    // ✅ Redirect to separate page
+    navigate('/owner/add-property');
+  };
+
+  const handleEdit = (listing, e) => {
+    e.stopPropagation();
+    // ✅ Redirect to separate page with state
+    navigate("/owner/add-property", { state: { editingListing: listing } });
+  };
+
   const handleActivate = async (listing, e) => {
     e.stopPropagation();
-    
-    const confirm = await Swal.fire({
-      title: "Activate Listing?",
-      text: "Pay $10.00 to make this listing visible on the Buy/Rent pages.",
+    const result = await Swal.fire({
+      title: "Activate Listing",
+      text: "Pay $10.00 to publish this listing.",
       icon: "info",
       showCancelButton: true,
-      confirmButtonText: "Pay & Activate",
-      confirmButtonColor: "#10b981"
+      confirmButtonText: "Pay Now",
+      confirmButtonColor: "#0f766e"
     });
 
-    if (!confirm.isConfirmed) return;
+    if (!result.isConfirmed) return;
+    setBusyId(listing.product_id); 
 
-    setBusyId(listing.product_id);
     try {
         const res = await client.post('/api/payments/create-session', {
             productId: listing.product_id,
@@ -91,88 +127,38 @@ export default function OwnerProperties() {
             currency: 'USD',
             email: user.email
         });
-        
-        if (res.data && res.data.url) {
-            window.location.href = res.data.url; 
-        }
+        if (res.data && res.data.url) window.location.href = res.data.url;
     } catch (err) {
-      console.error(err);
-      Swal.fire("Error", "Payment initialization failed.", "error");
+      Swal.fire("Error", "Payment failed.", "error");
       setBusyId(null);
     }
   };
 
-  // 2. Delete Logic
   const handleDelete = async (listing, e) => {
     e.stopPropagation(); 
-    
     const confirm = await Swal.fire({
       title: "Delete Listing?",
       text: "This action cannot be undone.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#ef4444",
-      confirmButtonText: "Yes, delete it",
+      confirmButtonText: "Delete",
     });
 
     if (!confirm.isConfirmed) return;
-
     setBusyId(listing.product_id);
 
     try {
       await client.delete(`/api/listings/${listing.product_id}`);
       setListings((prev) => prev.filter((l) => l.product_id !== listing.product_id));
-      
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Deleted', showConfirmButton: false, timer: 1500 });
     } catch (err) {
-      Swal.fire("Error", "Could not delete listing.", "error");
+      Swal.fire("Error", "Delete failed.", "error");
     } finally {
       setBusyId(null);
     }
   };
 
-  // 3. Edit Navigation (Fixed to Owner Path)
-  const handleEdit = (listing, e) => {
-    e.stopPropagation();
-    navigate("/owner/add-property", { state: { editingListing: listing } });
-  };
-
-  // 4. View Public Listing
-  const handleViewLive = (id, e) => {
-    e.stopPropagation();
-    navigate(`/listing/${id}`);
-  };
-
-  // 5. Create Button Logic (Verification Lock)
-  const handleCreateClick = (e) => {
-    if (localStatus !== 'approved') {
-        e.preventDefault();
-        let title = "Verification Required";
-        let text = "You must verify your profile before posting listings.";
-        
-        if (localStatus === 'pending') {
-            title = "Under Review";
-            text = "Your profile is currently under review by our admin team.";
-        } else if (localStatus === 'rejected') {
-            title = "Profile Rejected";
-            text = "Your verification was rejected. Please check your profile.";
-        }
-
-        Swal.fire({
-            icon: 'warning',
-            title,
-            text,
-            confirmButtonText: 'Go to Profile',
-            confirmButtonColor: '#09707d',
-            showCancelButton: true,
-            cancelButtonText: 'Close'
-        }).then((result) => {
-            if (result.isConfirmed) navigate('/owner/profile'); 
-        });
-    }
-  };
-
-  // 6. Show Rejection Reason
   const showRejectionReason = (listing, e) => {
     e.stopPropagation();
     Swal.fire({
@@ -180,130 +166,139 @@ export default function OwnerProperties() {
       title: 'Action Required',
       text: listing.admin_notes || "General quality standards not met.",
       confirmButtonText: 'Edit & Fix',
-      confirmButtonColor: '#09707d'
+      confirmButtonColor: '#0f766e'
     }).then((result) => {
         if(result.isConfirmed) handleEdit(listing, e);
     });
   };
 
-  // -------------------- Preview Logic --------------------
+  // --- Preview Helpers ---
   const handlePreview = (l, e) => { if(e) e.stopPropagation(); setPreviewListing(l); setCurrentPhotoIndex(0); };
   const nextImage = (e) => { e.stopPropagation(); if(previewListing?.photos) setCurrentPhotoIndex((p) => (p + 1) % previewListing.photos.length); };
   const prevImage = (e) => { e.stopPropagation(); if(previewListing?.photos) setCurrentPhotoIndex((p) => (p - 1 + previewListing.photos.length) % previewListing.photos.length); };
   const getPhotoUrl = (l, i=0) => { if(!l?.photos?.length) return "/placeholder.png"; const p = l.photos[i]; return typeof p === 'string' ? p : (p.url || "/placeholder.png"); };
   const getFeaturesList = (f) => { if(!f) return []; let p={}; if(typeof f==='string'){try{p=JSON.parse(f)}catch{}}else{p=f} return Object.keys(p).filter(k=>p[k]); };
 
-  const isVerified = localStatus === 'approved';
-
   return (
     <div className={style.container}>
       
-      {/* --- HEADER --- */}
+      {/* HEADER */}
       <div className={style.header}>
-        <div>
+        <div className={style.titleSection}>
           <h1>My Properties</h1>
-          <p>Manage your rental portfolio and sales</p>
+          <p>Manage your real estate portfolio.</p>
         </div>
         <div className={style.headerActions}>
-            <button onClick={() => fetchListings(true)} className={style.iconBtn} title="Refresh Listings">
+            <button onClick={() => fetchListings(true)} className={style.iconBtn} title="Sync">
                 <RefreshCcw size={18} className={refreshing ? style.spin : ''} /> Refresh
-            </button>
-            <Link 
-                to={isVerified ? "/owner/add-property" : "#"} 
-                onClick={handleCreateClick}
+            </button> 
+            <button 
+                onClick={handleNavigateToAdd}
                 className={style.addButton}
                 style={!isVerified ? { background: '#94a3b8', cursor: 'not-allowed' } : {}}
             >
-                <Plus size={20} /> Add New Property
-            </Link>
+                {isVerified ? <Plus size={20} /> : <Lock size={16} />} 
+                {isVerified ? "Add Property" : "Verify to Add"}
+            </button>
         </div>
       </div>
 
-      {/* --- LISTINGS GRID --- */}
-      {loading ? (
-        <div className={style.loadingContainer} style={{textAlign:'center', padding:50}}>
-          <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 150, height: 150, margin:'0 auto' }} />
-          <p style={{color:'#6b7280'}}>Loading your portfolio...</p>
+      {/* CONTROLS */}
+      <div className={style.controls}>
+        <div className={style.searchWrapper}>
+            <Search size={18} className={style.searchIcon} />
+            <input 
+                type="text" 
+                placeholder="Search by title or city..." 
+                className={style.searchInput}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
         </div>
-      ) : listings.length === 0 ? (
+        <div className={style.tabs}>
+            {['all', 'active', 'pending'].map(t => (
+                <button 
+                    key={t}
+                    className={`${style.tab} ${filter === t ? style.activeTab : ''}`}
+                    onClick={() => setFilter(t)}
+                >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                </button>
+            ))}
+        </div>
+      </div>
+
+      {/* GRID */}
+      {loading ? (
+        <div className={style.loader}>
+          <Loader2 size={40} className={style.spin} />
+          <p>Loading properties...</p>
+        </div>
+      ) : filteredListings.length === 0 ? (
         <div className={style.emptyState}>
-          <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 200, height: 200, margin:'0 auto' }} />
-          <h3>No Properties Yet</h3>
-          <p>List your first property to start finding tenants.</p>
-          
-          {/* ✅ BLUE UNDERLINED LINK */}
-          <Link 
-            to={isVerified ? "/owner/add-property" : "#"} 
-            onClick={handleCreateClick}
-            style={{ 
-                color: '#2563eb', 
-                textDecoration: 'underline', 
-                fontSize: '18px',
-                fontWeight: '500',
-                cursor: isVerified ? 'pointer' : 'not-allowed',
-                opacity: isVerified ? 1 : 0.5,
-                marginTop: '15px',
-                display: 'inline-block'
-            }}
-          >
-            Create Listing
-          </Link>
+          <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 250, height: 250 }} />
+          <h3 className={style.emptyTitle}>
+             {searchTerm ? "No results found" : "No Properties Yet"}
+          </h3>
+          <p className={style.emptyDesc}>
+             {searchTerm ? "Try adjusting your search terms." : "List your first property today and reach thousands of potential tenants."}
+          </p>
+          {!searchTerm && (
+              /* ✅ BLUE UNDERLINED LINK that Redirects */
+              <button onClick={handleNavigateToAdd} className={style.createLink} disabled={!isVerified}>
+                 Create Listing
+              </button>
+          )}
         </div>
       ) : (
         <div className={style.grid}>
-          {listings.map((listing) => {
-            let badgeClass = style.pending;
-            let statusText = "Pending Review";
-
-            if (listing.status === 'rejected') { 
-                badgeClass = style.rejected; 
-                statusText = "Verification Failed"; 
-            } else if (listing.status === 'approved') {
-                if (listing.is_active) {
-                    badgeClass = style.active; 
-                    statusText = "Active (Live)";
-                } else {
-                    badgeClass = style.pending; 
-                    statusText = "Approved (Unpaid)";
-                }
+          {filteredListings.map((listing) => {
+            let badgeClass = style.pendingBadge;
+            let statusText = "Pending";
+            
+            if (listing.status === 'rejected') { badgeClass = style.rejectedBadge; statusText = "Rejected"; }
+            else if (listing.status === 'approved') {
+                if (listing.is_active) { badgeClass = style.activeBadge; statusText = "Active"; }
+                else { badgeClass = style.pendingBadge; statusText = "Unpaid"; }
             }
 
             return (
-              <div key={listing.product_id} className={style.card} onClick={(e) => handlePreview(listing, e)}>
+              <div key={listing.product_id} className={style.card} onClick={() => setPreviewListing(listing)}>
+                
+                {/* Image Section */}
                 <div className={style.imageWrapper}>
-                  <img src={getPhotoUrl(listing, 0)} alt={listing.title} className={style.cardImage} />
-                  <span className={`${style.badge} ${badgeClass}`}>
-                    {statusText}
-                  </span>
+                  <img src={getPhotoUrl(listing)} alt={listing.title} className={style.cardImage} />
+                  <div className={`${style.badge} ${badgeClass}`}>{statusText}</div>
                 </div>
 
                 {listing.status === 'rejected' && (
                     <div className={style.rejectionBanner}>
-                        <div className={style.rejectionText}><AlertTriangle size={14} /> Admin Rejected</div>
+                        <div className={style.rejectionText}><AlertTriangle size={14} /> Rejected</div>
                         <button className={style.viewReasonBtn} onClick={(e) => showRejectionReason(listing, e)}>Why?</button>
                     </div>
                 )}
 
+                {/* Content Section */}
                 <div className={style.cardBody}>
-                  <h3 className={style.cardTitle}>{listing.title || "Untitled Property"}</h3>
-                  <p className={style.cardAddress}>
-                    <MapPin size={14} /> {listing.city}, {listing.country}
-                  </p>
-                  
-                  <div className={style.cardMeta}>
-                    <span><Home size={14} style={{marginBottom:-2}}/> {listing.property_type}</span>
-                    <span className={style.price}>
-                      {Number(listing.price).toLocaleString()} {listing.price_currency}
-                    </span>
+                  <span className={style.price}>
+                    {Number(listing.price).toLocaleString()} {listing.price_currency}
+                  </span>
+                  <h3 className={style.title}>{listing.title}</h3>
+                  <div className={style.address}>
+                    <MapPin size={16} /> {listing.city}, {listing.country}
+                  </div>
+
+                  <div className={style.metaRow}>
+                    <span className={style.metaItem}><Bed size={16}/> {listing.bedrooms} Beds</span>
+                    <span className={style.metaItem}><Bath size={16}/> {listing.bathrooms} Baths</span>
+                    <span className={style.metaItem}><Square size={16}/> {listing.square_footage} sqft</span>
                   </div>
 
                   <div className={style.actions}>
-                    
-                    {/* 1. PAY BUTTON */}
+                    {/* PAY Button */}
                     {listing.status === 'approved' && !listing.is_active && (
                       <button 
-                        className={style.actionBtn} 
-                        style={{ backgroundColor: '#dcfce7', color: '#166534', borderColor: '#86efac' }}
+                        className={`${style.btn} ${style.btnPrimary}`} 
                         onClick={(e) => handleActivate(listing, e)}
                         disabled={busyId === listing.product_id}
                       >
@@ -311,33 +306,29 @@ export default function OwnerProperties() {
                       </button>
                     )}
 
-                    {/* 2. VIEW LIVE */}
+                    {/* VIEW Button */}
                     {listing.is_active && (
-                        <button 
-                            className={style.actionBtn} 
-                            style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
-                            onClick={(e) => handleViewLive(listing.product_id, e)}
-                        >
-                            <ExternalLink size={16}/> Live
+                        <button className={`${style.btn} ${style.btnPrimary}`} onClick={(e) => { e.stopPropagation(); navigate(`/listing/${listing.product_id}`); }}>
+                            <Eye size={16}/> View
                         </button>
                     )}
 
-                    {/* 3. EDIT */}
+                    {/* EDIT Button */}
                     <button 
-                      className={style.actionBtn}
-                      onClick={(e) => handleEdit(listing, e)}
-                      disabled={listing.is_active} 
+                        className={`${style.btn} ${style.btnSecondary}`} 
+                        onClick={(e) => handleEdit(listing, e)}
+                        disabled={listing.is_active}
                     >
-                      <Edit size={16} /> Edit
+                        <Edit size={16}/> Edit
                     </button>
 
-                    {/* 4. DELETE */}
+                    {/* DELETE Button */}
                     <button 
-                      className={`${style.actionBtn} ${style.deleteBtn}`}
-                      onClick={(e) => handleDelete(listing, e)}
-                      disabled={busyId === listing.product_id}
+                        className={`${style.btn} ${style.btnDanger}`} 
+                        onClick={(e) => handleDelete(listing, e)}
+                        disabled={busyId === listing.product_id}
                     >
-                      <Trash2 size={16} />
+                        <Trash2 size={16}/>
                     </button>
                   </div>
                 </div>
@@ -360,7 +351,6 @@ export default function OwnerProperties() {
                         <button className={`${style.navBtn} ${style.nextBtn}`} onClick={nextImage}><ChevronRight size={20}/></button>
                     </>
                 )}
-                <div style={{position:'absolute', bottom:15, right:15, background:'rgba(0,0,0,0.6)', color:'white', padding:'4px 10px', borderRadius:10, fontSize:'0.8rem'}}>{currentPhotoIndex + 1} / {previewListing.photos.length}</div>
             </div>
             <div className={style.modalBody}>
                 <div className={style.modalMain}>

@@ -19,8 +19,10 @@ const OwnerPayments = () => {
   const navigate = useNavigate();
   const userId = user?.unique_id || user?.id;
 
+  // ✅ LOCAL STATUS: Ensures UI unlocks instantly
   const [localStatus, setLocalStatus] = useState(user?.verification_status || 'pending');
 
+  // ================= STATE =================
   const [inactiveListings, setInactiveListings] = useState([]);
   const [payments, setPayments] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
@@ -31,6 +33,7 @@ const OwnerPayments = () => {
     headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
   });
 
+  // ================= LOAD SCRIPTS =================
   useEffect(() => {
     if (!window.FlutterwaveCheckout) {
       const script = document.createElement("script");
@@ -40,6 +43,7 @@ const OwnerPayments = () => {
     }
   }, []);
 
+  // ================= FETCH DATA =================
   useEffect(() => {
     if (userId) fetchData();
   }, [userId]);
@@ -47,6 +51,7 @@ const OwnerPayments = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // ✅ Fetch Profile, Wallet, Listings, History ALL AT ONCE
       const [profileRes, walletRes, listingsRes, historyRes] = await Promise.all([
           axios.get(`${API_BASE}/api/profile`, authHeader()),
           axios.get(`${API_BASE}/api/wallet`, authHeader()),
@@ -54,13 +59,21 @@ const OwnerPayments = () => {
           axios.get(`${API_BASE}/api/payments/history`, authHeader())
       ]);
 
-      const status = profileRes.data.verification_status;
-      setLocalStatus(status);
+      // 1. Update Status
+      const serverData = profileRes.data;
+      setLocalStatus(serverData.verification_status);
       
-      if (updateUser) {
-          updateUser(profileRes.data);
+      // ✅ SAFE UPDATE: Only update specific fields. NEVER overwrite the role.
+      if (updateUser && serverData) {
+          updateUser({ 
+              verification_status: serverData.verification_status,
+              name: serverData.full_name || user.name,
+              avatar_url: serverData.avatar_url || user.avatar_url
+              // ❌ DO NOT INCLUDE 'role' HERE
+          }); 
       }
 
+      // 2. Set Financial Data
       setWalletBalance(Number(walletRes.data?.balance || 0));
 
       const unpaid = Array.isArray(listingsRes.data)
@@ -68,6 +81,7 @@ const OwnerPayments = () => {
         : [];
       setInactiveListings(unpaid);
 
+      // 3. Set History
       setPayments(Array.isArray(historyRes.data) ? historyRes.data : []);
 
     } catch (err) {
@@ -77,6 +91,7 @@ const OwnerPayments = () => {
     }
   };
 
+  // ================= HELPER: SELECT CURRENCY =================
   const selectCurrency = async () => {
     const { value: currency } = await Swal.fire({
       title: 'Select Payment Currency',
@@ -98,11 +113,13 @@ const OwnerPayments = () => {
     return currency;
   };
 
+  // ================= ACTION 1: FUND WALLET =================
   const handleFundWallet = async () => {
     const { value: amount } = await Swal.fire({
       title: 'Fund Your Wallet',
       text: 'Enter amount in USD (min $5).',
       input: 'number',
+      inputAttributes: { min: 5 },
       inputValue: 20,
       showCancelButton: true,
       confirmButtonColor: '#007983',
@@ -128,6 +145,7 @@ const OwnerPayments = () => {
     }
   };
 
+  // ================= ACTION 2: PAY WITH WALLET ($15) =================
   const payWithWallet = async (listing) => {
     if (walletBalance < WALLET_PRICE) {
       return Swal.fire({
@@ -165,6 +183,7 @@ const OwnerPayments = () => {
     }
   };
 
+  // ================= ACTION 3: DIRECT CARD PAYMENT ($20) =================
   const payDirect = async (listing) => {
     const currency = await selectCurrency();
     if (!currency) return;
@@ -183,6 +202,7 @@ const OwnerPayments = () => {
     }
   };
 
+  // ================= FLUTTERWAVE HANDLER =================
   const openFlutterwave = (paymentData, type, listing = null) => {
     window.FlutterwaveCheckout({
       public_key: paymentData.public_key,
@@ -190,7 +210,10 @@ const OwnerPayments = () => {
       amount: paymentData.amount, 
       currency: paymentData.currency, 
       payment_options: "card,mobilemoney,ussd",
-      customer: { email: user?.email, name: user?.full_name },
+      customer: {
+        email: user?.email,
+        name: user?.full_name,
+      },
       customizations: {
         title: type === "FUND_WALLET" ? "Wallet Top-up" : "Activate Listing",
         description: type === "FUND_WALLET" ? "Adding funds to wallet" : `Activation for ${listing?.title}`,
@@ -203,12 +226,14 @@ const OwnerPayments = () => {
 
   const verifyTransaction = async (response, type) => {
     const endpoint = type === "FUND_WALLET" ? "/api/wallet/verify" : "/api/payments/verify";
+    
     try {
       const res = await axios.post(
         `${API_BASE}${endpoint}`,
         { transaction_id: response.transaction_id, tx_ref: response.tx_ref },
         authHeader()
       );
+
       if (res.data?.success) {
         Swal.fire("Success", type === "FUND_WALLET" ? "Wallet Funded!" : "Listing Activated!", "success");
         fetchData();
@@ -222,16 +247,25 @@ const OwnerPayments = () => {
     }
   };
 
+  // ✅ CHECK LOCAL STATUS
   const isVerified = localStatus === 'approved';
 
+  // 🔒 LOCKED STATE (If not approved, BLOCK ACCESS)
   if (!isVerified) {
     return (
         <div className={style.lockedContainer}>
             <div className={style.lockedCard}>
-                <div className={style.iconWrapper}><Lock size={48} className={style.lockedIcon} /></div>
+                <div className={style.iconWrapper}>
+                    <Lock size={48} className={style.lockedIcon} />
+                </div>
                 <h2>Wallet Locked</h2>
-                <p>Your financial dashboard is restricted. To fund your wallet or activate listings, your profile must be <b>Approved</b>.</p>
-                <div className={style.statusBadge}>Current Status: <span>{localStatus.toUpperCase()}</span></div>
+                <p>
+                    Your financial dashboard is currently restricted. 
+                    To fund your wallet or activate listings, your landlord profile must be <b>Approved</b>.
+                </p>
+                <div className={style.statusBadge}>
+                    Current Status: <span>{localStatus.toUpperCase()}</span>
+                </div>
                 <button className={style.verifyBtn} onClick={() => navigate('/owner/profile')}>
                     <ShieldCheck size={18} /> Go to Verification
                 </button>
@@ -246,44 +280,100 @@ const OwnerPayments = () => {
 
   return (
     <div className={style.pageWrapper}>
+      
+      {/* HEADER */}
       <header className={style.header}>
-        <div><h1>Financial Dashboard</h1><p>Manage your earnings, wallet, and property activations.</p></div>
-        <button className={style.refreshBtn} onClick={fetchData}><History size={16} /> Sync Data</button>
+        <div>
+          <h1>Financial Dashboard</h1>
+          <p>Manage your earnings, wallet, and property activations.</p>
+        </div>
+        <button className={style.refreshBtn} onClick={fetchData}>
+          <History size={16} /> Sync Data
+        </button>
       </header>
 
       <div className={style.gridContainer}>
+        
+        {/* --- LEFT COLUMN: WALLET & ACTIONS --- */}
         <div className={style.leftColumn}>
+          
+          {/* 1. PROFESSIONAL CARD */}
           <div className={style.walletCard} style={{ background: 'linear-gradient(135deg, #1f2937 0%, #007983 100%)' }}>
             <div className={style.cardPattern} />
             <div className={style.cardContent}>
-              <div className={style.cardTop}><div className={style.chip} /><span className={style.cardBrand}>OWNER WALLET</span></div>
-              <div className={style.balanceGroup}><span className={style.balanceLabel}>Current Balance</span><h2 className={style.balanceAmount}>${walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h2></div>
+              <div className={style.cardTop}>
+                <div className={style.chip} />
+                <span className={style.cardBrand}>OWNER WALLET</span>
+              </div>
+              <div className={style.balanceGroup}>
+                <span className={style.balanceLabel}>Current Balance</span>
+                <h2 className={style.balanceAmount}>
+                  ${walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </h2>
+              </div>
               <div className={style.cardBottom}>
-                <div className={style.holderInfo}><span>OWNER</span><strong>{user?.full_name?.toUpperCase() || "LANDLORD"}</strong></div>
-                <div className={style.expiryInfo}><span>STATUS</span><strong className={style.activeText}>ACTIVE</strong></div>
+                <div className={style.holderInfo}>
+                  <span>OWNER</span>
+                  <strong>{user?.full_name?.toUpperCase() || "LANDLORD"}</strong>
+                </div>
+                <div className={style.expiryInfo}>
+                  <span>STATUS</span>
+                  <strong className={style.activeText}>ACTIVE</strong>
+                </div>
               </div>
             </div>
           </div>
 
-          <button className={style.fundBtn} onClick={handleFundWallet} disabled={processingId === 'FUND'}>
-            {processingId === 'FUND' ? <Loader2 className="animate-spin" /> : <Plus size={20} />}<span>Add Funds to Wallet</span>
+          {/* 2. FUND BUTTON */}
+          <button 
+            className={style.fundBtn} 
+            onClick={handleFundWallet} 
+            disabled={processingId === 'FUND'}
+          >
+            {processingId === 'FUND' ? <Loader2 className="animate-spin" /> : <Plus size={20} />}
+            <span>Add Funds to Wallet</span>
           </button>
 
+          {/* 3. PENDING LISTINGS */}
           <div className={style.section}>
-            <div className={style.sectionHeader}><h3><AlertCircle size={18} /> Pending Activations</h3></div>
+            <div className={style.sectionHeader}>
+              <h3><AlertCircle size={18} /> Pending Activations</h3>
+            </div>
+            
             {inactiveListings.length === 0 ? (
-              <div className={style.emptyState}><CheckCircle2 size={40} className={style.successIcon} /><p>All your approved listings are active!</p></div>
+              <div className={style.emptyState}>
+                <CheckCircle2 size={40} className={style.successIcon} />
+                <p>All your approved listings are active!</p>
+              </div>
             ) : (
               <div className={style.pendingList}>
                 {inactiveListings.map(listing => (
                   <div key={listing.product_id} className={style.pendingCard}>
-                    <div className={style.pendingMeta}><h4>{listing.title}</h4><span>{listing.city} • {new Date(listing.created_at).toLocaleDateString()}</span></div>
+                    <div className={style.pendingMeta}>
+                      <h4>{listing.title}</h4>
+                      <span>{listing.city} • {new Date(listing.created_at).toLocaleDateString()}</span>
+                    </div>
+                    
                     <div className={style.actionRow}>
-                      <button className={style.walletPayBtn} onClick={() => payWithWallet(listing)} disabled={!!processingId} title="Save $5 using Wallet">
-                        <Zap size={14} fill="currentColor" /><span>Wallet ${WALLET_PRICE}</span>
+                      {/* Option A: Wallet ($15) */}
+                      <button 
+                        className={style.walletPayBtn}
+                        onClick={() => payWithWallet(listing)}
+                        disabled={!!processingId}
+                        title="Save $5 using Wallet"
+                      >
+                        <Zap size={14} fill="currentColor" />
+                        <span>Wallet ${WALLET_PRICE}</span>
                       </button>
-                      <button className={style.directPayBtn} onClick={() => payDirect(listing)} disabled={!!processingId}>
-                        <span>Card ${DIRECT_PRICE}</span><ArrowUpRight size={14} />
+
+                      {/* Option B: Direct ($20) */}
+                      <button 
+                        className={style.directPayBtn}
+                        onClick={() => payDirect(listing)}
+                        disabled={!!processingId}
+                      >
+                        <span>Card ${DIRECT_PRICE}</span>
+                        <ArrowUpRight size={14} />
                       </button>
                     </div>
                   </div>
@@ -293,22 +383,39 @@ const OwnerPayments = () => {
           </div>
         </div>
 
+        {/* --- RIGHT COLUMN: HISTORY --- */}
         <div className={style.rightColumn}>
           <div className={style.section}>
-            <div className={style.sectionHeader}><h3>Payment History</h3></div>
+            <div className={style.sectionHeader}>
+              <h3>Payment History</h3>
+            </div>
+
             {payments.length === 0 ? (
               <div className={style.emptyTable}>No transaction history found.</div>
             ) : (
               <div className={style.tableWrapper}>
                 <table className={style.historyTable}>
-                  <thead><tr><th>Type</th><th>Ref</th><th>Date</th><th className={style.textRight}>Amount</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Ref</th>
+                      <th>Date</th>
+                      <th className={style.textRight}>Amount</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {payments.map(p => (
                       <tr key={p.id}>
-                        <td><span className={`${style.statusBadge} ${p.purpose === 'wallet_funding' ? style.funding : style.activation}`}>{p.purpose === 'wallet_funding' ? 'Top Up' : 'Activation'}</span></td>
+                        <td>
+                          <span className={`${style.statusBadge1} ${p.purpose === 'wallet_funding' ? style.funding : style.activation}`}>
+                            {p.purpose === 'wallet_funding' ? 'Top Up' : 'Activation'}
+                          </span>
+                        </td>
                         <td className={style.refText}>{p.tx_ref?.substring(0, 10)}...</td>
                         <td>{new Date(p.created_at).toLocaleDateString()}</td>
-                        <td className={style.amountText}>{p.currency === 'NGN' ? '₦' : '$'}{p.amount}</td>
+                        <td className={style.amountText}>
+                          {p.currency === 'NGN' ? '₦' : '$'}{p.amount}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -317,6 +424,7 @@ const OwnerPayments = () => {
             )}
           </div>
         </div>
+
       </div>
     </div>
   );

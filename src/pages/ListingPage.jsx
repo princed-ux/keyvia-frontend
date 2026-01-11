@@ -1,16 +1,39 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom"; // ✅ Added useNavigate
+import { useSearchParams, useNavigate } from "react-router-dom";
 import client from "../api/axios"; 
-import { Search, Loader2, Heart, ChevronDown, Mail, Globe, X, Maximize, AlertCircle, CheckCircle, WifiOff, Lock } from "lucide-react"; 
+import { Search, Heart, ChevronDown, X, Maximize, AlertCircle, CheckCircle, WifiOff, MapPin, Home, Bed, Bath, Square, Globe } from "lucide-react"; 
 import Navbar from "../layout/Navbar"; 
 import MapLibreMapViewer from "../components/MapLibreMapViewer";
 import ListingModal from "../components/ListingModal";
 import { getCurrencySymbol, formatPrice } from "../utils/format";
 import style from "../styles/Buy.module.css"; 
-import Swal from "sweetalert2"; // ✅ Ensure Swal is imported
-import { useAuth } from "../context/AuthProvider"; // ✅ Import Auth Context
+import Swal from "sweetalert2"; 
+import { useAuth } from "../context/AuthProvider"; 
 
-// --- 1. CUSTOM TOAST COMPONENT ---
+// --- 1. SKELETON COMPONENT (The Glancing Effect) ---
+const ListingSkeleton = () => (
+  <div className={style.card} style={{ pointerEvents: "none", cursor: "default" }}>
+    {/* Image Placeholder */}
+    <div className={`${style.skeleton} ${style.skeletonImage}`} />
+    
+    <div className={style.cardDetails}>
+      {/* Price Placeholder */}
+      <div className={`${style.skeleton} ${style.skeletonTitle}`} style={{ width: "40%" }}></div>
+      
+      {/* Address Placeholder */}
+      <div className={`${style.skeleton} ${style.skeletonText}`} style={{ width: "90%" }}></div>
+      
+      {/* Stats Row Placeholder */}
+      <div style={{ display: "flex", gap: "12px", marginTop: "10px" }}>
+        <div className={style.skeleton} style={{ height: "14px", width: "40px" }}></div>
+        <div className={style.skeleton} style={{ height: "14px", width: "40px" }}></div>
+        <div className={style.skeleton} style={{ height: "14px", width: "50px" }}></div>
+      </div>
+    </div>
+  </div>
+);
+
+// --- 2. CUSTOM TOAST COMPONENT ---
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 4000);
@@ -58,7 +81,7 @@ const FilterDropdown = ({ title, onClose, children, onApply, width = "300px" }) 
 
 const ListingPage = ({ pageType }) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth(); // ✅ Get User from Context
+  const { user } = useAuth(); 
   const navigate = useNavigate();
 
   const [properties, setProperties] = useState([]);
@@ -114,7 +137,7 @@ const ListingPage = ({ pageType }) => {
 
   // --- 2. FETCH LISTINGS ---
   const fetchListings = useCallback(async (params = {}) => {
-    if (isOffline) return; // Don't fetch if offline
+    if (isOffline) return; 
     try {
       setLoading(true);
       const category = pageType === 'buy' ? 'Sale' : 'Rent';
@@ -123,9 +146,10 @@ const ListingPage = ({ pageType }) => {
       setProperties(res.data || []);
     } catch (err) {
       console.error("Error fetching listings:", err);
-      // Optional: If API fails specifically due to network, trigger offline mode
       if (err.message === "Network Error") setIsOffline(true);
     } finally {
+      // Small artificial delay to prevent flickering if API is too fast (optional)
+      // setTimeout(() => setLoading(false), 300); 
       setLoading(false);
     }
   }, [pageType, isOffline]);
@@ -216,8 +240,6 @@ const ListingPage = ({ pageType }) => {
     if (e.key === 'Enter') handleAddressSearch();
   };
 
-  // ✅ AUTH GATING HELPER
-  // This function checks if user is logged in. If not, prompts signup.
   const handleAuthAction = (actionCallback) => {
     if (!user) {
         Swal.fire({
@@ -231,19 +253,16 @@ const ListingPage = ({ pageType }) => {
             cancelButtonText: "Not now"
         }).then((result) => {
             if (result.isConfirmed) {
-                navigate("/signup"); // Redirect to signup
+                navigate("/signup"); 
             }
         });
         return;
     }
-    // If logged in, proceed with action
     actionCallback();
   };
 
   const toggleFavorite = async (e, listingId) => {
     e.stopPropagation();
-    
-    // ✅ WRAP IN AUTH CHECK
     handleAuthAction(async () => {
         setProperties(prev => prev.map(p => p.product_id === listingId ? { ...p, is_favorited: !p.is_favorited } : p));
         try { await client.post(`/api/favorites/toggle`, { product_id: listingId }); } 
@@ -257,7 +276,6 @@ const ListingPage = ({ pageType }) => {
 
   // --- RENDER ---
 
-  // 🔴 NETWORK ERROR FULL PAGE OVERLAY
   if (isOffline) {
     return (
         <div style={{
@@ -293,7 +311,6 @@ const ListingPage = ({ pageType }) => {
     <div className={style.pageWrapper}>
       <Navbar />
       
-      {/* ✅ RENDER TOAST HERE */}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <div className={style.filterBar} style={{zIndex: 20}}>
@@ -310,13 +327,13 @@ const ListingPage = ({ pageType }) => {
           </div>
 
           <div className={style.searchContainer} style={{width: '160px'}}>
-             <Globe size={16} className={style.searchIcon} />
-             <input 
-               type="text" placeholder="Country" className={style.searchInput}
-               value={countryQuery} onChange={(e) => setCountryQuery(e.target.value)}
-               onKeyDown={handleKeyDown}
-             />
-             {countryQuery && <button onClick={()=>setCountryQuery("")} style={{border:"none",background:"transparent",cursor:"pointer"}}><X size={14}/></button>}
+              <Globe size={16} className={style.searchIcon} />
+              <input 
+                type="text" placeholder="Country" className={style.searchInput}
+                value={countryQuery} onChange={(e) => setCountryQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+              {countryQuery && <button onClick={()=>setCountryQuery("")} style={{border:"none",background:"transparent",cursor:"pointer"}}><X size={14}/></button>}
           </div>
         </div>
 
@@ -378,19 +395,19 @@ const ListingPage = ({ pageType }) => {
           </div>
 
           <div style={{position: "relative"}}>
-             <button className={`${style.filterBtn} ${sqftRange.min || sqftRange.max ? style.active : ""}`} onClick={() => toggleDropdown("more")}>More <ChevronDown size={14}/></button>
-             {activeDropdown === "more" && (
+              <button className={`${style.filterBtn} ${sqftRange.min || sqftRange.max ? style.active : ""}`} onClick={() => toggleDropdown("more")}>More <ChevronDown size={14}/></button>
+              {activeDropdown === "more" && (
                 <FilterDropdown title="More Filters" onClose={() => setActiveDropdown(null)} onApply={() => setActiveDropdown(null)}>
                    <div>
                       <label style={{display:"flex", alignItems:"center", gap: "6px", fontSize:"13px", fontWeight:"600", marginBottom: "8px"}}><Maximize size={14}/> Square Footage</label>
                       <div style={{display: "flex", gap: "10px", alignItems: "center"}}>
-                         <input type="number" placeholder="Min SqFt" className={style.inputSmall} value={sqftRange.min} onChange={(e)=>setSqftRange({...sqftRange, min: e.target.value})} />
-                         <span>-</span>
-                         <input type="number" placeholder="Max SqFt" className={style.inputSmall} value={sqftRange.max} onChange={(e)=>setSqftRange({...sqftRange, max: e.target.value})} />
+                          <input type="number" placeholder="Min SqFt" className={style.inputSmall} value={sqftRange.min} onChange={(e)=>setSqftRange({...sqftRange, min: e.target.value})} />
+                          <span>-</span>
+                          <input type="number" placeholder="Max SqFt" className={style.inputSmall} value={sqftRange.max} onChange={(e)=>setSqftRange({...sqftRange, max: e.target.value})} />
                       </div>
                    </div>
                 </FilterDropdown>
-             )}
+              )}
           </div>
 
           <button className={style.saveSearchBtn}>Save Search</button>
@@ -412,7 +429,9 @@ const ListingPage = ({ pageType }) => {
           <div className={style.listHeader}>
             <div>
               <h1>{pageType === 'buy' ? 'Real Estate & Homes For Sale' : 'Apartments For Rent'}</h1>
-              <p className={style.metaText}>{loading ? "Loading..." : `${filteredProperties.length} listings found`}</p>
+              <p className={style.metaText}>
+                {loading ? "Scanning market..." : `${filteredProperties.length} listings found`}
+              </p>
             </div>
             
             <div style={{position:"relative"}}>
@@ -429,8 +448,14 @@ const ListingPage = ({ pageType }) => {
             </div>
           </div>
 
+          {/* ✅ UPDATED LOADING STATE: SKELETONS */}
           {loading ? (
-            <div className={style.loader}><Loader2 className="animate-spin" size={32} color="#007983" /></div>
+            <div className={style.cardGrid}>
+                {/* Render 8 Skeletons while loading */}
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                    <ListingSkeleton key={n} />
+                ))}
+            </div>
           ) : filteredProperties.length === 0 ? (
             <div className={style.empty}>
               <h3>No properties match your filters</h3>
@@ -476,13 +501,12 @@ const ListingPage = ({ pageType }) => {
         </div>
       </div>
       
-      {/* ✅ PASS AUTH AND ACTION HANDLER TO MODAL */}
       {selectedListing && (
         <ListingModal 
             listing={selectedListing} 
             onClose={closeModal} 
-            currentUser={user} // Pass user
-            onActionAttempt={handleAuthAction} // Pass the gating function
+            currentUser={user} 
+            onActionAttempt={handleAuthAction} 
         />
       )}
       

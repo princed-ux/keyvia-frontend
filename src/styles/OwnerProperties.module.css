@@ -1,8 +1,6 @@
-/* client/src/styles/OwnerProperties.module.css */
-
 .container {
   padding: 2rem;
-  max-width: 1200px;
+  max-width: 1400px; /* Matched Agent Width */
   margin: 0 auto;
   font-family: 'Inter', sans-serif;
   color: #334155;
@@ -29,7 +27,7 @@
   font-size: 1rem;
 }
 
-/* Green Add Button (Matches your screenshot) */
+/* Green Add Button */
 .addButton {
   background-color: #0f766e; /* Teal/Green shade */
   color: white;
@@ -41,7 +39,7 @@
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-  text-decoration: none; /* In case it's a Link */
+  text-decoration: none;
   transition: background-color 0.2s;
 }
 
@@ -179,6 +177,29 @@
 .pendingBadge { color: #d97706; border: 1px solid #f59e0b; }
 .rejectedBadge { color: #dc2626; border: 1px solid #ef4444; }
 
+/* Rejection Banner */
+.rejectionBanner {
+  background: #fef2f2;
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #fecaca;
+}
+
+.rejectionText {
+  color: #991b1b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
+}
+
+.viewReasonBtn {
+  background: white; border: 1px solid #fca5a5;
+  color: #991b1b; font-size: 0.7rem; padding: 4px 8px;
+  border-radius: 6px; cursor: pointer; font-weight: 600;
+}
+
 /* Card Content */
 .cardBody {
   padding: 1.25rem;
@@ -259,6 +280,11 @@
 .btnPrimary { background: #f0fdfa; color: #0f766e; border-color: #ccfbf1; }
 .btnPrimary:hover { background: #ccfbf1; }
 
+.btnSecondary { /* Added for Edit Button */
+  background: white; color: #334155; border-color: #cbd5e1;
+}
+.btnSecondary:hover { background: #f1f5f9; }
+
 .btnDanger { flex: 0; padding: 0.5rem 0.8rem; background: #fef2f2; color: #ef4444; border-color: #fee2e2; }
 .btnDanger:hover { background: #fee2e2; border-color: #fca5a5; }
 
@@ -287,9 +313,8 @@
   margin-bottom: 1rem;
 }
 
-/* ✅ SPECIFIC STYLE FOR THE BLUE LINK IN EMPTY STATE */
 .createLink {
-  color: #3b82f6; /* Bright Blue */
+  color: #3b82f6; 
   text-decoration: underline;
   font-size: 1.1rem;
   font-weight: 500;
@@ -300,37 +325,75 @@
   transition: opacity 0.2s;
 }
 
-.createLink:hover {
-  opacity: 0.8;
-}
-
-.createLink:disabled {
-  color: #94a3b8;
-  cursor: not-allowed;
-  text-decoration: none;
-}
+.createLink:hover { opacity: 0.8; }
+.createLink:disabled { color: #94a3b8; cursor: not-allowed; text-decoration: none; }
 
 /* Loading */
 .loader { display: flex; flex-direction: column; align-items: center; padding: 4rem; color: #0f766e; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
-/* Verification Lock */
-.lockedContainer { display: flex; justify-content: center; align-items: center; height: 60vh; }
-.lockedCard { text-align: center; padding: 3rem; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-width: 400px; }
-.lockedIcon { color: #94a3b8; margin-bottom: 1rem; }
-.verifyBtn { margin-top: 1rem; background: #0f766e; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; }
+/* Header Actions */
+.headerActions{ display: flex; gap: 10px; }
 
-/* Modal handled by reusable logic or simple overlay styles */
-.modalOverlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-.modalContent { background: white; width: 90%; max-width: 900px; height: 80vh; display: flex; border-radius: 12px; overflow: hidden; position: relative; }
-.closeModal { position: absolute; top: 10px; right: 10px; z-index: 10; background: rgba(0,0,0,0.5); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.modalGallery { flex: 1.5; background: black; position: relative; display: flex; align-items: center; justify-content: center; }
-.modalImage { max-width: 100%; max-height: 100%; object-fit: contain; }
+/* --- MODAL --- */
+.modalOverlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.modalContent { background: white; width: 90%; max-width: 900px; height: 85vh; display: flex; border-radius: 16px; overflow: hidden; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+.closeModal { position: absolute; top: 15px; right: 15px; z-index: 10; background: white; color: #333; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.modalGallery { flex: 1.5; background: #000; position: relative; display: flex; align-items: center; justify-content: center; }
+.modalImage { width: 100%; height: 100%; object-fit: cover; }
 .modalBody { flex: 1; padding: 2rem; overflow-y: auto; }
-.navBtn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px; cursor: pointer; border-radius: 50%; }
-.prevBtn { left: 10px; }
-.nextBtn { right: 10px; }
-.headerActions{
-    display: flex;
+.navBtn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px; cursor: pointer; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+.navBtn:hover { background: rgba(255,255,255,0.4); }
+.prevBtn { left: 15px; }
+.nextBtn { right: 15px; }
+
+.modalMain h2 { font-size: 1.8rem; margin: 0 0 5px; color: #111827; }
+.modalAddress { color: #6b7280; display: flex; align-items: center; gap: 5px; margin-bottom: 20px; }
+.modalPrice { font-size: 2rem; color: #0f766e; font-weight: 800; margin-bottom: 20px; }
+.featGrid { display: flex; gap: 15px; padding: 15px 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px; flex-wrap: wrap; }
+.featItem { display: flex; align-items: center; gap: 6px; font-weight: 500; color: #334155; font-size: 0.9rem; }
+
+/* ============================
+   ✅ SKELETON LOADING STYLES
+   ============================ */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: #f1f5f9; /* Base color matches your theme */
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Skeleton Specific Shapes */
+.skeletonImage {
+  width: 100%;
+  height: 200px;
+  border-radius: 12px 12px 0 0;
+}
+
+.skeletonText {
+  height: 16px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.skeletonTitle {
+  height: 24px;
+  width: 70%;
+  margin-bottom: 12px;
+  border-radius: 6px;
+}
+
+.skeletonTag {
+  width: 60px;
+  height: 24px;
+  border-radius: 4px;
 }

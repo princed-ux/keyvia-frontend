@@ -1,295 +1,326 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom"; // Import useNavigate
+import { useParams, useNavigate } from "react-router-dom"; 
+import { useAuth } from "../context/AuthProvider"; 
 import axios from "axios";
 import { 
-  MapPin, Mail, Phone, Briefcase, CheckCircle, 
-  Instagram, Linkedin, Twitter, Globe,
-  Bed, Bath, Square, X, Video, ChevronLeft, ChevronRight, MessageCircle
+  MapPin, CheckCircle, Globe, ShieldCheck, Star, 
+  Bed, Bath, Square, X, Video, ChevronLeft, ChevronRight, 
+  MessageCircle, ArrowLeft, Building2, Calendar, LayoutGrid, Lock, AlertTriangle, Loader2
 } from "lucide-react";
 import style from "../styles/AgentProfile.module.css";
+import AuthModal from "../components/AuthModal"; 
+import dayjs from "dayjs";
 
-// Use public API fetch (no auth needed for public profile)
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+const getFlagEmoji = (countryCode) => {
+  if (!countryCode) return "🌍";
+  return countryCode.toUpperCase().replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+};
+
 const AgentProfile = () => {
-  const { unique_id } = useParams();
+  // ✅ Change: Capture generic profileId (can be unique_id OR @username)
+  const { profileId } = useParams(); 
   const navigate = useNavigate();
+  const { user } = useAuth(); 
   
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Drawer & Lightbox State
+  // Drawer State
   const [selected, setSelected] = useState(null);
+
+  // Lightbox State
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [lightboxType, setLightboxType] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const res = await axios.get(`${API_BASE}/api/listings/public/agent/${unique_id}`);
+        let identifier = profileId;
+
+        // ✅ Handle @username logic
+        // If URL is /profile/@john, profileId is "@john"
+        // We strip the '@' before sending to API
+        if (identifier.startsWith('@')) {
+            identifier = identifier.substring(1);
+        }
+
+        const res = await axios.get(`${API_BASE}/api/listings/public/agent/${encodeURIComponent(identifier)}`);
         setData(res.data);
       } catch (err) {
         console.error("Fetch error:", err);
-        setError("Agent not found or server error.");
+        setError("Profile not found.");
       } finally {
         setLoading(false);
       }
     };
-    fetchProfile();
-  }, [unique_id]);
+    if (profileId) fetchProfile();
+  }, [profileId]);
 
-  // --- Handlers ---
-  const handleStartChat = () => {
-    // Navigate to messages and pass the agent's ID to open their chat immediately
+  // --- HANDLERS ---
+  const handleContact = (e) => {
+    e.stopPropagation();
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    } 
+    
     if (data?.agent) {
-      navigate('/dashboard/messages', { 
-        state: { startChatWith: data.agent.unique_id } 
-      });
+        let messagePath = "/dashboard/messages"; 
+
+        if (user.role === "buyer") messagePath = "/buyer/messages";
+        else if (user.role === "owner" || user.role === "landlord") messagePath = "/owner/messages";
+        else if (user.role === "admin") messagePath = "/admin/messages";
+        else if (user.role === "superadmin") messagePath = "/super-admin/messages";
+        
+        navigate(messagePath, { 
+            state: { startChatWith: data.agent.unique_id } 
+        });
     }
   };
 
-  const openListing = (listing) => {
-    setSelected(listing);
-    setPhotoIndex(0);
+  const openListing = (listing) => { setSelected(listing); setPhotoIndex(0); };
+  
+  const openListingLightbox = (index) => { 
+      setLightboxType('listing');
+      setPhotoIndex(index); 
+      setLightboxOpen(true); 
   };
 
-  const openLightbox = (index) => {
-    setPhotoIndex(index);
-    setLightboxOpen(true);
+  const openAvatarLightbox = (e) => {
+      e.stopPropagation();
+      setLightboxType('avatar');
+      setLightboxOpen(true);
   };
 
-  const nextPhoto = (e) => {
-    e.stopPropagation();
-    setPhotoIndex((prev) => (prev + 1) % selected.photos.length);
+  const nextPhoto = (e) => { 
+      e.stopPropagation(); 
+      if (lightboxType === 'listing' && selected) {
+          setPhotoIndex((prev) => (prev + 1) % selected.photos.length); 
+      }
   };
 
-  const prevPhoto = (e) => {
-    e.stopPropagation();
-    setPhotoIndex((prev) => (prev - 1 + selected.photos.length) % selected.photos.length);
+  const prevPhoto = (e) => { 
+      e.stopPropagation(); 
+      if (lightboxType === 'listing' && selected) {
+          setPhotoIndex((prev) => (prev - 1 + selected.photos.length) % selected.photos.length); 
+      }
   };
 
-  if (loading) return <div className={style.loading}>Loading Profile...</div>;
-  if (error || !data) return <div className={style.error}>{error || "Profile not found"}</div>;
+  const getFeaturesList = (features) => {
+    if (!features) return [];
+    let parsed = features;
+    if (typeof features === 'string') { try { parsed = JSON.parse(features); } catch(e) { return []; } }
+    if (Array.isArray(parsed)) return parsed;
+    if (typeof parsed === 'object' && parsed !== null) {
+        return Object.keys(parsed).filter(key => parsed[key] === true || parsed[key] === "true");
+    }
+    return [];
+  };
+
+  if (loading) return (
+    <div style={{
+        position: 'fixed', inset: 0, backgroundColor: '#f8fafc', zIndex: 9999,
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center'
+    }}>
+        <Loader2 size={40} className={style.spinner} />
+        <p style={{color: '#64748b', fontWeight: 500, marginTop: 10}}>Loading Public Profile...</p>
+    </div>
+  );
+
+  if (error || !data) return (
+    <div className={style.errorState}>
+        <AlertTriangle size={48} className={style.errorIcon} />
+        <h2>Profile Not Found</h2>
+        <button onClick={() => navigate('/')} className={style.primaryBtn}>Return Home</button>
+    </div>
+  );
 
   const { agent, listings } = data;
-  const backgroundUrl = listings[0]?.photos?.[0]?.url || agent.avatar_url || "/placeholder-property.jpg";
+  // ✅ DYNAMIC ROLE LABEL: Show "Landlord" if role isn't agent
+  const roleLabel = agent.role === 'agent' ? "Real Estate Agent" : "Property Landlord";
+  const coverImage = listings[0]?.photos?.[0]?.url || "/default-cover.jpg";
+  const isPending = agent.status === 'pending' || agent.status === 'rejected';
 
   return (
-    <div className={style.container}>
+    <div className={style.pageContainer}>
       
-      {/* 1. Hero Banner */}
-      <div className={style.heroBanner}>
-        <img src={backgroundUrl} alt="Background" className={style.heroBlur} />
-        <div className={style.heroOverlay}></div>
+      {/* 1. BANNER */}
+      <div className={style.banner} style={{backgroundImage: `url(${coverImage})`}}>
+        <div className={style.bannerOverlay}></div>
+        <button onClick={() => navigate(-1)} className={style.backBtn}>
+            <ArrowLeft size={18}/> Go Back
+        </button>
       </div>
 
-      <div className={style.contentWrapper}>
+      <div className={style.contentContainer}>
         
-        {/* 2. Sidebar (Agent Info) */}
-        <aside className={style.sidebar}>
-          <img src={agent.avatar_url || "/person-placeholder.png"} alt={agent.full_name} className={style.avatar} />
-          
-          <h1 className={style.agentName}>{agent.full_name}</h1>
-          <span className={style.agencyName}>{agent.agency_name || "Real Estate Agent"}</span>
-
-          <div className={style.verifiedBadge}>
-            <CheckCircle size={14} /> Verified Agent
-          </div>
-
-          <div className={style.actionStack}>
-            {/* CHAT BUTTON */}
-            <button onClick={handleStartChat} className={`${style.btn} ${style.msgBtn}`}>
-              <MessageCircle size={18}/> Message Agent
-            </button>
-
-            {agent.phone && (
-              <a href={`tel:${agent.phone}`} className={`${style.btn} ${style.callBtn}`}>
-                <Phone size={18}/> Call Now
-              </a>
-            )}
-            
-            {agent.email && (
-              <a href={`mailto:${agent.email}`} className={`${style.btn} ${style.emailBtn}`}>
-                <Mail size={18}/> Email
-              </a>
-            )}
-          </div>
-
-          <div className={style.contactMeta}>
-            {agent.city && <div className={style.metaItem}><MapPin size={16}/> {agent.city}, {agent.country}</div>}
-            {agent.experience && <div className={style.metaItem}><Briefcase size={16}/> {agent.experience} Experience</div>}
-            <div className={style.metaItem}><Globe size={16}/> Speaks English</div>
-          </div>
-
-          <div className={style.socials}>
-            {agent.social_instagram && <a href={agent.social_instagram} target="_blank" rel="noreferrer" className={style.socialIcon}><Instagram size={22}/></a>}
-            {agent.social_linkedin && <a href={agent.social_linkedin} target="_blank" rel="noreferrer" className={style.socialIcon}><Linkedin size={22}/></a>}
-            {agent.social_twitter && <a href={agent.social_twitter} target="_blank" rel="noreferrer" className={style.socialIcon}><Twitter size={22}/></a>}
-          </div>
-        </aside>
-
-        {/* 3. Main Content */}
-        <main className={style.mainContent}>
-          
-          {/* Stats */}
-          <div className={style.statsGrid}>
-            <div className={style.statCard}>
-              <span className={style.statValue}>{listings.length}</span>
-              <span className={style.statLabel}>Active Listings</span>
-            </div>
-            <div className={style.statCard}>
-              <span className={style.statValue}>100%</span>
-              <span className={style.statLabel}>Response Rate</span>
-            </div>
-            <div className={style.statCard}>
-              <span className={style.statValue}>4.9</span>
-              <span className={style.statLabel}>Avg Rating</span>
-            </div>
-          </div>
-
-          {/* Bio */}
-          <section>
-            <h2 className={style.sectionTitle}>About {agent.full_name.split(' ')[0]}</h2>
-            <div className={style.bioText}>
-              {agent.bio || `Contact ${agent.full_name} for the best property deals in town. Dedicated to providing excellent service.`}
-            </div>
-          </section>
-
-          {/* Listings Grid */}
-          <section>
-            <div className={style.listingsHeader}>
-              <h2 className={style.sectionTitle}>
-                Current Portfolio <span className={style.countBadge}>{listings.length}</span>
-              </h2>
+        {/* 2. PROFILE CARD */}
+        <div className={style.profileHeader}>
+            <div className={style.avatarWrapper}>
+                <img 
+                    src={agent.avatar_url || "/person-placeholder.png"} 
+                    alt={agent.full_name} 
+                    className={`${style.avatar} ${style.clickableAvatar}`} 
+                    onClick={openAvatarLightbox}
+                    title="View Profile Picture"
+                />
+                {!isPending && <div className={style.verifiedTick} title="Identity Verified"><CheckCircle size={20} fill="#09707d" color="white"/></div>}
             </div>
 
-            <div className={style.grid}>
-              {listings.length === 0 ? (
-                <p style={{color: '#6b7280', fontStyle: 'italic'}}>No active properties at the moment.</p>
-              ) : (
-                listings.map(l => (
-                  <div key={l.product_id} className={style.card} onClick={() => openListing(l)}>
-                    <div className={style.imageWrapper}>
-                      <img src={l.photos?.[0]?.url || "/placeholder.png"} alt={l.title} className={style.cardImage} />
-                      <span className={style.typeBadge}>{l.listing_type}</span>
+            <div className={style.headerInfo}>
+                <div className={style.headerTop}>
+                    <div>
+                        <h1 className={style.name}>{agent.full_name}</h1>
+                        <div className={style.subInfo}>
+                            <span className={style.roleBadge}>{roleLabel}</span>
+                            <span className={style.location}>
+                                <MapPin size={14}/> {agent.city}, {agent.country} {getFlagEmoji(agent.country_code)}
+                            </span>
+                        </div>
                     </div>
-                    <div className={style.cardBody}>
-                      <h3 className={style.cardTitle}>{l.title}</h3>
-                      <p className={style.price}>
-                        {Number(l.price).toLocaleString()} {l.price_currency}
-                        {l.listing_type === 'rent' && <span style={{fontSize:'0.8rem', color:'#6b7280'}}> / {l.price_period}</span>}
-                      </p>
-                      <p className={style.address}><MapPin size={14}/> {l.city}, {l.country}</p>
-                      <div className={style.features}>
-                        <div className={style.featureItem}><Bed size={16}/> {l.bedrooms}</div>
-                        <div className={style.featureItem}><Bath size={16}/> {l.bathrooms}</div>
-                        <div className={style.featureItem}><Square size={16}/> {l.square_footage}</div>
-                      </div>
+                    <div className={style.headerActions}>
+                        <button onClick={handleContact} className={style.primaryBtn} disabled={isPending}>
+                            <MessageCircle size={18}/> Send Message
+                        </button>
                     </div>
-                  </div>
-                ))
-              )}
+                </div>
+
+                <div className={style.statsBar}>
+                    <div className={style.statItem}><Building2 size={16}/><span><strong>{listings.length}</strong> Listings</span></div>
+                    <div className={style.statItem}><Star size={16}/><span><strong>4.9</strong> Rating</span></div>
+                    <div className={style.statItem}><ShieldCheck size={16}/><span><strong>{agent.experience || "1+"} Years</strong> Exp.</span></div>
+                    <div className={style.statItem}><Calendar size={16}/><span>Joined {dayjs(agent.created_at).format("MMM YYYY")}</span></div>
+                </div>
             </div>
-          </section>
-        </main>
+        </div>
+
+        {/* 3. MAIN CONTENT */}
+        <div className={`${style.mainGrid} ${isPending ? style.blurred : ''}`}>
+            {/* Left Sidebar */}
+            <aside className={style.leftSidebar}>
+                <div className={style.sectionCard}>
+                    <h3>About</h3>
+                    <p className={style.bio}>{agent.bio || `I am a professional ${roleLabel} on Keyvia. Contact me for inquiries regarding my listings.`}</p>
+                    <div className={style.divider}></div>
+                    <div className={style.infoList}>
+                        <div className={style.infoRow}><Globe size={16}/> Speaks English</div>
+                        {agent.agency_name && <div className={style.infoRow}><Building2 size={16}/> {agent.agency_name}</div>}
+                        <div className={style.infoRow}><CheckCircle size={16}/> Identity Verified</div>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Right Listings */}
+            <main className={style.listingSection}>
+                <div className={style.listingHeader}>
+                    <h3>Active Properties</h3>
+                    <span className={style.countPill}>{listings.length}</span>
+                </div>
+                <div className={style.listingsGrid}>
+                    {listings.length === 0 ? (
+                        <div className={style.emptyState}><LayoutGrid size={48} color="#cbd5e1"/><p>No active properties listed.</p></div>
+                    ) : (
+                        listings.map(l => (
+                            <div key={l.product_id} className={style.listingCard} onClick={() => !isPending && openListing(l)}>
+                                <div className={style.cardImage} style={{backgroundImage: `url(${l.photos?.[0]?.url || '/placeholder.png'})`}}>
+                                    <div className={style.cardOverlay}><span className={style.typeTag}>{l.listing_type}</span></div>
+                                </div>
+                                <div className={style.cardContent}>
+                                    <div className={style.priceRow}>
+                                        <span className={style.price}>{Number(l.price).toLocaleString()} <small>{l.price_currency}</small></span>
+                                        {l.listing_type === 'rent' && <span className={style.period}>/ {l.price_period}</span>}
+                                    </div>
+                                    <h4 className={style.cardTitle}>{l.title}</h4>
+                                    <p className={style.cardAddress}>{l.city}, {l.country}</p>
+                                    <div className={style.cardSpecs}>
+                                        <span><Bed size={14}/> {l.bedrooms}</span>
+                                        <span><Bath size={14}/> {l.bathrooms}</span>
+                                        <span><Square size={14}/> {l.square_footage}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </main>
+        </div>
+
+        {/* PENDING OVERLAY */}
+        {isPending && (
+            <div className={style.pendingOverlay}>
+                <div className={style.pendingCard}>
+                    <Lock size={40} className={style.pendingIcon} />
+                    <h2>Profile Under Review</h2>
+                    <p>This profile is currently being verified by Keyvia admins to ensure safety.</p>
+                    <button onClick={() => navigate(-1)} className={style.secondaryBtn}>Go Back</button>
+                </div>
+            </div>
+        )}
       </div>
 
-      {/* --- DRAWER (Slide-Over) --- */}
+      {/* --- DRAWER --- */}
       {selected && (
         <>
           <div className={style.overlay} onClick={() => setSelected(null)} />
           <div className={style.drawer}>
-            <div className={style.drawerHeader}>
-              <h3 style={{margin:0, fontSize:'1.1rem'}}>{selected.title}</h3>
-              <button onClick={() => setSelected(null)} style={{background:'none', border:'none', cursor:'pointer'}}>
-                <X size={24} color="#6b7280"/>
-              </button>
-            </div>
-
-            <div className={style.drawerContent}>
-              {/* Gallery */}
-              <div className={style.galleryGrid}>
-                {selected.photos?.length > 0 ? (
-                  <>
-                    <img 
-                      src={selected.photos[0].url} 
-                      className={style.galleryMain} 
-                      alt="Main"
-                      onClick={() => openLightbox(0)}
-                    />
-                    {selected.photos.slice(1, 5).map((p, i) => (
-                      <img 
-                        key={i} src={p.url} 
-                        className={style.galleryThumb} 
-                        alt="Thumb"
-                        onClick={() => openLightbox(i + 1)}
-                      />
-                    ))}
-                  </>
-                ) : <p>No photos available</p>}
-              </div>
-
-              {/* Media Buttons */}
-              {(selected.video_url || selected.virtual_tour_url) && (
-                <div style={{marginBottom: 25}}>
-                   {selected.video_url && (
-                     <a href={selected.video_url} target="_blank" rel="noreferrer" className={style.mediaBtn}>
-                       <Video size={18} /> Watch Video Tour
-                     </a>
-                   )}
-                   {selected.virtual_tour_url && (
-                     <a href={selected.virtual_tour_url} target="_blank" rel="noreferrer" className={style.mediaBtn}>
-                       <Globe size={18} /> View 360° Virtual Tour
-                     </a>
-                   )}
+            <div className={style.drawerHeader}><button onClick={() => setSelected(null)}><X size={24}/></button></div>
+            <div className={style.drawerScroll}>
+                <div className={style.gallery}>
+                    <img src={selected.photos[0]?.url || "/placeholder.png"} className={style.mainPhoto} onClick={() => openListingLightbox(0)} alt="Main" />
+                    <div className={style.thumbs}>
+                        {selected.photos.slice(1,4).map((p,i) => <img key={i} src={p.url} onClick={() => openListingLightbox(i+1)} alt="Thumb"/>)}
+                    </div>
                 </div>
-              )}
-
-              {/* Details */}
-              <div className={style.sectionTitleSmall}>Property Details</div>
-              <p style={{fontSize: '1.5rem', fontWeight: '800', color: '#09707d', margin: '0 0 15px'}}>
-                 {Number(selected.price).toLocaleString()} {selected.price_currency} 
-                 {selected.listing_type === 'rent' && <span style={{fontSize:'1rem', color:'#6b7280'}}> / {selected.price_period}</span>}
-              </p>
-              
-              <div className={style.infoGrid}>
-                 <div className={style.infoItem}><label>Type</label><p>{selected.property_type}</p></div>
-                 <div className={style.infoItem}><label>Location</label><p>{selected.address}</p></div>
-                 <div className={style.infoItem}><label>Beds / Baths</label><p>{selected.bedrooms} / {selected.bathrooms}</p></div>
-                 <div className={style.infoItem}><label>Size</label><p>{selected.square_footage} sq ft</p></div>
-              </div>
-
-              <div className={style.sectionTitleSmall}>Description</div>
-              <p style={{lineHeight: 1.6, color: '#4b5563', whiteSpace: 'pre-line'}}>{selected.description}</p>
-              
-              <div style={{marginTop: 40}}>
-                <button onClick={handleStartChat} className={`${style.btn} ${style.msgBtn}`}>
-                  <MessageCircle size={18}/> Inquiry about this property
-                </button>
-              </div>
+                <div className={style.drawerInfo}>
+                    <div className={style.drawerTop}><span className={style.drawerType}>{selected.listing_type}</span><span className={style.drawerCat}>{selected.category || "Property"}</span></div>
+                    <h2>{selected.title}</h2>
+                    <p className={style.drawerPrice}>{Number(selected.price).toLocaleString()} {selected.price_currency}</p>
+                    <div className={style.specsRow}>
+                        <div className={style.specItem}><span>Type</span><strong>{selected.property_type}</strong></div>
+                        <div className={style.specItem}><span>Lot</span><strong>{selected.lot_size ? `${selected.lot_size}` : 'N/A'}</strong></div>
+                        <div className={style.specItem}><span>Built</span><strong>{selected.year_built || 'N/A'}</strong></div>
+                    </div>
+                    <h3>Description</h3><p className={style.drawerDesc}>{selected.description}</p>
+                    <h3>Amenities</h3>
+                    <div className={style.amenitiesList}>
+                        {getFeaturesList(selected.features).map((f, i) => <span key={i} className={style.amenityTag}>{f}</span>)}
+                    </div>
+                    <div className={style.stickyContact}>
+                        <button onClick={handleContact} className={style.contactFloatBtn}><MessageCircle size={18} /> Inquiry</button>
+                    </div>
+                </div>
             </div>
           </div>
         </>
       )}
 
-      {/* --- LIGHTBOX --- */}
-      {lightboxOpen && selected && (
-        <div className={style.lightbox} onClick={() => setLightboxOpen(false)}>
-          <button className={style.lightboxClose}><X size={32} /></button>
-          
-          <img 
-            src={selected.photos[photoIndex].url} 
-            className={style.lightboxImg} 
-            onClick={(e) => e.stopPropagation()} 
-            alt="Fullscreen"
-          />
+      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
 
-          <button className={style.lightboxPrev} onClick={prevPhoto}><ChevronLeft size={32}/></button>
-          <button className={style.lightboxNext} onClick={nextPhoto}><ChevronRight size={32}/></button>
+      {/* --- UNIFIED LIGHTBOX --- */}
+      {lightboxOpen && (
+        <div className={style.lightbox} onClick={() => setLightboxOpen(false)}>
+            <button className={style.closeLb}><X size={32}/></button>
+            <img 
+                src={lightboxType === 'avatar' ? (agent.avatar_url || "/person-placeholder.png") : selected.photos[photoIndex].url} 
+                onClick={e=>e.stopPropagation()} 
+                alt="Fullscreen"
+                className={style.lightboxImg}
+            />
+            {lightboxType === 'listing' && (
+                <>
+                    <button className={style.prevLb} onClick={prevPhoto}><ChevronLeft size={32}/></button>
+                    <button className={style.nextLb} onClick={nextPhoto}><ChevronRight size={32}/></button>
+                </>
+            )}
         </div>
       )}
-
     </div>
   );
 };

@@ -4,25 +4,32 @@ import Swal from "sweetalert2";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { 
   Plus, Edit, Trash2, MapPin, Home, RefreshCcw, X, CreditCard,
-  AlertTriangle, ChevronLeft, ChevronRight, Bed, Bath, Square, Loader2, Lock, Search, Eye
-} from "lucide-react";
+  AlertTriangle, ChevronLeft, ChevronRight, Bed, Bath, Square, Loader2, Lock, Search, 
+  Calendar, Hash, CheckCircle, Clock, XCircle
+} from "lucide-react"; 
 
 import client from "../api/axios"; 
 import { useAuth } from "../context/AuthProvider";
+import PropertyForm from "../common/PropertyForm"; 
 import style from "../styles/OwnerProperties.module.css"; 
+import dayjs from "dayjs"; 
 
-export default function OwnerProperties() {
+export default function Properties() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth(); 
 
   const [localStatus, setLocalStatus] = useState(user?.verification_status || 'pending');
   const [listings, setListings] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState(null); 
   
+  // 📝 Form State
+  const [showForm, setShowForm] = useState(false);
+  const [editingListing, setEditingListing] = useState(null);
+
   // Search & Filter State
-  const [filter, setFilter] = useState("all"); // 'all', 'active', 'pending'
+  const [filter, setFilter] = useState("all"); 
   const [searchTerm, setSearchTerm] = useState("");
 
   // Preview Modal
@@ -84,8 +91,7 @@ export default function OwnerProperties() {
   // --- Actions ---
   const isVerified = localStatus === 'approved';
 
-  const handleNavigateToAdd = (e) => {
-    if(e) e.preventDefault();
+  const handleOpenCreate = () => {
     if (!isVerified) {
         Swal.fire({
             icon: 'warning',
@@ -96,56 +102,110 @@ export default function OwnerProperties() {
         }).then((res) => { if(res.isConfirmed) navigate('/owner/profile'); });
         return;
     }
-    // ✅ Redirect to separate page
-    navigate('/owner/add-property');
+    setEditingListing(null);
+    setShowForm(true); 
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleEdit = (listing, e) => {
+  const handleEdit = async (listing, e) => {
     e.stopPropagation();
-    // ✅ Redirect to separate page with state
-    navigate("/owner/add-property", { state: { editingListing: listing } });
+
+    // Allow editing if Rejected (even if marked active)
+    if (listing.is_active && listing.status === 'approved') {
+        Swal.fire({
+            icon: 'info',
+            title: 'Listing is Active',
+            text: 'This listing is currently active. Contact support for changes.',
+            confirmButtonColor: '#0f766e'
+        });
+        return;
+    }
+
+    if (listing.status === 'approved') {
+        const result = await Swal.fire({
+            title: 'Edit Approved Listing?',
+            text: "This will reset the status to 'Pending' for re-review.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Edit',
+            confirmButtonColor: '#f59e0b'
+        });
+        if (!result.isConfirmed) return;
+    }
+
+    setEditingListing(listing);
+    setShowForm(true); 
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const submitListing = async (payload, product_id) => {
+    try {
+      const formData = new FormData();
+      for (const key in payload) {
+        const value = payload[key];
+        if (value == null) continue;
+        if (key === "photos" && Array.isArray(value)) value.forEach((f) => { if (f instanceof File) formData.append("photos", f); });
+        else if (key === "video" && value instanceof File) formData.append("video_file", value); 
+        else if (key === "virtualTour" && value instanceof File) formData.append("virtual_file", value);
+        else if (key === "features") formData.append(key, JSON.stringify(value));
+        else formData.append(key, value.toString());
+      }
+      if (editingListing?.photos?.length) formData.append("existingPhotos", JSON.stringify(editingListing.photos));
+      
+      // ✅ Force status to 'pending'
+      if (product_id) {
+          formData.append('status', 'pending');
+      }
+
+      const url = product_id ? `/api/listings/${product_id}` : `/api/listings`;
+      const method = product_id ? "put" : "post";
+      
+      const res = await client[method](url, formData, { headers: { "Content-Type": "multipart/form-data" } });
+      const data = res.data.listing || res.data;
+
+      setListings((prev) => {
+          if (product_id) return prev.map(l => l.product_id === product_id ? { ...data, status: 'pending' } : l);
+          return [data, ...prev];
+      });
+      
+      setShowForm(false); 
+      Swal.fire({ icon: "success", title: "Success!", text: product_id ? "Listing updated." : "Listing created.", confirmButtonColor: "#0f766e" });
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", "Failed to save listing.", "error");
+    }
   };
 
   const handleActivate = async (listing, e) => {
     e.stopPropagation();
-    const result = await Swal.fire({
-      title: "Activate Listing",
-      text: "Pay $10.00 to publish this listing.",
-      icon: "info",
-      showCancelButton: true,
-      confirmButtonText: "Pay Now",
-      confirmButtonColor: "#0f766e"
-    });
-
-    if (!result.isConfirmed) return;
-    setBusyId(listing.product_id); 
-
-    try {
-        const res = await client.post('/api/payments/create-session', {
-            productId: listing.product_id,
-            amount: 10, 
-            currency: 'USD',
-            email: user.email
-        });
-        if (res.data && res.data.url) window.location.href = res.data.url;
-    } catch (err) {
-      Swal.fire("Error", "Payment failed.", "error");
-      setBusyId(null);
-    }
+    navigate('/owner/payments', { state: { listingToActivate: listing } });
   };
 
   const handleDelete = async (listing, e) => {
     e.stopPropagation(); 
-    const confirm = await Swal.fire({
-      title: "Delete Listing?",
-      text: "This action cannot be undone.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      confirmButtonText: "Delete",
-    });
+    
+    if (listing.is_active) {
+        const confirmActive = await Swal.fire({
+            title: "⚠️ Delete Active Listing?",
+            html: `This listing is live. Deleting it is <b>permanent</b> and <b>NON-REFUNDABLE</b>.`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#ef4444",
+            confirmButtonText: "Yes, Delete",
+        });
+        if (!confirmActive.isConfirmed) return;
+    } else {
+        const confirm = await Swal.fire({
+            title: "Delete Listing?",
+            text: "This action cannot be undone.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#ef4444",
+            confirmButtonText: "Delete",
+        });
+        if (!confirm.isConfirmed) return;
+    }
 
-    if (!confirm.isConfirmed) return;
     setBusyId(listing.product_id);
 
     try {
@@ -179,6 +239,14 @@ export default function OwnerProperties() {
   const getPhotoUrl = (l, i=0) => { if(!l?.photos?.length) return "/placeholder.png"; const p = l.photos[i]; return typeof p === 'string' ? p : (p.url || "/placeholder.png"); };
   const getFeaturesList = (f) => { if(!f) return []; let p={}; if(typeof f==='string'){try{p=JSON.parse(f)}catch{}}else{p=f} return Object.keys(p).filter(k=>p[k]); };
 
+  // Status Badge Helper for Modal
+  const getStatusBadge = (l) => {
+    if (l.status === 'rejected') return <span style={{display:'flex', alignItems:'center', gap:5, background:'#fee2e2', color:'#991b1b', padding:'5px 12px', borderRadius:20, fontSize:'0.8rem', fontWeight:600}}><XCircle size={14}/> Rejected</span>;
+    if (l.status === 'approved' && l.is_active) return <span style={{display:'flex', alignItems:'center', gap:5, background:'#d1fae5', color:'#065f46', padding:'5px 12px', borderRadius:20, fontSize:'0.8rem', fontWeight:600}}><CheckCircle size={14}/> Active</span>;
+    if (l.status === 'approved') return <span style={{display:'flex', alignItems:'center', gap:5, background:'#ffedd5', color:'#9a3412', padding:'5px 12px', borderRadius:20, fontSize:'0.8rem', fontWeight:600}}><CheckCircle size={14}/> Approved (Unpaid)</span>;
+    return <span style={{display:'flex', alignItems:'center', gap:5, background:'#f1f5f9', color:'#475569', padding:'5px 12px', borderRadius:20, fontSize:'0.8rem', fontWeight:600}}><Clock size={14}/> Pending Review</span>;
+  };
+
   return (
     <div className={style.container}>
       
@@ -189,156 +257,179 @@ export default function OwnerProperties() {
           <p>Manage your real estate portfolio.</p>
         </div>
         <div className={style.headerActions}>
-            <button onClick={() => fetchListings(true)} className={style.iconBtn} title="Sync">
-                <RefreshCcw size={18} className={refreshing ? style.spin : ''} /> Refresh
-            </button> 
+            {!showForm && (
+                <button onClick={() => fetchListings(true)} className={style.iconBtn} title="Sync">
+                    <RefreshCcw size={18} className={refreshing ? style.spin : ''} /> Refresh
+                </button> 
+            )}
             <button 
-                onClick={handleNavigateToAdd}
+                onClick={showForm ? () => setShowForm(false) : handleOpenCreate}
                 className={style.addButton}
-                style={!isVerified ? { background: '#94a3b8', cursor: 'not-allowed' } : {}}
+                style={!isVerified && !showForm ? { background: '#94a3b8', cursor: 'not-allowed' } : {}}
             >
-                {isVerified ? <Plus size={20} /> : <Lock size={16} />} 
-                {isVerified ? "Add Property" : "Verify to Add"}
+                {showForm ? <X size={20} /> : (isVerified ? <Plus size={20} /> : <Lock size={16} />)} 
+                {showForm ? "Cancel" : (isVerified ? "Add Property" : "Verify to Add")}
             </button>
         </div>
       </div>
 
-      {/* CONTROLS */}
-      <div className={style.controls}>
-        <div className={style.searchWrapper}>
-            <Search size={18} className={style.searchIcon} />
-            <input 
-                type="text" 
-                placeholder="Search by title or city..." 
-                className={style.searchInput}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-            />
-        </div>
-        <div className={style.tabs}>
-            {['all', 'active', 'pending'].map(t => (
-                <button 
-                    key={t}
-                    className={`${style.tab} ${filter === t ? style.activeTab : ''}`}
-                    onClick={() => setFilter(t)}
-                >
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                </button>
-            ))}
-        </div>
-      </div>
-
-      {/* GRID */}
-      {loading ? (
-        <div className={style.loader}>
-          <Loader2 size={40} className={style.spin} />
-          <p>Loading properties...</p>
-        </div>
-      ) : filteredListings.length === 0 ? (
-        <div className={style.emptyState}>
-          <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 250, height: 250 }} />
-          <h3 className={style.emptyTitle}>
-             {searchTerm ? "No results found" : "No Properties Yet"}
-          </h3>
-          <p className={style.emptyDesc}>
-             {searchTerm ? "Try adjusting your search terms." : "List your first property today and reach thousands of potential tenants."}
-          </p>
-          {!searchTerm && (
-              /* ✅ BLUE UNDERLINED LINK that Redirects */
-              <button onClick={handleNavigateToAdd} className={style.createLink} disabled={!isVerified}>
-                 Create Listing
-              </button>
-          )}
-        </div>
+      {/* --- CONTENT SWITCH --- */}
+      {showForm ? (
+        <PropertyForm 
+            closeBtn={() => setShowForm(false)} 
+            initialData={editingListing} 
+            submitListing={submitListing} 
+        />
       ) : (
-        <div className={style.grid}>
-          {filteredListings.map((listing) => {
-            let badgeClass = style.pendingBadge;
-            let statusText = "Pending";
-            
-            if (listing.status === 'rejected') { badgeClass = style.rejectedBadge; statusText = "Rejected"; }
-            else if (listing.status === 'approved') {
-                if (listing.is_active) { badgeClass = style.activeBadge; statusText = "Active"; }
-                else { badgeClass = style.pendingBadge; statusText = "Unpaid"; }
-            }
+        <>
+          {/* CONTROLS */}
+          <div className={style.controls}>
+            <div className={style.searchWrapper}>
+                <Search size={18} className={style.searchIcon} />
+                <input 
+                    type="text" 
+                    placeholder="Search by title or city..." 
+                    className={style.searchInput}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <div className={style.tabs}>
+                {['all', 'active', 'pending'].map(t => (
+                    <button 
+                        key={t}
+                        className={`${style.tab} ${filter === t ? style.activeTab : ''}`}
+                        onClick={() => setFilter(t)}
+                    >
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                ))}
+            </div>
+          </div>
 
-            return (
-              <div key={listing.product_id} className={style.card} onClick={() => setPreviewListing(listing)}>
-                
-                {/* Image Section */}
-                <div className={style.imageWrapper}>
-                  <img src={getPhotoUrl(listing)} alt={listing.title} className={style.cardImage} />
-                  <div className={`${style.badge} ${badgeClass}`}>{statusText}</div>
-                </div>
-
-                {listing.status === 'rejected' && (
-                    <div className={style.rejectionBanner}>
-                        <div className={style.rejectionText}><AlertTriangle size={14} /> Rejected</div>
-                        <button className={style.viewReasonBtn} onClick={(e) => showRejectionReason(listing, e)}>Why?</button>
+          {/* GRID */}
+          {loading ? (
+            <div className={style.grid}>
+                {Array(6).fill(0).map((_, i) => (
+                    <div key={i} className={`${style.card} ${style.skeleton}`}>
+                        <div className={style.skeletonImage}></div>
+                        <div className={style.cardBody}>
+                            <div className={`${style.skeletonTitle} ${style.skeleton}`}></div>
+                            <div className={`${style.skeletonText} ${style.skeleton}`} style={{width: '60%'}}></div>
+                            <div className={`${style.skeletonText} ${style.skeleton}`} style={{width: '40%'}}></div>
+                            <div style={{display:'flex', gap:10, marginTop:15}}>
+                                <div className={`${style.skeletonTag} ${style.skeleton}`}></div>
+                                <div className={`${style.skeletonTag} ${style.skeleton}`}></div>
+                            </div>
+                        </div>
                     </div>
-                )}
+                ))}
+            </div>
+          ) : filteredListings.length === 0 ? (
+            <div className={style.emptyState}>
+              <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 250, height: 250 }} />
+              <h3 className={style.emptyTitle}>
+                 {searchTerm ? "No results found" : "No Properties Yet"}
+              </h3>
+              <p className={style.emptyDesc}>
+                 {searchTerm ? "Try adjusting your search terms." : "List your first property today and reach thousands of potential tenants."}
+              </p>
+              {!searchTerm && (
+                  <button onClick={handleOpenCreate} className={style.createLink} disabled={!isVerified}>
+                      Create Listing
+                  </button>
+              )}
+            </div>
+          ) : (
+            <div className={style.grid}>
+              {filteredListings.map((listing) => {
+                let badgeClass = style.pendingBadge;
+                let statusText = "Pending";
+                
+                if (listing.status === 'rejected') { badgeClass = style.rejectedBadge; statusText = "Rejected"; }
+                else if (listing.status === 'approved') {
+                    if (listing.is_active) { badgeClass = style.activeBadge; statusText = "Active"; }
+                    else { badgeClass = style.pendingBadge; statusText = "Unpaid"; }
+                }
 
-                {/* Content Section */}
-                <div className={style.cardBody}>
-                  <span className={style.price}>
-                    {Number(listing.price).toLocaleString()} {listing.price_currency}
-                  </span>
-                  <h3 className={style.title}>{listing.title}</h3>
-                  <div className={style.address}>
-                    <MapPin size={16} /> {listing.city}, {listing.country}
-                  </div>
+                // Payment Logic: Approved + Not Active + Not Paid
+                const needsPayment = listing.status === 'approved' && !listing.is_active && listing.payment_status !== 'paid';
 
-                  <div className={style.metaRow}>
-                    <span className={style.metaItem}><Bed size={16}/> {listing.bedrooms} Beds</span>
-                    <span className={style.metaItem}><Bath size={16}/> {listing.bathrooms} Baths</span>
-                    <span className={style.metaItem}><Square size={16}/> {listing.square_footage} sqft</span>
-                  </div>
+                return (
+                  <div key={listing.product_id} className={style.card} onClick={(e) => handlePreview(listing, e)}>
+                    
+                    {/* Image Section */}
+                    <div className={style.imageWrapper}>
+                      <img src={getPhotoUrl(listing, 0)} alt={listing.title} className={style.cardImage} />
+                      <div className={`${style.badge} ${badgeClass}`}>{statusText}</div>
+                    </div>
 
-                  <div className={style.actions}>
-                    {/* PAY Button */}
-                    {listing.status === 'approved' && !listing.is_active && (
-                      <button 
-                        className={`${style.btn} ${style.btnPrimary}`} 
-                        onClick={(e) => handleActivate(listing, e)}
-                        disabled={busyId === listing.product_id}
-                      >
-                        {busyId === listing.product_id ? <Loader2 size={16} className="animate-spin"/> : <CreditCard size={16} />} Pay
-                      </button>
+                    {listing.status === 'rejected' && (
+                        <div className={style.rejectionBanner}>
+                            <div className={style.rejectionText}><AlertTriangle size={14} /> Rejected</div>
+                            <button className={style.viewReasonBtn} onClick={(e) => showRejectionReason(listing, e)}>Why?</button>
+                        </div>
                     )}
 
-                    {/* VIEW Button */}
-                    {listing.is_active && (
-                        <button className={`${style.btn} ${style.btnPrimary}`} onClick={(e) => { e.stopPropagation(); navigate(`/listing/${listing.product_id}`); }}>
-                            <Eye size={16}/> View
+                    {/* Content Section */}
+                    <div className={style.cardBody}>
+                      <span className={style.price}>
+                        {Number(listing.price).toLocaleString()} {listing.price_currency}
+                      </span>
+                      <h3 className={style.title}>{listing.title}</h3>
+                      <div className={style.address}>
+                        <MapPin size={16} /> {listing.city}, {listing.country}
+                      </div>
+
+                      <div className={style.metaRow}>
+                        <span className={style.metaItem}><Bed size={16}/> {listing.bedrooms}</span>
+                        <span className={style.metaItem}><Bath size={16}/> {listing.bathrooms}</span>
+                        <span className={style.metaItem}><Square size={16}/> {listing.square_footage}</span>
+                      </div>
+
+                      <div className={style.actions}>
+                        {/* PAY Button */}
+                        {needsPayment && (
+                          <button 
+                            className={`${style.btn} ${style.btnPrimary}`} 
+                            onClick={(e) => handleActivate(listing, e)}
+                            disabled={busyId === listing.product_id}
+                          >
+                            {busyId === listing.product_id ? <Loader2 size={16} className="animate-spin"/> : <CreditCard size={16} />} Pay
+                          </button>
+                        )}
+
+                        {/* VIEW Button (REMOVED as per request, since card is clickable) */}
+
+                        {/* EDIT Button */}
+                        <button 
+                            className={`${style.btn} ${style.btnSecondary}`} 
+                            onClick={(e) => handleEdit(listing, e)}
+                            disabled={listing.is_active && listing.status === 'approved'}
+                            style={(listing.is_active && listing.status === 'approved') ? {opacity: 0.5, cursor: 'not-allowed'} : {}}
+                        >
+                            <Edit size={16}/> Edit
                         </button>
-                    )}
 
-                    {/* EDIT Button */}
-                    <button 
-                        className={`${style.btn} ${style.btnSecondary}`} 
-                        onClick={(e) => handleEdit(listing, e)}
-                        disabled={listing.is_active}
-                    >
-                        <Edit size={16}/> Edit
-                    </button>
-
-                    {/* DELETE Button */}
-                    <button 
-                        className={`${style.btn} ${style.btnDanger}`} 
-                        onClick={(e) => handleDelete(listing, e)}
-                        disabled={busyId === listing.product_id}
-                    >
-                        <Trash2 size={16}/>
-                    </button>
+                        {/* DELETE Button */}
+                        <button 
+                            className={`${style.btn} ${style.btnDanger}`} 
+                            onClick={(e) => handleDelete(listing, e)}
+                            disabled={busyId === listing.product_id}
+                        >
+                            <Trash2 size={16}/>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
-      {/* --- PREVIEW MODAL --- */}
+      {/* --- ENHANCED PREVIEW MODAL --- */}
       {previewListing && (
         <div className={style.modalOverlay} onClick={() => setPreviewListing(null)}>
           <div className={style.modalContent} onClick={e => e.stopPropagation()}>
@@ -352,26 +443,82 @@ export default function OwnerProperties() {
                     </>
                 )}
             </div>
+            
             <div className={style.modalBody}>
-                <div className={style.modalMain}>
-                    <h2 style={{fontSize:'1.8rem', margin:'0 0 10px 0', color:'#111827'}}>{previewListing.title}</h2>
-                    <div className={style.modalAddress}><MapPin size={18} style={{color:'#09707d'}}/> {previewListing.address}, {previewListing.city}</div>
-                    <div className={style.modalPrice}>{Number(previewListing.price).toLocaleString()} <span style={{fontSize:'1rem', color:'#6b7280'}}>{previewListing.price_currency}</span></div>
-                    <div className={style.featGrid}>
-                        <div className={style.featItem}><Bed size={18}/> {previewListing.bedrooms} Beds</div>
-                        <div className={style.featItem}><Bath size={18}/> {previewListing.bathrooms} Baths</div>
-                        <div className={style.featItem}><Square size={18}/> {previewListing.square_footage} sqft</div>
-                        <div className={style.featItem}><Home size={18}/> {previewListing.property_type}</div>
+                {/* 1. Header Info */}
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20}}>
+                    <div>
+                        <h2 style={{fontSize:'1.8rem', margin:'0 0 5px 0', color:'#111827'}}>{previewListing.title}</h2>
+                        <div style={{display:'flex', gap:15, color:'#6b7280', fontSize:'0.9rem', alignItems:'center'}}>
+                            <span style={{display:'flex', alignItems:'center', gap:4}}><MapPin size={16}/> {previewListing.address}, {previewListing.city}</span>
+                            <span style={{display:'flex', alignItems:'center', gap:4}}><Calendar size={16}/> Listed {dayjs(previewListing.created_at).format("MMM D, YYYY")}</span>
+                        </div>
                     </div>
-                    <h3>Description</h3>
-                    <p style={{lineHeight: 1.6, color: '#4b5563', whiteSpace:'pre-line'}}>{previewListing.description}</p>
-                    <div style={{marginTop: 30}}>
-                          <h4 style={{marginBottom:10}}>Amenities</h4>
-                          <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
-                             {getFeaturesList(previewListing.features).map((f, i) => <span key={i} style={{background:'#e0f2f1', color:'#00695c', padding:'6px 14px', borderRadius:20, fontSize:'0.85rem', textTransform:'capitalize'}}>{f}</span>)}
-                          </div>
+                    <div>{getStatusBadge(previewListing)}</div>
+                </div>
+
+                {/* 2. Key Metrics */}
+                <div style={{background:'#f8fafc', padding:20, borderRadius:12, display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:30}}>
+                    <div>
+                        <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600, textTransform:'uppercase'}}>Price</p>
+                        <p style={{margin:0, fontSize:'1.8rem', fontWeight:800, color:'#0f766e'}}>
+                            {Number(previewListing.price).toLocaleString()} <span style={{fontSize:'1rem', color:'#64748b'}}>{previewListing.price_currency}</span>
+                        </p>
+                    </div>
+                    <div style={{display:'flex', gap:20, alignItems:'center'}}>
+                        <div>
+                            <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600}}>BEDS</p>
+                            <p style={{margin:0, fontSize:'1.2rem', fontWeight:700, display:'flex', alignItems:'center', gap:5}}><Bed size={18}/> {previewListing.bedrooms}</p>
+                        </div>
+                        <div style={{width:1, height:30, background:'#cbd5e1'}}></div>
+                        <div>
+                            <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600}}>BATHS</p>
+                            <p style={{margin:0, fontSize:'1.2rem', fontWeight:700, display:'flex', alignItems:'center', gap:5}}><Bath size={18}/> {previewListing.bathrooms}</p>
+                        </div>
+                        <div style={{width:1, height:30, background:'#cbd5e1'}}></div>
+                        <div>
+                            <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600}}>SQFT</p>
+                            <p style={{margin:0, fontSize:'1.2rem', fontWeight:700, display:'flex', alignItems:'center', gap:5}}><Square size={18}/> {previewListing.square_footage}</p>
+                        </div>
                     </div>
                 </div>
+
+                {/* 3. Details & Description */}
+                <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:30}}>
+                    <div>
+                        <h3 style={{fontSize:'1.2rem', marginBottom:10, color:'#1e293b'}}>Description</h3>
+                        <p style={{lineHeight: 1.7, color: '#475569', whiteSpace:'pre-line', marginBottom:30}}>{previewListing.description}</p>
+                        
+                        <h3 style={{fontSize:'1.2rem', marginBottom:10, color:'#1e293b'}}>Amenities</h3>
+                        <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
+                             {getFeaturesList(previewListing.features).map((f, i) => (
+                                <span key={i} style={{background:'#f1f5f9', color:'#334155', padding:'8px 16px', borderRadius:8, fontSize:'0.9rem', fontWeight:500, border:'1px solid #e2e8f0'}}>
+                                    {f}
+                                </span>
+                             ))}
+                        </div>
+                    </div>
+
+                    {/* Sidebar Info */}
+                    <div style={{background:'#f8fafc', padding:20, borderRadius:12, height:'fit-content', border:'1px solid #e2e8f0'}}>
+                        <h4 style={{marginTop:0, color:'#334155'}}>Property Details</h4>
+                        <div style={{display:'flex', flexDirection:'column', gap:12}}>
+                            <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.9rem'}}>
+                                <span style={{color:'#64748b'}}>Type</span>
+                                <span style={{fontWeight:600, color:'#1e293b'}}>{previewListing.property_type}</span>
+                            </div>
+                            <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.9rem'}}>
+                                <span style={{color:'#64748b'}}>ID</span>
+                                <span style={{fontWeight:600, color:'#1e293b', display:'flex', alignItems:'center', gap:4}}><Hash size={12}/> {previewListing.product_id.substring(0,8)}</span>
+                            </div>
+                            <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.9rem'}}>
+                                <span style={{color:'#64748b'}}>Status</span>
+                                <span style={{fontWeight:600, color:'#1e293b'}}>{previewListing.status}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
           </div>
         </div>

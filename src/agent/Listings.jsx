@@ -4,13 +4,15 @@ import Swal from "sweetalert2";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { 
   Plus, Edit, Trash2, MapPin, Home, RefreshCcw, X, CreditCard,
-  Eye, AlertTriangle, ChevronLeft, ChevronRight, Bed, Bath, Square, Loader2, CheckCircle, Lock
-} from "lucide-react";
+  Eye, AlertTriangle, ChevronLeft, ChevronRight, Bed, Bath, Square, Loader2, CheckCircle, Lock,
+  Calendar, Hash, Clock, XCircle 
+} from "lucide-react"; // Added Icons
 
 import client from "../api/axios"; 
 import { useAuth } from "../context/AuthProvider";
 import PropertyForm from "../common/PropertyForm";
 import style from "../styles/Listings.module.css"; 
+import dayjs from "dayjs"; // Assuming dayjs is installed
 
 export default function Listings() {
   const { user, updateUser } = useAuth(); 
@@ -21,7 +23,7 @@ export default function Listings() {
 
   // State
   const [listings, setListings] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start loading immediately
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState(null); 
   
@@ -41,7 +43,6 @@ export default function Listings() {
     else setLoading(true);
 
     try {
-      // 1. Parallel Fetch (Listings + Profile Status)
       const [listingsRes, profileRes] = await Promise.all([
           client.get("/api/listings/agent"),
           client.get("/api/profile") 
@@ -50,11 +51,8 @@ export default function Listings() {
       setListings(Array.isArray(listingsRes.data) ? listingsRes.data : []);
       
       const serverStatus = profileRes.data.verification_status;
-
-      // ✅ 2. Update LOCAL state immediately (Instant UI update)
       setLocalStatus(serverStatus);
 
-      // ✅ 3. Update GLOBAL context (Persists navigation)
       if (profileRes.data && updateUser) {
           updateUser(profileRes.data); 
       }
@@ -73,44 +71,38 @@ export default function Listings() {
   
   const handleGoToPayment = async (listing, e) => {
     e.stopPropagation();
-    const result = await Swal.fire({
-      title: "Proceed to Payment?",
-      text: `Activate "${listing.title}".`,
-      icon: "info",
-      showCancelButton: true,
-      confirmButtonText: "Pay Now",
-      confirmButtonColor: "#09707d"
-    });
-
-    if (!result.isConfirmed) return;
-    setBusyId(listing.product_id); 
-
-    try {
-        const res = await client.post('/api/payments/create-session', {
-            productId: listing.product_id,
-            amount: 50,
-            currency: 'USD',
-            email: user.email
-        });
-        if (res.data && res.data.url) window.location.href = res.data.url;
-    } catch (err) {
-        Swal.fire("Payment Error", "Failed to init payment.", "error");
-        setBusyId(null);
-    }
+    navigate('/dashboard/payments', { state: { listingToActivate: listing } });
   };
 
   const handleDelete = async (listing, e) => {
     e.stopPropagation(); 
-    const confirm = await Swal.fire({
-      title: "Delete Listing?",
-      text: "This cannot be undone.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      confirmButtonText: "Delete",
-    });
+    
+    // Custom warning for ACTIVE (paid) listings
+    if (listing.is_active) {
+        const confirmActive = await Swal.fire({
+            title: "⚠️ Delete Active Listing?",
+            html: `This listing is currently <b>ACTIVE</b> and paid for.<br/><br/>
+                   Deleting it is <b>permanent</b> and <b>NON-REFUNDABLE</b>.<br/>
+                   Are you absolutely sure?`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#ef4444",
+            confirmButtonText: "Yes, Delete Permanently",
+            cancelButtonText: "Cancel"
+        });
+        if (!confirmActive.isConfirmed) return;
+    } else {
+        const confirm = await Swal.fire({
+            title: "Delete Listing?",
+            text: "This cannot be undone.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#ef4444",
+            confirmButtonText: "Delete",
+        });
+        if (!confirm.isConfirmed) return;
+    }
 
-    if (!confirm.isConfirmed) return;
     setBusyId(listing.product_id);
 
     try {
@@ -140,7 +132,6 @@ export default function Listings() {
   // -------------------- Form Handlers --------------------
   
   const openCreateForm = () => {
-    // ✅ Check LOCAL status instead of global user object
     if (localStatus !== 'approved') {
         let title = "Verification Required";
         let text = "You must verify your profile before posting listings.";
@@ -172,8 +163,34 @@ export default function Listings() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const openEditForm = (listing, e) => {
+  const openEditForm = async (listing, e) => {
     if(e) e.stopPropagation();
+
+    // Prevent editing if ACTIVE (paid) and Approved
+    if (listing.is_active && listing.status === 'approved') {
+        Swal.fire({
+            icon: 'info',
+            title: 'Listing is Live',
+            text: 'This listing is active. Contact support for major changes.',
+            confirmButtonColor: '#09707d'
+        });
+        return;
+    }
+
+    // Warn about status reset
+    if (listing.status === 'approved') {
+        const result = await Swal.fire({
+            title: 'Edit Approved Listing?',
+            text: "Editing will pause this listing and send it back to 'Pending' for re-review.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Edit & Re-submit',
+            confirmButtonColor: '#f59e0b', 
+            cancelButtonText: 'Cancel'
+        });
+        if (!result.isConfirmed) return;
+    }
+
     setEditingListing(listing);
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -192,7 +209,11 @@ export default function Listings() {
         else formData.append(key, value.toString());
       }
       if (editingListing?.photos?.length) formData.append("existingPhotos", JSON.stringify(editingListing.photos));
-      if (editingListing?.status === 'rejected') formData.append('status', 'pending');
+      
+      // ✅ Force status to 'pending' on update
+      if (product_id) {
+          formData.append('status', 'pending');
+      }
 
       const url = product_id ? `/api/listings/${product_id}` : `/api/listings`;
       const method = product_id ? "put" : "post";
@@ -204,7 +225,7 @@ export default function Listings() {
           return [data, ...prev];
       });
       setShowForm(false);
-      Swal.fire({ icon: "success", title: "Success!", text: product_id ? "Listing updated." : "Listing created.", confirmButtonColor: "#09707d" });
+      Swal.fire({ icon: "success", title: "Success!", text: product_id ? "Listing updated and submitted for review." : "Listing created.", confirmButtonColor: "#09707d" });
     } catch (err) {
       console.error(err);
       Swal.fire("Error", "Failed to save listing.", "error");
@@ -218,7 +239,14 @@ export default function Listings() {
   const getPhotoUrl = (l, i=0) => { if(!l?.photos?.length) return "/placeholder.png"; const p = l.photos[i]; return typeof p === 'string' ? p : (p.url || "/placeholder.png"); };
   const getFeaturesList = (f) => { if(!f) return []; let p={}; if(typeof f==='string'){try{p=JSON.parse(f)}catch{}}else{p=f} return Object.keys(p).filter(k=>p[k]); };
 
-  // ✅ Use LOCAL STATUS for rendering the button
+  // Status Badge Helper for Modal
+  const getStatusBadge = (l) => {
+    if (l.status === 'rejected') return <span style={{display:'flex', alignItems:'center', gap:5, background:'#fee2e2', color:'#991b1b', padding:'5px 12px', borderRadius:20, fontSize:'0.8rem', fontWeight:600}}><XCircle size={14}/> Rejected</span>;
+    if (l.status === 'approved' && l.is_active) return <span style={{display:'flex', alignItems:'center', gap:5, background:'#d1fae5', color:'#065f46', padding:'5px 12px', borderRadius:20, fontSize:'0.8rem', fontWeight:600}}><CheckCircle size={14}/> Active</span>;
+    if (l.status === 'approved') return <span style={{display:'flex', alignItems:'center', gap:5, background:'#ffedd5', color:'#9a3412', padding:'5px 12px', borderRadius:20, fontSize:'0.8rem', fontWeight:600}}><CheckCircle size={14}/> Approved (Unpaid)</span>;
+    return <span style={{display:'flex', alignItems:'center', gap:5, background:'#f1f5f9', color:'#475569', padding:'5px 12px', borderRadius:20, fontSize:'0.8rem', fontWeight:600}}><Clock size={14}/> Pending Review</span>;
+  };
+
   const isVerified = localStatus === 'approved';
 
   return (
@@ -243,9 +271,22 @@ export default function Listings() {
       ) : (
         <>
           {loading ? (
-             <div className={style.loadingContainer} style={{textAlign:'center', padding:50}}>
-               <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 150, height: 150, margin:'0 auto' }} />
-               <p style={{color:'#6b7280'}}>Loading your portfolio...</p>
+             <div className={style.grid}>
+                {/* SKELETON LOADING UI */}
+                {Array(6).fill(0).map((_, i) => (
+                    <div key={i} className={`${style.card} ${style.skeleton}`}>
+                        <div className={style.skeletonImage}></div>
+                        <div className={style.cardBody}>
+                            <div className={`${style.skeletonTitle} ${style.skeleton}`}></div>
+                            <div className={`${style.skeletonText} ${style.skeleton}`} style={{width: '60%'}}></div>
+                            <div className={`${style.skeletonText} ${style.skeleton}`} style={{width: '40%'}}></div>
+                            <div style={{display:'flex', gap:10, marginTop:15}}>
+                                <div className={`${style.skeletonTag} ${style.skeleton}`}></div>
+                                <div className={`${style.skeletonTag} ${style.skeleton}`}></div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
              </div>
           ) : listings.length === 0 ? (
             <div className={style.emptyState}>
@@ -263,6 +304,9 @@ export default function Listings() {
                 let statusText = "Pending Review";
                 if (listing.status === 'rejected') { badgeClass = style.rejected; statusText = "Verification Failed"; }
                 else if (listing.status === 'approved') { badgeClass = style.active; statusText = listing.is_active ? "Active" : "Approved (Unpaid)"; }
+
+                // ✅ Payment Logic: Approved + Not Active + Not Paid
+                const needsPayment = listing.status === 'approved' && !listing.is_active && listing.payment_status !== 'paid';
 
                 return (
                   <div key={listing.product_id} className={style.card} onClick={(e) => handlePreview(listing, e)}>
@@ -284,12 +328,19 @@ export default function Listings() {
                         <span className={style.price}>{Number(listing.price).toLocaleString()} {listing.price_currency}</span>
                       </div>
                       <div className={style.actions}>
-                        {listing.status === 'approved' && !listing.is_active ? (
+                        {needsPayment ? (
                           <button className={`${style.actionBtn} ${style.payBtn}`} onClick={(e) => handleGoToPayment(listing, e)} disabled={busyId === listing.product_id}>
-                            {busyId === listing.product_id ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />} Go to Payment
+                            {busyId === listing.product_id ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />} Pay to Activate
                           </button>
                         ) : (
-                           <button className={style.actionBtn} onClick={(e) => openEditForm(listing, e)} disabled={listing.is_active}><Edit size={16} /> Edit</button>
+                           <button 
+                               className={style.actionBtn} 
+                               onClick={(e) => openEditForm(listing, e)} 
+                               disabled={listing.is_active && listing.status === 'approved'} 
+                               style={(listing.is_active && listing.status === 'approved') ? {opacity: 0.5, cursor: 'not-allowed'} : {}}
+                           >
+                               <Edit size={16} /> Edit
+                           </button>
                         )}
                         <button className={`${style.actionBtn} ${style.deleteBtn}`} onClick={(e) => handleDelete(listing, e)} disabled={busyId === listing.product_id}><Trash2 size={16} /></button>
                       </div>
@@ -302,7 +353,7 @@ export default function Listings() {
         </>
       )}
 
-      {/* Preview Modal */}
+      {/* --- ENHANCED PREVIEW MODAL --- */}
       {previewListing && (
         <div className={style.modalOverlay} onClick={() => setPreviewListing(null)}>
           <div className={style.modalContent} onClick={e => e.stopPropagation()}>
@@ -315,29 +366,83 @@ export default function Listings() {
                         <button className={`${style.navBtn} ${style.nextBtn}`} onClick={nextImage}><ChevronRight size={20}/></button>
                     </>
                 )}
-                <div style={{position:'absolute', bottom:15, right:15, background:'rgba(0,0,0,0.6)', color:'white', padding:'4px 10px', borderRadius:10, fontSize:'0.8rem'}}>{currentPhotoIndex + 1} / {previewListing.photos.length}</div>
             </div>
+            
             <div className={style.modalBody}>
-                {/* Details... */}
-                <div className={style.modalMain}>
-                    <h2 style={{fontSize:'1.8rem', margin:'0 0 10px 0', color:'#111827'}}>{previewListing.title}</h2>
-                    <div className={style.modalAddress}><MapPin size={18} style={{color:'#09707d'}}/> {previewListing.address}, {previewListing.city}</div>
-                    <div className={style.modalPrice}>{Number(previewListing.price).toLocaleString()} <span style={{fontSize:'1rem', color:'#6b7280'}}>{previewListing.price_currency}</span></div>
-                    <div className={style.featGrid}>
-                        <div className={style.featItem}><Bed size={18}/> {previewListing.bedrooms} Beds</div>
-                        <div className={style.featItem}><Bath size={18}/> {previewListing.bathrooms} Baths</div>
-                        <div className={style.featItem}><Square size={18}/> {previewListing.square_footage} sqft</div>
-                        <div className={style.featItem}><Home size={18}/> {previewListing.property_type}</div>
+                {/* 1. Header Info */}
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20}}>
+                    <div>
+                        <h2 style={{fontSize:'1.8rem', margin:'0 0 5px 0', color:'#111827'}}>{previewListing.title}</h2>
+                        <div style={{display:'flex', gap:15, color:'#6b7280', fontSize:'0.9rem', alignItems:'center'}}>
+                            <span style={{display:'flex', alignItems:'center', gap:4}}><MapPin size={16}/> {previewListing.address}, {previewListing.city}</span>
+                            <span style={{display:'flex', alignItems:'center', gap:4}}><Calendar size={16}/> Listed {dayjs(previewListing.created_at).format("MMM D, YYYY")}</span>
+                        </div>
                     </div>
-                    <h3>Description</h3>
-                    <p style={{lineHeight: 1.6, color: '#4b5563', whiteSpace:'pre-line'}}>{previewListing.description}</p>
-                    <div style={{marginTop: 30}}>
-                         <h4 style={{marginBottom:10}}>Amenities</h4>
-                         <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
-                            {getFeaturesList(previewListing.features).map((f, i) => <span key={i} style={{background:'#e0f2f1', color:'#00695c', padding:'6px 14px', borderRadius:20, fontSize:'0.85rem', textTransform:'capitalize'}}>{f}</span>)}
-                         </div>
+                    <div>{getStatusBadge(previewListing)}</div>
+                </div>
+
+                {/* 2. Key Metrics */}
+                <div style={{background:'#f8fafc', padding:20, borderRadius:12, display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:30}}>
+                    <div>
+                        <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600, textTransform:'uppercase'}}>Price</p>
+                        <p style={{margin:0, fontSize:'1.8rem', fontWeight:800, color:'#09707d'}}>
+                            {Number(previewListing.price).toLocaleString()} <span style={{fontSize:'1rem', color:'#64748b'}}>{previewListing.price_currency}</span>
+                        </p>
+                    </div>
+                    <div style={{display:'flex', gap:20, alignItems:'center'}}>
+                        <div>
+                            <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600}}>BEDS</p>
+                            <p style={{margin:0, fontSize:'1.2rem', fontWeight:700, display:'flex', alignItems:'center', gap:5}}><Bed size={18}/> {previewListing.bedrooms}</p>
+                        </div>
+                        <div style={{width:1, height:30, background:'#cbd5e1'}}></div>
+                        <div>
+                            <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600}}>BATHS</p>
+                            <p style={{margin:0, fontSize:'1.2rem', fontWeight:700, display:'flex', alignItems:'center', gap:5}}><Bath size={18}/> {previewListing.bathrooms}</p>
+                        </div>
+                        <div style={{width:1, height:30, background:'#cbd5e1'}}></div>
+                        <div>
+                            <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600}}>SQFT</p>
+                            <p style={{margin:0, fontSize:'1.2rem', fontWeight:700, display:'flex', alignItems:'center', gap:5}}><Square size={18}/> {previewListing.square_footage}</p>
+                        </div>
                     </div>
                 </div>
+
+                {/* 3. Details & Description */}
+                <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:30}}>
+                    <div>
+                        <h3 style={{fontSize:'1.2rem', marginBottom:10, color:'#1e293b'}}>Description</h3>
+                        <p style={{lineHeight: 1.7, color: '#475569', whiteSpace:'pre-line', marginBottom:30}}>{previewListing.description}</p>
+                        
+                        <h3 style={{fontSize:'1.2rem', marginBottom:10, color:'#1e293b'}}>Amenities</h3>
+                        <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
+                             {getFeaturesList(previewListing.features).map((f, i) => (
+                                <span key={i} style={{background:'#f1f5f9', color:'#334155', padding:'8px 16px', borderRadius:8, fontSize:'0.9rem', fontWeight:500, border:'1px solid #e2e8f0'}}>
+                                    {f}
+                                </span>
+                             ))}
+                        </div>
+                    </div>
+
+                    {/* Sidebar Info */}
+                    <div style={{background:'#f8fafc', padding:20, borderRadius:12, height:'fit-content', border:'1px solid #e2e8f0'}}>
+                        <h4 style={{marginTop:0, color:'#334155'}}>Property Details</h4>
+                        <div style={{display:'flex', flexDirection:'column', gap:12}}>
+                            <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.9rem'}}>
+                                <span style={{color:'#64748b'}}>Type</span>
+                                <span style={{fontWeight:600, color:'#1e293b'}}>{previewListing.property_type}</span>
+                            </div>
+                            <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.9rem'}}>
+                                <span style={{color:'#64748b'}}>ID</span>
+                                <span style={{fontWeight:600, color:'#1e293b', display:'flex', alignItems:'center', gap:4}}><Hash size={12}/> {previewListing.product_id.substring(0,8)}</span>
+                            </div>
+                            <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.9rem'}}>
+                                <span style={{color:'#64748b'}}>Status</span>
+                                <span style={{fontWeight:600, color:'#1e293b'}}>{previewListing.status}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
           </div>
         </div>

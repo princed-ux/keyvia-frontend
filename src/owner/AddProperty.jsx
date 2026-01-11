@@ -1,41 +1,43 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom"; 
 import Swal from "sweetalert2";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { 
   Plus, Edit, Trash2, MapPin, Home, RefreshCcw, X, CreditCard,
-  AlertTriangle, ChevronLeft, ChevronRight, Bed, Bath, Square, Loader2, Lock
+  AlertTriangle, ChevronLeft, ChevronRight, Bed, Bath, Square, Loader2, Lock, Search, Eye,
+  ExternalLink // 👈 Correctly imported
 } from "lucide-react";
 
 import client from "../api/axios"; 
 import { useAuth } from "../context/AuthProvider";
-import PropertyForm from "../common/PropertyForm"; // ✅ We import the form here
-import style from "../styles/Listings.module.css"; 
+import PropertyForm from "../common/PropertyForm"; // ✅ Make sure this path is correct
+import style from "../styles/OwnerProperties.module.css"; 
 
-export default function OwnerProperties() {
+export default function AddProperties() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth(); 
 
-  // ✅ LOCAL STATUS: Ensures UI unlocks instantly after profile update
   const [localStatus, setLocalStatus] = useState(user?.verification_status || 'pending');
-
-  // State
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState(null); 
   
-  // 📝 Form State (For Inline Editing/Creating)
+  // 📝 Form State
   const [showForm, setShowForm] = useState(false);
   const [editingListing, setEditingListing] = useState(null);
 
-  // Preview Modal State
+  // Search & Filter State
+  const [filter, setFilter] = useState("all"); 
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Preview Modal
   const [previewListing, setPreviewListing] = useState(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   const lottieUrl = "https://lottie.host/37a0df00-47f6-43d0-873c-01acfb5d1e7d/wvtiKE3P1d.lottie";
 
-  // -------------------- Fetch Listings & Status --------------------
+  // --- Fetch ---
   const fetchListings = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
@@ -51,7 +53,6 @@ export default function OwnerProperties() {
       const serverData = profileRes.data;
       setLocalStatus(serverData.verification_status);
 
-      // ✅ SAFE UPDATE: Only update specific fields. NEVER overwrite the role.
       if (updateUser && serverData) {
           updateUser({ 
               verification_status: serverData.verification_status,
@@ -70,22 +71,100 @@ export default function OwnerProperties() {
 
   useEffect(() => { fetchListings(); }, []);
 
-  // -------------------- Actions --------------------
-  
+  // --- Filter Logic ---
+  const filteredListings = useMemo(() => {
+    return listings.filter(l => {
+      const matchesSearch = l.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            l.city.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesFilter = filter === 'all' 
+        ? true 
+        : filter === 'active' 
+          ? (l.status === 'approved' && l.is_active) 
+          : (l.status !== 'approved' || !l.is_active);
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [listings, searchTerm, filter]);
+
+  // --- Actions ---
+  const isVerified = localStatus === 'approved';
+
+  // 1. Open Create Mode
+  const handleNavigateToAdd = (e) => {
+    if(e) e.preventDefault();
+    if (!isVerified) {
+        Swal.fire({
+            icon: 'warning',
+            title: "Verification Required",
+            text: "You must be an approved landlord to create listings.",
+            confirmButtonText: 'Check Profile',
+            confirmButtonColor: '#0f766e'
+        }).then((res) => { if(res.isConfirmed) navigate('/owner/profile'); });
+        return;
+    }
+    setEditingListing(null);
+    setShowForm(true); // Show inline form
+  };
+
+  // 2. Open Edit Mode
+  const handleEdit = (listing, e) => {
+    e.stopPropagation();
+    setEditingListing(listing);
+    setShowForm(true); // Show inline form
+  };
+
+  // 3. Submit Logic
+  const submitListing = async (payload, product_id) => {
+    try {
+      const formData = new FormData();
+      for (const key in payload) {
+        const value = payload[key];
+        if (value == null) continue;
+        if (key === "photos" && Array.isArray(value)) value.forEach((f) => { if (f instanceof File) formData.append("photos", f); });
+        else if (key === "video" && value instanceof File) formData.append("video_file", value); 
+        else if (key === "virtualTour" && value instanceof File) formData.append("virtual_file", value);
+        else if (key === "features") formData.append(key, JSON.stringify(value));
+        else formData.append(key, value.toString());
+      }
+      if (editingListing?.photos?.length) formData.append("existingPhotos", JSON.stringify(editingListing.photos));
+      // If rejected, reset to pending on update
+      if (editingListing?.status === 'rejected') formData.append('status', 'pending');
+
+      const url = product_id ? `/api/listings/${product_id}` : `/api/listings`;
+      const method = product_id ? "put" : "post";
+      
+      const res = await client[method](url, formData, { headers: { "Content-Type": "multipart/form-data" } });
+      const data = res.data.listing || res.data;
+
+      // Update State Optimistically
+      setListings((prev) => {
+          if (product_id) return prev.map(l => l.product_id === product_id ? { ...data, status: 'pending' } : l);
+          return [data, ...prev];
+      });
+      
+      setShowForm(false); // Close Form
+      Swal.fire({ icon: "success", title: "Success!", text: product_id ? "Listing updated." : "Listing created.", confirmButtonColor: "#09707d" });
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", "Failed to save listing.", "error");
+    }
+  };
+
   const handleActivate = async (listing, e) => {
     e.stopPropagation();
-    const confirm = await Swal.fire({
-      title: "Activate Listing?",
-      text: "Pay $10.00 to make this listing visible on the Buy/Rent pages.",
+    const result = await Swal.fire({
+      title: "Activate Listing",
+      text: "Pay $10.00 to publish this listing.",
       icon: "info",
       showCancelButton: true,
-      confirmButtonText: "Pay & Activate",
-      confirmButtonColor: "#10b981"
+      confirmButtonText: "Pay Now",
+      confirmButtonColor: "#0f766e"
     });
 
-    if (!confirm.isConfirmed) return;
+    if (!result.isConfirmed) return;
+    setBusyId(listing.product_id); 
 
-    setBusyId(listing.product_id);
     try {
         const res = await client.post('/api/payments/create-session', {
             productId: listing.product_id,
@@ -95,8 +174,7 @@ export default function OwnerProperties() {
         });
         if (res.data && res.data.url) window.location.href = res.data.url;
     } catch (err) {
-      console.error(err);
-      Swal.fire("Error", "Payment initialization failed.", "error");
+      Swal.fire("Error", "Payment failed.", "error");
       setBusyId(null);
     }
   };
@@ -109,7 +187,7 @@ export default function OwnerProperties() {
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#ef4444",
-      confirmButtonText: "Yes, delete it",
+      confirmButtonText: "Delete",
     });
 
     if (!confirm.isConfirmed) return;
@@ -126,11 +204,6 @@ export default function OwnerProperties() {
     }
   };
 
-  const handleViewLive = (id, e) => {
-    e.stopPropagation();
-    navigate(`/listing/${id}`);
-  };
-
   const showRejectionReason = (listing, e) => {
     e.stopPropagation();
     Swal.fire({
@@ -138,84 +211,13 @@ export default function OwnerProperties() {
       title: 'Action Required',
       text: listing.admin_notes || "General quality standards not met.",
       confirmButtonText: 'Edit & Fix',
-      confirmButtonColor: '#09707d'
+      confirmButtonColor: '#0f766e'
     }).then((result) => {
-        if(result.isConfirmed) openEditForm(listing, e);
+        if(result.isConfirmed) handleEdit(listing, e);
     });
   };
 
-  // -------------------- Form Handlers (INLINE LOGIC) --------------------
-
-  const isVerified = localStatus === 'approved';
-
-  // 1. Open Create Mode
-  const openCreateForm = (e) => {
-    if(e) e.preventDefault();
-
-    if (!isVerified) {
-        Swal.fire({
-            icon: 'warning',
-            title: localStatus === 'pending' ? "Under Review" : "Verification Required",
-            text: "You must be an approved landlord to create listings.",
-            confirmButtonText: 'Go to Profile',
-            confirmButtonColor: '#09707d',
-            showCancelButton: true
-        }).then((result) => {
-            if (result.isConfirmed) navigate('/owner/profile'); 
-        });
-        return;
-    }
-
-    setEditingListing(null);
-    setShowForm(true); // ✅ Shows Form Inline
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  // 2. Open Edit Mode
-  const openEditForm = (listing, e) => {
-    if(e) e.stopPropagation();
-    setEditingListing(listing);
-    setShowForm(true); // ✅ Shows Form Inline
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  // 3. Submit Handler
-  const submitListing = async (payload, product_id) => {
-    try {
-      const formData = new FormData();
-      for (const key in payload) {
-        const value = payload[key];
-        if (value == null) continue;
-        if (key === "photos" && Array.isArray(value)) value.forEach((f) => { if (f instanceof File) formData.append("photos", f); });
-        else if (key === "video" && value instanceof File) formData.append("video_file", value); 
-        else if (key === "virtualTour" && value instanceof File) formData.append("virtual_file", value);
-        else if (key === "features") formData.append(key, JSON.stringify(value));
-        else formData.append(key, value.toString());
-      }
-      if (editingListing?.photos?.length) formData.append("existingPhotos", JSON.stringify(editingListing.photos));
-      if (editingListing?.status === 'rejected') formData.append('status', 'pending');
-
-      const url = product_id ? `/api/listings/${product_id}` : `/api/listings`;
-      const method = product_id ? "put" : "post";
-      
-      const res = await client[method](url, formData, { headers: { "Content-Type": "multipart/form-data" } });
-      const data = res.data.listing || res.data;
-
-      // Update State Optimistically
-      setListings((prev) => {
-          if (product_id) return prev.map(l => l.product_id === product_id ? { ...data, status: 'pending' } : l);
-          return [data, ...prev];
-      });
-      
-      setShowForm(false); // ✅ Close Form (Back to List)
-      Swal.fire({ icon: "success", title: "Success!", text: product_id ? "Listing updated." : "Listing created.", confirmButtonColor: "#09707d" });
-    } catch (err) {
-      console.error(err);
-      Swal.fire("Error", "Failed to save listing.", "error");
-    }
-  };
-
-  // -------------------- Preview Logic --------------------
+  // --- Preview Helpers ---
   const handlePreview = (l, e) => { if(e) e.stopPropagation(); setPreviewListing(l); setCurrentPhotoIndex(0); };
   const nextImage = (e) => { e.stopPropagation(); if(previewListing?.photos) setCurrentPhotoIndex((p) => (p + 1) % previewListing.photos.length); };
   const prevImage = (e) => { e.stopPropagation(); if(previewListing?.photos) setCurrentPhotoIndex((p) => (p - 1 + previewListing.photos.length) % previewListing.photos.length); };
@@ -227,23 +229,23 @@ export default function OwnerProperties() {
       
       {/* HEADER */}
       <div className={style.header}>
-        <div>
-          <h1>Add Properties</h1>
-          <p>Manage your rental portfolio and sales</p>
+        <div className={style.titleSection}>
+          <h1>My Properties</h1>
+          <p>Manage your real estate portfolio.</p>
         </div>
         <div className={style.headerActions}>
-            <button onClick={() => fetchListings(true)} className={style.iconBtn} title="Refresh Listings">
-                <RefreshCcw size={18} className={refreshing ? style.spin : ''} /> Refresh
-            </button>
-            
-            {/* ADD BUTTON (Triggers Inline Form) */}
+            {!showForm && (
+                <button onClick={() => fetchListings(true)} className={style.iconBtn} title="Sync">
+                    <RefreshCcw size={18} className={refreshing ? style.spin : ''} /> Refresh
+                </button> 
+            )}
             <button 
-                onClick={openCreateForm}
+                onClick={showForm ? () => setShowForm(false) : handleNavigateToAdd}
                 className={style.addButton}
-                style={!isVerified ? { background: '#94a3b8', cursor: 'not-allowed' } : {}}
+                style={!isVerified && !showForm ? { background: '#94a3b8', cursor: 'not-allowed' } : {}}
             >
-                {isVerified ? <Plus size={20} /> : <Lock size={16} />} 
-                {isVerified ? "Add New Property" : " Verification Required"}
+                {showForm ? <X size={20} /> : (isVerified ? <Plus size={20} /> : <Lock size={16} />)} 
+                {showForm ? "Cancel" : (isVerified ? "Add Property" : "Verify to Add")}
             </button>
         </div>
       </div>
@@ -258,89 +260,101 @@ export default function OwnerProperties() {
         />
       ) : (
         <>
-          {loading ? (
-            <div className={style.loadingContainer} style={{textAlign:'center', padding:50}}>
-              <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 150, height: 150, margin:'0 auto' }} />
-              <p style={{color:'#6b7280'}}>Loading your portfolio...</p>
+          {/* CONTROLS */}
+          <div className={style.controls}>
+            <div className={style.searchWrapper}>
+                <Search size={18} className={style.searchIcon} />
+                <input 
+                    type="text" 
+                    placeholder="Search by title or city..." 
+                    className={style.searchInput}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
             </div>
-          ) : listings.length === 0 ? (
+            <div className={style.tabs}>
+                {['all', 'active', 'pending'].map(t => (
+                    <button 
+                        key={t}
+                        className={`${style.tab} ${filter === t ? style.activeTab : ''}`}
+                        onClick={() => setFilter(t)}
+                    >
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                ))}
+            </div>
+          </div>
+
+          {/* GRID */}
+          {loading ? (
+            <div className={style.loader}>
+              <Loader2 size={40} className={style.spin} />
+              <p>Loading properties...</p>
+            </div>
+          ) : filteredListings.length === 0 ? (
             <div className={style.emptyState}>
-              <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 200, height: 200, margin:'0 auto' }} />
-              <h3>No Properties Yet</h3>
-              <p>List your first property to start finding tenants.</p>
-              
-              {/* ✅ BLUE TEXT LINK (Styled Button) */}
-              <button 
-                onClick={openCreateForm}
-                style={{ 
-                    background: 'none',
-                    border: 'none',
-                    color: isVerified ? '#2563eb' : '#94a3b8', 
-                    textDecoration: isVerified ? 'underline' : 'none', 
-                    fontSize: '18px',
-                    fontWeight: '500',
-                    cursor: isVerified ? 'pointer' : 'not-allowed',
-                    marginTop: '15px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '5px'
-                }}
-              >
-                {!isVerified && <Lock size={14}/>} Create Listing
-              </button>
+              <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 250, height: 250 }} />
+              <h3 className={style.emptyTitle}>
+                 {searchTerm ? "No results found" : "No Properties Yet"}
+              </h3>
+              <p className={style.emptyDesc}>
+                 {searchTerm ? "Try adjusting your search terms." : "List your first property today and reach thousands of potential tenants."}
+              </p>
+              {!searchTerm && (
+                  <button onClick={handleNavigateToAdd} className={style.createLink} disabled={!isVerified}>
+                      Create Listing
+                  </button>
+              )}
             </div>
           ) : (
             <div className={style.grid}>
-              {listings.map((listing) => {
-                let badgeClass = style.pending;
-                let statusText = "Pending Review";
-
-                if (listing.status === 'rejected') { 
-                    badgeClass = style.rejected; 
-                    statusText = "Verification Failed"; 
-                } else if (listing.status === 'approved') {
-                    if (listing.is_active) {
-                        badgeClass = style.active; 
-                        statusText = "Active (Live)";
-                    } else {
-                        badgeClass = style.pending; 
-                        statusText = "Approved (Unpaid)";
-                    }
+              {filteredListings.map((listing) => {
+                let badgeClass = style.pendingBadge;
+                let statusText = "Pending";
+                
+                if (listing.status === 'rejected') { badgeClass = style.rejectedBadge; statusText = "Rejected"; }
+                else if (listing.status === 'approved') {
+                    if (listing.is_active) { badgeClass = style.activeBadge; statusText = "Active"; }
+                    else { badgeClass = style.pendingBadge; statusText = "Unpaid"; }
                 }
 
                 return (
                   <div key={listing.product_id} className={style.card} onClick={(e) => handlePreview(listing, e)}>
+                    
+                    {/* Image Section */}
                     <div className={style.imageWrapper}>
                       <img src={getPhotoUrl(listing, 0)} alt={listing.title} className={style.cardImage} />
-                      <span className={`${style.badge} ${badgeClass}`}>
-                        {statusText}
-                      </span>
+                      <div className={`${style.badge} ${badgeClass}`}>{statusText}</div>
                     </div>
 
                     {listing.status === 'rejected' && (
                         <div className={style.rejectionBanner}>
-                            <div className={style.rejectionText}><AlertTriangle size={14} /> Admin Rejected</div>
+                            <div className={style.rejectionText}><AlertTriangle size={14} /> Rejected</div>
                             <button className={style.viewReasonBtn} onClick={(e) => showRejectionReason(listing, e)}>Why?</button>
                         </div>
                     )}
 
+                    {/* Content Section */}
                     <div className={style.cardBody}>
-                      <h3 className={style.cardTitle}>{listing.title || "Untitled Property"}</h3>
-                      <p className={style.cardAddress}>
-                        <MapPin size={14} /> {listing.city}, {listing.country}
-                      </p>
-                      
-                      <div className={style.cardMeta}>
-                        <span><Home size={14} style={{marginBottom:-2}}/> {listing.property_type}</span>
-                        <span className={style.price}>
-                          {Number(listing.price).toLocaleString()} {listing.price_currency}
-                        </span>
+                      <span className={style.price}>
+                        {Number(listing.price).toLocaleString()} {listing.price_currency}
+                      </span>
+                      <h3 className={style.title}>{listing.title}</h3>
+                      <div className={style.address}>
+                        <MapPin size={16} /> {listing.city}, {listing.country}
+                      </div>
+
+                      <div className={style.metaRow}>
+                        <span className={style.metaItem}><Bed size={16}/> {listing.bedrooms} Beds</span>
+                        <span className={style.metaItem}><Bath size={16}/> {listing.bathrooms} Baths</span>
+                        <span className={style.metaItem}><Square size={16}/> {listing.square_footage} sqft</span>
                       </div>
 
                       <div className={style.actions}>
+                        {/* PAY Button */}
                         {listing.status === 'approved' && !listing.is_active && (
                           <button 
-                            className={`${style.actionBtn} ${style.payBtn}`} 
+                            className={`${style.btn} ${style.btnPrimary}`} 
                             onClick={(e) => handleActivate(listing, e)}
                             disabled={busyId === listing.product_id}
                           >
@@ -348,30 +362,29 @@ export default function OwnerProperties() {
                           </button>
                         )}
 
+                        {/* VIEW Button */}
                         {listing.is_active && (
-                            <button 
-                                className={style.actionBtn} 
-                                style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
-                                onClick={(e) => handleViewLive(listing.product_id, e)}
-                            >
-                                <ExternalLink size={16}/> Live
+                            <button className={`${style.btn} ${style.btnPrimary}`} onClick={(e) => { e.stopPropagation(); navigate(`/listing/${listing.product_id}`); }}>
+                                <Eye size={16}/> View
                             </button>
                         )}
 
+                        {/* EDIT Button */}
                         <button 
-                          className={style.actionBtn}
-                          onClick={(e) => openEditForm(listing, e)}
-                          disabled={listing.is_active} 
+                            className={`${style.btn} ${style.btnSecondary}`} 
+                            onClick={(e) => handleEdit(listing, e)}
+                            disabled={listing.is_active}
                         >
-                          <Edit size={16} /> Edit
+                            <Edit size={16}/> Edit
                         </button>
 
+                        {/* DELETE Button */}
                         <button 
-                          className={`${style.actionBtn} ${style.deleteBtn}`}
-                          onClick={(e) => handleDelete(listing, e)}
-                          disabled={busyId === listing.product_id}
+                            className={`${style.btn} ${style.btnDanger}`} 
+                            onClick={(e) => handleDelete(listing, e)}
+                            disabled={busyId === listing.product_id}
                         >
-                          <Trash2 size={16} />
+                            <Trash2 size={16}/>
                         </button>
                       </div>
                     </div>
@@ -396,7 +409,6 @@ export default function OwnerProperties() {
                         <button className={`${style.navBtn} ${style.nextBtn}`} onClick={nextImage}><ChevronRight size={20}/></button>
                     </>
                 )}
-                <div style={{position:'absolute', bottom:15, right:15, background:'rgba(0,0,0,0.6)', color:'white', padding:'4px 10px', borderRadius:10, fontSize:'0.8rem'}}>{currentPhotoIndex + 1} / {previewListing.photos.length}</div>
             </div>
             <div className={style.modalBody}>
                 <div className={style.modalMain}>

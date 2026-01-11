@@ -1,0 +1,102 @@
+.overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 2000; display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); animation: fadeIn 0.2s;
+}
+
+.modal {
+    background: white; width: 90%; max-width: 380px;
+    border-radius: 20px; overflow: hidden; position: relative;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.headerBg {
+    height: 100px; width: 100%; position: relative;
+}
+
+.closeBtn {
+    position: absolute; top: 15px; right: 15px;
+    background: rgba(255,255,255,0.2); border: none;
+    border-radius: 50%; width: 32px; height: 32px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: 0.2s;
+}
+.closeBtn:hover { background: rgba(255,255,255,0.4); }
+
+.content {
+    padding: 0 25px 30px; margin-top: -50px; text-align: center;
+}
+
+.avatarWrapper {
+    position: relative; width: 100px; height: 100px; margin: 0 auto 15px;
+}
+.avatar {
+    width: 100%; height: 100%; border-radius: 50%;
+    border: 4px solid white; object-fit: cover; background: white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.verifiedBadge {
+    position: absolute; bottom: 5px; right: 0;
+    background: white; border-radius: 50%; padding: 3px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.infoCenter h2 { margin: 0; font-size: 1.4rem; color: #0f172a; font-weight: 700; }
+.roleBadge {
+    display: inline-block; background: #e0f2fe; color: #0284c7;
+    font-size: 0.75rem; font-weight: 600; padding: 4px 10px;
+    border-radius: 12px; margin: 5px 0 10px; text-transform: uppercase;
+}
+.location {
+    color: #64748b; font-size: 0.9rem; display: flex; 
+    align-items: center; justify-content: center; gap: 5px;
+}
+.flag { font-size: 1.1rem; }
+
+.statsRow {
+    display: flex; justify-content: space-around; align-items: center;
+    background: #f8fafc; border-radius: 12px; padding: 12px;
+    margin: 20px 0; border: 1px solid #e2e8f0;
+}
+.stat { display: flex; flex-direction: column; }
+.stat strong { font-size: 1rem; color: #0f172a; }
+.stat span { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+.divider { width: 1px; height: 20px; background: #cbd5e1; }
+
+.bio {
+    font-size: 0.9rem; color: #475569; line-height: 1.5;
+    margin-bottom: 20px; display: -webkit-box; -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical; overflow: hidden;
+}
+
+.metaList {
+    display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;
+    text-align: left;
+}
+.metaItem {
+    display: flex; align-items: center; gap: 10px; 
+    font-size: 0.9rem; color: #334155;
+}
+.icon { color: #94a3b8; }
+
+.messageBtn {
+    width: 100%; background: #09707d; color: white; border: none;
+    padding: 14px; border-radius: 12px; font-weight: 600; font-size: 1rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: 0.2s; box-shadow: 0 4px 10px rgba(9, 112, 125, 0.2);
+}
+.messageBtn:hover { transform: translateY(-2px); background: #075a63; }
+
+.reviewNote {
+    margin-top: 15px; font-size: 0.75rem; color: #ef4444; 
+    background: #fef2f2; padding: 8px; border-radius: 8px;
+}
+
+.loadingOverlay {
+    position: absolute; inset: 0; background: rgba(255,255,255,0.9);
+    display: flex; align-items: center; justify-content: center;
+}
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

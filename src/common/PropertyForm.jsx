@@ -44,7 +44,6 @@ const initialState = {
 };
 
 const validateEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
-const validatePhone = (v) => v && String(v).replace(/\D/g, "").length >= 7;
 
 function mapInitialToForm(initial = {}) {
   const f = { ...initialState };
@@ -99,7 +98,7 @@ function mapInitialToForm(initial = {}) {
   return f;
 }
 
-// --- UPDATED INPUT GROUP (Supports 'optional' prop) ---
+// --- INPUT GROUP COMPONENT ---
 const InputGroup = ({ 
   id, label, type = "text", placeholder, options, value, onChange, 
   error, disabled, icon: Icon, optional = false, ...props 
@@ -116,7 +115,7 @@ const InputGroup = ({
       {options ? (
         <select
           id={id}
-          className={`${style.select} ${Icon ? style.hasIcon : ''}`}
+          className={`${style.select} ${Icon ? style.hasIcon : ''} ${error ? style.inputError : ""}`}
           value={value}
           onChange={onChange}
           disabled={disabled}
@@ -132,7 +131,7 @@ const InputGroup = ({
         <input
           id={id}
           type={type}
-          className={`${style.input} ${error ? style.inputError : ""} ${Icon ? style.hasIcon : ''}`}
+          className={`${style.input} ${error ? style.inputError : ""} ${Icon ? style.hasIcon : ''} ${disabled ? style.inputDisabled : ''}`}
           placeholder={placeholder}
           value={value}
           onChange={onChange}
@@ -161,7 +160,7 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
   const videoInputRef = useRef(null);
   const virtualInputRef = useRef(null);
 
-  // 1. Prevent accidental navigation when processing
+  // 1. Prevent accidental navigation
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (loading) {
@@ -183,6 +182,7 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
     } else if (user) {
       setForm(prev => ({
         ...prev,
+        country: user.country || "", // Auto-fill Country
         contactName: user.full_name || user.name || "",
         contactEmail: user.email || "",
         contactPhone: user.phone || ""
@@ -190,7 +190,6 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
     }
   }, [initialData, user]);
 
-  // Cleanup object URLs
   useEffect(() => {
     return () => {
       photoPreviews.forEach(url => { if (typeof url === "string" && url.startsWith("blob:")) URL.revokeObjectURL(url) });
@@ -202,7 +201,7 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const toggleFeature = (key) => {
-    if (loading) return; // Prevent toggling while loading
+    if (loading) return; 
     setForm((prev) => ({
       ...prev,
       features: { ...prev.features, [key]: !prev.features[key] },
@@ -250,8 +249,15 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
     if (!form.country) next.country = "Required.";
     if (!form.city) next.city = "Required.";
     
-    // ✅ ADDED ADDRESS VALIDATION
     if (!form.address || form.address.trim().length < 5) next.address = "Full Address is required.";
+
+    // ✅ NEW MANDATORY FIELDS
+    if (!form.bedrooms) next.bedrooms = "Required.";
+    if (!form.bathrooms) next.bathrooms = "Required.";
+    if (!form.squareFootage) next.squareFootage = "Required.";
+    if (!form.yearBuilt) next.yearBuilt = "Required.";
+    if (!form.parking) next.parking = "Required.";
+    if (!form.furnishing) next.furnishing = "Required.";
 
     if (!form.photos.length) next.photos = "Upload at least 1 photo.";
     if (!form.contactEmail || !validateEmail(form.contactEmail)) next.contactEmail = "Valid email required.";
@@ -264,7 +270,6 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
     e.preventDefault();
     if (!validateAll()) {
       toast.error("Please fill in required fields (marked in red).");
-      // Find first error and scroll to it
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -283,7 +288,6 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
     <div className={style.formContainer}>
       <form onSubmit={handleSubmit}>
         
-        {/* 🌀 PROCESSING OVERLAY */}
         {loading && (
           <div className={style.processingOverlay}>
             <div className={style.processingContent}>
@@ -294,7 +298,6 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
           </div>
         )}
 
-        {/* HEADER */}
         <div className={style.formHeader}>
           <h2>{initialData ? "Edit Property" : "Add New Listing"}</h2>
           <button type="button" onClick={closeBtn} className={style.closeBtn} disabled={loading}>
@@ -369,14 +372,20 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
             </div>
 
             <div className={style.locationRow}>
-                <InputGroup id="country" label="Country" value={form.country} onChange={(e) => update("country", e.target.value)} error={errors.country} disabled={loading} />
+                <InputGroup 
+                  id="country" 
+                  label="Country" 
+                  value={form.country} 
+                  onChange={(e) => update("country", e.target.value)} 
+                  error={errors.country} 
+                  disabled={true} 
+                />
                 <InputGroup id="state" label="State" value={form.state} onChange={(e) => update("state", e.target.value)} disabled={loading} />
                 <InputGroup id="city" label="City" value={form.city} onChange={(e) => update("city", e.target.value)} error={errors.city} disabled={loading} />
                 <InputGroup id="zipCode" label="Zip Code" optional value={form.zipCode} onChange={(e) => update("zipCode", e.target.value)} disabled={loading} />
             </div>
 
             <div className={style.fullWidth}>
-                {/* ✅ ADDRESS IS NOW REQUIRED */}
                 <InputGroup 
                   id="address" 
                   label="Full Address" 
@@ -391,26 +400,66 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
           </div>
         </div>
 
-        {/* 2. DETAILS */}
+        {/* 2. DETAILS - MANDATORY */}
         <div className={style.section}>
           <h3><CheckCircle size={18}/> Property Details</h3>
           <div className={style.formGrid}>
-            <InputGroup id="bed" label="Bedrooms" optional type="number" value={form.bedrooms} onChange={e => update("bedrooms", e.target.value)} disabled={loading} />
-            <InputGroup id="bath" label="Bathrooms" optional type="number" value={form.bathrooms} onChange={e => update("bathrooms", e.target.value)} disabled={loading} />
-            <InputGroup id="sqft" label="Sq Ft" optional type="number" value={form.squareFootage} onChange={e => update("squareFootage", e.target.value)} disabled={loading} />
-            <InputGroup id="year" label="Year Built" optional type="number" icon={Calendar} value={form.yearBuilt} onChange={e => update("yearBuilt", e.target.value)} disabled={loading} />
+            {/* ✅ ALL OPTIONAL PROPS REMOVED & ERRORS ADDED */}
+            <InputGroup 
+                id="bed" 
+                label="Bedrooms" 
+                type="number" 
+                value={form.bedrooms} 
+                onChange={e => update("bedrooms", e.target.value)} 
+                error={errors.bedrooms}
+                disabled={loading} 
+            />
+            <InputGroup 
+                id="bath" 
+                label="Bathrooms" 
+                type="number" 
+                value={form.bathrooms} 
+                onChange={e => update("bathrooms", e.target.value)} 
+                error={errors.bathrooms}
+                disabled={loading} 
+            />
+            <InputGroup 
+                id="sqft" 
+                label="Sq Ft" 
+                type="number" 
+                value={form.squareFootage} 
+                onChange={e => update("squareFootage", e.target.value)} 
+                error={errors.squareFootage}
+                disabled={loading} 
+            />
+            <InputGroup 
+                id="year" 
+                label="Year Built" 
+                type="number" 
+                icon={Calendar} 
+                value={form.yearBuilt} 
+                onChange={e => update("yearBuilt", e.target.value)} 
+                error={errors.yearBuilt}
+                disabled={loading} 
+            />
             
             <InputGroup
-              id="parking" label="Parking" optional
+              id="parking" 
+              label="Parking" 
               options={[{ value: "", label: "Select" }, { value: "Garage", label: "Garage" }, { value: "Street", label: "Street" }, { value: "None", label: "None" }]}
-              value={form.parking} onChange={e => update("parking", e.target.value)}
+              value={form.parking} 
+              onChange={e => update("parking", e.target.value)}
+              error={errors.parking}
               disabled={loading}
             />
             
             <InputGroup
-              id="furnishing" label="Furnishing" optional
+              id="furnishing" 
+              label="Furnishing" 
               options={[{ value: "", label: "Select" }, { value: "Furnished", label: "Furnished" }, { value: "Unfurnished", label: "Unfurnished" }]}
-              value={form.furnishing} onChange={e => update("furnishing", e.target.value)}
+              value={form.furnishing} 
+              onChange={e => update("furnishing", e.target.value)}
+              error={errors.furnishing}
               disabled={loading}
             />
           </div>
@@ -505,9 +554,26 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
         <div className={style.section}>
           <h3><User size={18}/> Contact Information</h3>
           <div className={style.formGrid}>
-            <InputGroup id="cName" label="Contact Name" icon={User} value={form.contactName} onChange={e => update("contactName", e.target.value)} disabled={loading} />
-            <InputGroup id="cEmail" label="Email" type="email" icon={Mail} value={form.contactEmail} onChange={e => update("contactEmail", e.target.value)} error={errors.contactEmail} disabled={loading} />
-            <InputGroup id="cPhone" label="Phone" type="tel" icon={Phone} value={form.contactPhone} onChange={e => update("contactPhone", e.target.value)} error={errors.contactPhone} disabled={loading} />
+            <InputGroup 
+              id="cName" label="Contact Name" icon={User} 
+              value={form.contactName} 
+              onChange={e => update("contactName", e.target.value)} 
+              disabled={true} 
+            />
+            <InputGroup 
+              id="cEmail" label="Email" type="email" icon={Mail} 
+              value={form.contactEmail} 
+              onChange={e => update("contactEmail", e.target.value)} 
+              error={errors.contactEmail} 
+              disabled={true} 
+            />
+            <InputGroup 
+              id="cPhone" label="Phone" type="tel" icon={Phone} 
+              value={form.contactPhone} 
+              onChange={e => update("contactPhone", e.target.value)} 
+              error={errors.contactPhone} 
+              disabled={true} 
+            />
             <InputGroup 
               id="cMethod" label="Preferred Method" 
               options={[{ value: "email", label: "Email" }, { value: "phone", label: "Phone" }]}

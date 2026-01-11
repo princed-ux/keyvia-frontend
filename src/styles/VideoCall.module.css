@@ -1,0 +1,218 @@
+/* src/styles/VideoCall.module.css */
+
+/* --- GLOBAL CONTAINER --- */
+.callContainer {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: #0f1419;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* --- REMOTE VIDEO (Background) --- */
+.remoteVideoWrapper {
+    width: 100%; height: 100%;
+    position: relative;
+    background: #121212;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.remoteVideo {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 2;
+}
+
+.remotePlaceholder {
+    position: absolute;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: white;
+    gap: 10px;
+}
+
+/* ✅ NEW: Style for avatar inside active call */
+.activeCallAvatar {
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid rgba(255,255,255,0.1);
+    margin-bottom: 15px;
+}
+
+/* --- LOCAL VIDEO (Picture in Picture) --- */
+.localVideoWrapper {
+    position: absolute;
+    bottom: 120px; right: 20px;
+    width: 130px; height: 180px;
+    background: #333;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    z-index: 10;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.localVideo {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+}
+
+.localPlaceholder {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    color: #888;
+}
+
+/* --- INCOMING CALL SCREEN --- */
+.incomingOverlay {
+    position: absolute; top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.9);
+    backdrop-filter: blur(12px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.incomingContent {
+    text-align: center; color: white;
+}
+
+/* ✅ NEW: Style for avatar in incoming screen */
+.remoteAvatar {
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 20px;
+}
+
+.pulsingAvatar {
+    border: 4px solid #25d366; /* WhatsApp Green */
+    box-shadow: 0 0 20px rgba(37, 211, 102, 0.5);
+    animation: pulseAvatar 2s infinite;
+}
+
+.avatarPulsing {
+    width: 120px; height: 120px;
+    background: #25d366;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px; font-weight: bold;
+    margin: 0 auto 20px auto;
+    animation: pulse 1.5s infinite;
+}
+
+.incomingContent h2 {
+    font-size: 28px; margin-bottom: 5px;
+}
+
+.incomingContent p {
+    color: #bbb; margin-bottom: 50px; font-size: 18px;
+}
+
+.incomingActions {
+    display: flex; gap: 60px; justify-content: center;
+}
+
+.acceptBtn, .declineBtn {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 10px;
+    background: none; border: none;
+    color: white; cursor: pointer;
+}
+
+/* Green/Red circle backgrounds for buttons */
+.iconCircleGreen, .iconCircleRed {
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.2s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.iconCircleGreen { background: #25d366; }
+.iconCircleRed { background: #ff4b4b; }
+
+.acceptBtn:hover .iconCircleGreen, .declineBtn:hover .iconCircleRed {
+    transform: scale(1.1);
+}
+
+/* --- CONTROLS --- */
+.controlsOverlay {
+    position: absolute; bottom: 40px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(40, 40, 40, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 15px 30px;
+    border-radius: 40px;
+    display: flex; gap: 25px;
+    z-index: 20;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.controlBtn {
+    width: 55px; height: 55px;
+    border-radius: 50%;
+    border: none; background: #444;
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: 0.2s;
+}
+
+.controlBtn:hover { background: #666; }
+.controlBtn.off { background: white; color: #333; }
+.controlBtn.hangup { background: #ff4b4b; width: 65px; height: 65px; }
+.controlBtn.hangup:hover { background: #d43f3f; }
+
+/* --- MINIMIZED STATE --- */
+.minimized {
+    top: auto; left: auto;
+    bottom: 20px; right: 20px;
+    width: 180px; height: 240px;
+    border-radius: 12px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: grab;
+}
+
+.minimizedOverlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: white; z-index: 30; cursor: pointer;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
+    70% { box-shadow: 0 0 0 20px rgba(37, 211, 102, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+
+@keyframes pulseAvatar {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 30px rgba(37, 211, 102, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+
+
+.controlBtn:focus-visible,
+.acceptBtn:focus-visible,
+.declineBtn:focus-visible {
+    outline: 2px solid #25d366;
+    outline-offset: 4px;
+}
+
+
+.controlsOverlay {
+    padding-bottom: env(safe-area-inset-bottom);
+}

@@ -1,14 +1,17 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import { X, Heart, Share2, MapPin, Bed, Bath, Square, Calendar, Check, Mail, ChevronLeft, ChevronRight, PlayCircle, Video, User, Building } from "lucide-react";
 import { getCurrencySymbol, formatPrice } from "../utils/format";
 import style from "../styles/ListingModal.module.css"; 
 import keyviaLogo from "../assets/mainLogo.png"; 
 
 const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
-  const navigate = useNavigate();
   const [showGallery, setShowGallery] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+
+  // ✅ DEBUG: Check your console to see exactly where the "role" is hiding!
+  useEffect(() => {
+    if(listing) console.log("🔍 DEBUG LISTING:", listing);
+  }, [listing]);
 
   if (!listing) return null;
 
@@ -22,38 +25,73 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
   while (gridPhotos.length < 5) gridPhotos.push({ type: 'placeholder', url: "/placeholder.png" });
   const remainingPhotos = allMedia.length > 5 ? allMedia.length - 5 : 0;
 
-  // --- 2. DYNAMIC PROFILE LOGIC ---
-  // Determine if the poster is an Agent or Landlord based on role or data
-  const isAgent = listing.agent_role === 'agent' || !!listing.license_number;
+  // --- 2. ROBUST ROLE DETECTION ---
+  // We grab the user object from wherever it might be
+  const userObj = listing.agent || listing.owner || listing.user || {};
+  
+  // Check ALL possible role locations
+  const roleString = String(
+      listing.role || 
+      listing.user_type || 
+      userObj.role || 
+      userObj.user_type || 
+      ""
+  ).toLowerCase();
+
+  // It is an agent if:
+  // 1. The role string contains "agent"
+  // 2. OR listing.agent exists and is not empty
+  // 3. OR an agency name exists
+  const isAgent = 
+      roleString.includes("agent") || 
+      (listing.agent && Object.keys(listing.agent).length > 0) ||
+      !!userObj.agency_name;
+
+  // Labels
   const profileLabel = isAgent ? "Agent" : "Landlord";
+  
+  // Display Name & Avatar
+  const displayName = userObj.full_name || userObj.name || listing.contact_name || "Property Contact";
+  const avatarUrl = userObj.avatar_url || userObj.avatar || "/person.png";
+
+  // Role Label (Company Name)
+  const displayRole = isAgent 
+    ? (userObj.agency_name || "Real Estate Agent") 
+    : (userObj.company_name || "Property Landlord");
 
   // --- HANDLERS ---
+  
+  // ✅ UPDATED: Route to /profile/@username in NEW TAB
   const handleProfileClick = () => {
-    const id = listing.agent_username || listing.agent_unique_id;
-    if (id) navigate(`/user/${id}`);
+    // 1. Try to find a username
+    const username = userObj.username || listing.username;
+    // 2. Fallback to unique_id
+    const uniqueId = userObj.unique_id || userObj.id || listing.user_id;
+
+    let url = "";
+    if (username) {
+        // Strip @ if it's already there to avoid double @@
+        const cleanUsername = username.startsWith('@') ? username.substring(1) : username;
+        url = `/profile/@${cleanUsername}`;
+    } else if (uniqueId) {
+        url = `/profile/${uniqueId}`;
+    } else {
+        console.warn("No user identifier found", listing);
+        return;
+    }
+
+    window.open(url, '_blank');
   };
 
-  // ✅ GATED ACTIONS
   const handleRequestTour = () => {
-    if (onActionAttempt) {
-        onActionAttempt(() => {
-            console.log("Opening Tour Request for logged in user...");
-            // Add your tour scheduling logic here
-        });
-    }
+    if (onActionAttempt) onActionAttempt(() => console.log("Tour Request"));
   };
 
   const handleMessage = () => {
-    if (onActionAttempt) {
-        onActionAttempt(() => {
-            console.log("Opening Message Chat...");
-            // Add your messaging logic here (e.g. navigate to chat)
-        });
-    }
+    if (onActionAttempt) onActionAttempt(() => console.log("Message Chat"));
   };
 
   const openGallery = (index = 0) => { setGalleryIndex(index); setShowGallery(true); };
-  
   const nextSlide = (e) => { e.stopPropagation(); setGalleryIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1)); };
   const prevSlide = (e) => { e.stopPropagation(); setGalleryIndex((prev) => (prev === 0 ? allMedia.length - 1 : prev - 1)); };
 
@@ -150,7 +188,7 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
               </div>
             </div>
 
-            {/* ✅ GOOGLE MAPS EMBED (Shows Schools/Stores) */}
+            {/* NEIGHBORHOOD MAP */}
             <div className={style.section}>
               <h3>Neighborhood & Schools</h3>
               <div className={style.mapWrapper} style={{ borderRadius: '12px', overflow: 'hidden', height: '400px' }}>
@@ -161,7 +199,7 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
                   loading="lazy"
                   allowFullScreen
                   referrerPolicy="no-referrer-when-downgrade"
-                  src={`https://www.google.com/maps?q=${listing.latitude},${listing.longitude}&hl=en&z=15&output=embed`}
+                  src={`https://maps.google.com/maps?q=${listing.latitude},${listing.longitude}&hl=es&z=14&output=embed`}
                 ></iframe>
               </div>
             </div>
@@ -171,16 +209,17 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
           <div className={style.rightColumn}>
             <div className={style.stickyCard}>
               <div className={style.agentHeader}>
-                <img src={listing.agent_avatar || "/person.png"} alt="User" className={style.agentAvatar} />
+                <img src={avatarUrl} alt="User" className={style.agentAvatar} />
                 <div className={style.agentInfo}>
-                  <h4>{listing.agent_name || "Property Manager"}</h4>
+                  <h4>{displayName}</h4>
                   
                   {/* ✅ DYNAMIC ROLE LABEL */}
                   <p style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {isAgent ? <Building size={14} /> : <User size={14} />}
-                    {isAgent ? (listing.agency_name || "Real Estate Agent") : "Property Landlord"}
+                    {displayRole}
                   </p>
 
+                  {/* ✅ OPEN IN NEW TAB */}
                   <button className={style.viewProfileLink} onClick={handleProfileClick}>
                     View {profileLabel}'s Profile
                   </button>
@@ -197,9 +236,10 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
                     <option>This Weekend</option>
                   </select>
                 </div>
-                {/* ✅ GATED BUTTONS */}
                 <button className={style.tourBtn} onClick={handleRequestTour}>Request Tour</button>
-                <button className={style.messageBtn} onClick={handleMessage}><Mail size={16}/> Message {profileLabel}</button>
+                <button className={style.messageBtn} onClick={handleMessage}>
+                    <Mail size={16}/> Message {profileLabel}
+                </button>
               </div>
             </div>
           </div>

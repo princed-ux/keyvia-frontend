@@ -481,3 +481,36 @@
   opacity: 0.7;
   cursor: default;
 }
+
+/* Add this to profile.module.css */
+
+.cityDropdown {
+  position: absolute;
+  top: 100%; /* Pushes it directly below the input */
+  left: 0;
+  width: 100%;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0 0 8px 8px;
+  max-height: 200px; /* Limits height so it scrolls */
+  overflow-y: auto;
+  z-index: 1000; /* CRITICAL: Makes it sit on top of other elements */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.cityOption {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.cityOption:last-child {
+  border-bottom: none;
+}
+
+.cityOption:hover {
+  background-color: #f8fafc;
+  color: hwb(187 4% 51%); /* Your brand color */
+}

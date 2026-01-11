@@ -3,71 +3,46 @@ import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import style from "../styles/SideNav.module.css";
 import defaultImg from "../assets/person.png";
 import { useAuth } from "../context/AuthProvider.jsx";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
 
+// =======================
+// HELPER: AVATAR COLOR
+// =======================
+const getAvatarColor = (name) => {
+  if (!name) return "#09707D";
+  const colors = ["#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFC107", "#FF9800", "#FF5722", "#795548", "#607D8B"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+};
+
 const SideNav = () => {
-  const inputRef = useRef(null);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
 
-  // Avatar source
-  const avatarSrc = user?.avatar_url || user?.profileImage || defaultImg;
-  
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showSpecialId, setShowSpecialId] = useState(false);
 
   // --- 1. NETWORK STATUS CHECKER ---
   useEffect(() => {
-    const handleOffline = () => {
-      Swal.fire({
-        icon: 'warning',
-        title: 'No Internet Connection',
-        text: 'You are currently offline. Some features may not work.',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 5000,
-        timerProgressBar: true,
-        background: '#fff3cd', // Light yellow for warning
-        color: '#856404'
-      });
-    };
+    const handleOffline = () => toast.warn("You are offline. Features may be limited.");
+    const handleOnline = () => toast.success("Back Online!");
 
-    const handleOnline = () => {
-      Swal.fire({
-        icon: 'success',
-        title: 'Back Online',
-        text: 'Internet connection restored.',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        background: '#d4edda', // Light green for success
-        color: '#155724'
-      });
-    };
-
-    // Add listeners
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
-    // Initial check on mount
-    if (!navigator.onLine) {
-      handleOffline();
-    }
-
-    // Cleanup
     return () => {
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
     };
   }, []);
 
-  // --- 2. Close Dropdown on Outside Click ---
+  // --- 2. CLOSE DROPDOWN ON CLICK OUTSIDE ---
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -78,27 +53,28 @@ const SideNav = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- 3. Logout Handler ---
+  // --- 3. LOGOUT HANDLER ---
   const confirmLogout = async () => {
     try {
       await logout();
+      setShowLogoutModal(false);
       navigate("/");
-    } catch (error) {
-      console.error("Logout failed", error);
+    } catch (err) {
+      console.error("Logout failed:", err);
     }
   };
 
-  // --- 4. Copy ID Handler ---
-  const copyId = () => {
-    navigator.clipboard.writeText(user?.special_id || "");
-    Swal.fire({ 
-      icon: 'success', 
-      title: 'Copied!', 
-      toast: true, 
-      position: 'top-end', 
-      showConfirmButton: false, 
-      timer: 1500 
-    });
+  // --- 4. COPY ID HANDLER ---
+  const copySpecialId = async () => {
+    const idToCopy = user?.special_id || "N/A";
+    if (idToCopy === "N/A") return toast.error("ID not available");
+    
+    try {
+      await navigator.clipboard.writeText(idToCopy);
+      toast.success("ID Copied!");
+    } catch (err) {
+      toast.error("Failed to copy");
+    }
   };
 
   // --- NAVIGATION LINKS ---
@@ -107,41 +83,57 @@ const SideNav = () => {
     { to: "profile", icon: "fas fa-user", label: "Profile" },
     { to: "favorites", icon: "fas fa-heart", label: "Saved Homes" },
     { to: "applications", icon: "fas fa-file-contract", label: "Applications" },
-    { to: "viewings", icon: "fas fa-calendar-check", label: "Tours & Viewings" },
     { to: "messages", icon: "fas fa-envelope", label: "Messages" },
     { to: "notifications", icon: "fas fa-bell", label: "Notifications" },
-    { to: "payments", icon: "fas fa-wallet", label: "Wallet & Pay" },
+    { to: "payments", icon: "fas fa-wallet", label: "Wallet" },
     { to: "settings/account", icon: "fas fa-cog", label: "Settings" },
   ];
 
-  // --- Dynamic Page Title ---
-  const getPageTitle = () => {
-    const found = navLinks.find(link => 
-      location.pathname.includes(link.to.replace('/buyer/', ''))
-    );
-    return found ? found.label : "Buyer Dashboard";
-  };
+  // Dynamic Title
+  const currentTitle = navLinks.find(link => 
+    location.pathname.includes(link.to.replace('/buyer/', ''))
+  )?.label || "Dashboard";
 
   return (
     <div className={style.allcontainer}>
+      <ToastContainer position="top-right" autoClose={3000} style={{ zIndex: 999999 }} />
       
       {/* --- SIDEBAR --- */}
       <div className={style.side}>
         
         {/* Profile / Logo Area */}
         <div className={style.logo}>
-          <div className={style.avatarWrap} style={{ cursor: 'default' }}>
-            <img 
-              src={avatarSrc} 
-              alt="User" 
-              className={style.avatar} 
-              onError={(e) => (e.currentTarget.src = defaultImg)}
-            />
+          <div className={style.avatarWrap}>
+            {user?.avatar_url ? (
+              <img 
+                src={user.avatar_url} 
+                className={style.avatar} 
+                alt="User" 
+                onError={(e) => (e.currentTarget.style.display = "none")}
+              />
+            ) : (
+              <div 
+                className={style.avatar} 
+                style={{ 
+                  backgroundColor: getAvatarColor(user?.name), 
+                  display: "flex", alignItems: "center", justifyContent: "center", 
+                  color: "white", fontSize: "22px", fontWeight: "bold", 
+                  textTransform: "uppercase", letterSpacing: "1px" 
+                }}
+              >
+                {(() => { 
+                  const n = user?.name || "User"; 
+                  return n.trim().split(" ").length > 1 
+                    ? (n.split(" ")[0][0] + n.split(" ")[n.split(" ").length - 1][0]).toUpperCase() 
+                    : n[0].toUpperCase(); 
+                })()}
+              </div>
+            )}
           </div>
 
           <div className={style.agentInfo}>
-            <h4 className={style.agentName}>{user?.name || "Buyer Name"}</h4>
-            <p className={style.agentTitle}>{user?.role || "Property Seeker"}</p>
+            <h4 className={style.agentName}>{user?.name || "Buyer"}</h4>
+            <p className={style.agentTitle}>Property Seeker</p>
           </div>
         </div>
 
@@ -174,7 +166,7 @@ const SideNav = () => {
         
         {/* Top Navigation */}
         <div className={style.topnav}>
-          <div className={style.topTitle}>{getPageTitle()}</div>
+          <div className={style.topTitle}>{currentTitle}</div>
 
           <div className={style.userSection} ref={dropdownRef}>
             <div 
@@ -189,22 +181,22 @@ const SideNav = () => {
             {showDropdown && (
               <div className={style.dropdown}>
                 <div className={style.dropdownItem}>
-                  <strong>Role:</strong>
-                  <span className={style.roleValue}>{user?.role || "Buyer"}</span>
+                  <strong>Role:</strong> Buyer
                 </div>
 
                 <div className={style.dropdownItem}>
                   <strong>Special ID:</strong>
-                                    <div className={style.uniqueBox}>
-                                      <span className={style.uniqueValue}>
-                                        {showSpecialId
-                                          ? user?.special_id || "N/A"
-                                          : "•".repeat((user?.special_id || "").length || 8)}
-                                      </span> 
+                  <div className={style.uniqueBox}>
+                    <span className={style.uniqueValue}>
+                      {showSpecialId 
+                        ? (user?.special_id || "Processing...") 
+                        : "••••••••"}
+                    </span> 
                     <button className={style.eyeBtn} onClick={() => setShowSpecialId(!showSpecialId)}>
                       <i className={`fas ${showSpecialId ? "fa-eye" : "fa-eye-slash"}`} />
-                    </button>
-                    <button className={style.copyBtn} onClick={copyId}>
+                    </button> 
+                    
+                    <button className={style.copyBtn} onClick={copySpecialId}>
                       <i className="fas fa-copy" />
                     </button>
                   </div>

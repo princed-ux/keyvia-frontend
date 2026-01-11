@@ -1,5 +1,3 @@
-/* Listings.module.css */
-
 .container {
   padding: 30px;
   max-width: 1400px;
@@ -37,18 +35,17 @@
   background: white;
   border: 1px solid #e5e7eb;
   color: #374151;
-  /* width: 44px;  <-- REMOVE fixed width */
-  min-width: 44px; /* Keep it square if no text */
-  padding: 0 15px; /* Add padding for the text */
+  min-width: 44px;
+  padding: 0 15px;
   height: 44px;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px; /* Space between Icon and Text */
+  gap: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  font-weight: 600; /* Make the text look professional */
+  font-weight: 600;
   font-size: 0.9rem;
 }
 
@@ -384,4 +381,46 @@
 @media (max-width: 768px) {
   .modalBody { grid-template-columns: 1fr; }
   .modalGallery { height: 250px; }
+}
+
+/* ============================
+   ✅ SKELETON LOADING STYLES
+   ============================ */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: #f3f4f6; /* Base gray */
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+  border: none !important; /* Remove borders on skeletons */
+  box-shadow: none !important;
+}
+
+/* Skeleton Specific Shapes */
+.skeletonImage {
+  width: 100%;
+  height: 200px; /* Matches your card image height */
+  border-radius: 12px 12px 0 0;
+}
+
+.skeletonText {
+  height: 16px;
+  margin-bottom: 8px;
+}
+
+.skeletonTitle {
+  height: 24px;
+  width: 70%;
+  margin-bottom: 12px;
+}
+
+.skeletonTag {
+  width: 60px;
+  height: 20px;
+  border-radius: 4px;
 }

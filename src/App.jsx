@@ -1,6 +1,9 @@
 import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom"; // ✅ Added Navigate here
+import { Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
+
+// ✅ IMPORT TITLE UPDATER
+import TitleUpdater from "./components/TitleUpdater"; 
 
 // ---------- Public Pages ----------
 import Home from "./pages/Home.jsx";
@@ -17,6 +20,7 @@ import SignupRole from "./pages/SignupRole.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
 import VerifyEmail from "./pages/VerifyEmail.jsx";
 import AgentProfiles from "./pages/AgentProfile";
+import Onboarding from "./pages/Onboarding"; // ✅ The New Onboarding Page
 
 // ---------- Fallback ----------
 import NotFound from "./main/NotFound.jsx";
@@ -45,7 +49,6 @@ import OwnerSideNav from "./owner/SideNav.jsx";
 import OwnerDashboard from "./owner/Dashboard.jsx";
 import OwnerProfile from "./owner/Profile.jsx";         
 import OwnerProperties from "./owner/Properties.jsx";   
-import OwnerAddProperty from "./owner/AddProperty.jsx"; 
 import OwnerMessages from "./owner/Messages.jsx";
 import OwnerPayments from "./owner/Payments.jsx";       
 import OwnerApplications from "./owner/Applications.jsx"; 
@@ -72,10 +75,14 @@ import DeveloperMessages from "./developer/Messages.jsx";
 import DeveloperSettings from "./developer/Settings.jsx";
 
 // ---------- Admin Pages (Standard) ----------
-import AdminSideNav from "./admin/SideNav.jsx";
+import AdminSideNav from "./admin/SideNav.jsx"; 
 import AdminDashboard from "./admin/Dashboard.jsx";
+
+// ✅ DISTINCT VERIFICATION PAGES
+import AdminVerifications from "./admin/Verifications.jsx";   // Legal/License Check
+import AdminProfileReviews from "./admin/ProfileReviews.jsx"; // Quality/AI Check
+
 import PropertyReviews from "./admin/Properties.jsx";
-import ProfileReviews from "./admin/ProfileReviews.jsx";
 import AdminMessages from "./admin/Messages.jsx";
 import AdminNotifications from "./admin/Notifications.jsx";
 import AdminSettings from "./admin/Settings.jsx";
@@ -96,170 +103,166 @@ import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 
 function App() {
   return (
-    <Routes>
-      {/* ---------- Public Pages ---------- */}
-      <Route path="/" element={<Home />} />
-      <Route path="/buy" element={<Buy />} />
-      <Route path="/rent" element={<Rent />} />
-      <Route path="/sell" element={<Sell />} />
+    <>
+      <TitleUpdater />
 
-      {/* ---------- Auth Flow ---------- */}
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/signup/verify" element={<SignupVerifyOtp />} />
-      <Route path="/signup/role" element={<SignupRole />} />
+      <Routes>
+        {/* ---------- Public Pages ---------- */}
+        <Route path="/" element={<Home />} />
+        <Route path="/buy" element={<Buy />} />
+        <Route path="/rent" element={<Rent />} />
+        <Route path="/sell" element={<Sell />} />
 
-      <Route path="/login" element={<Login />} />
-      <Route path="/login/verify" element={<LoginVerifyOtp />} />
+        {/* ---------- Auth Flow ---------- */}
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/signup/verify" element={<SignupVerifyOtp />} />
+        <Route path="/signup/role" element={<SignupRole />} />
 
-      <Route path="/reset-password/:token" element={<ResetPassword />} />
-      <Route path="/verify-email/:token" element={<VerifyEmail />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/login/verify" element={<LoginVerifyOtp />} />
 
-      <Route path="/profile/:unique_id" element={<AgentProfiles />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
-      {/* ---------- Agent Dashboard ---------- */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute requiredRole="agent">
-            <AgentSideNav />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<AgentDashboard />} />
-        <Route path="profile" element={<AgentProfile />} />
-        <Route path="listings" element={<AgentListings />} />
-        <Route path="messages" element={<AgentMessages />} />
-        <Route path="payments" element={<AgentPayment />} />
-        <Route path="applications" element={<AgentApplications />} />
-        <Route path="notifications" element={<AgentNotifications />} />
-        <Route path="analytics" element={<AgentAnalytics />} />
+        <Route path="/profile/:unique_id" element={<AgentProfiles />} />
 
-        <Route path="settings" element={<AgentSettings />}>
-          <Route path="account" element={<AccountSettings />} />
-          <Route path="notifications" element={<NotificationPreferences />} />
-          <Route path="language&region" element={<LanguageRegion />} />
-          <Route path="privacy&security" element={<PrivacySecurity />} />
-          <Route path="listings" element={<ManageListings />} />
+        {/* ✅ ONBOARDING (For Phone/License Setup) */}
+        <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+
+        {/* ---------- Agent Dashboard ---------- */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute requiredRole="agent">
+              <AgentSideNav />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<AgentDashboard />} />
+          <Route path="profile" element={<AgentProfile />} />
+          <Route path="listings" element={<AgentListings />} />
+          <Route path="messages" element={<AgentMessages />} />
+          <Route path="payments" element={<AgentPayment />} />
+          <Route path="applications" element={<AgentApplications />} />
+          <Route path="notifications" element={<AgentNotifications />} />
+          <Route path="analytics" element={<AgentAnalytics />} />
+
+          <Route path="settings" element={<AgentSettings />}>
+            <Route path="account" element={<AccountSettings />} />
+            <Route path="notifications" element={<NotificationPreferences />} />
+            <Route path="language&region" element={<LanguageRegion />} />
+            <Route path="privacy&security" element={<PrivacySecurity />} />
+            <Route path="listings" element={<ManageListings />} />
+          </Route>
         </Route>
-      </Route>
 
-      {/* ---------- Owner Dashboard Routes ---------- */}
-      <Route
-        path="/owner"
-        element={
-          <ProtectedRoute requiredRole="owner">
-            <OwnerSideNav />
-          </ProtectedRoute>
-        }
-      >
-        {/* Default redirect to dashboard */}
-        <Route index element={<OwnerDashboard />} />
-        
-        {/* Main Pages */}
-        <Route path="dashboard" element={<OwnerDashboard />} />
-        <Route path="profile" element={<OwnerProfile />} />
-        <Route path="properties" element={<OwnerProperties />} />
-        <Route path="add-property" element={<OwnerAddProperty />} />
-        
-        {/* Operations */}
-        <Route path="payments" element={<OwnerPayments />} />
-        <Route path="applications" element={<OwnerApplications />} />
-        <Route path="notifications" element={<OwnerNotifications />} />
-        <Route path="messages" element={<OwnerMessages />} />
-        
-        {/* Settings */}
-        <Route path="settings" element={<OwnerSettings />} />
-      </Route>
+        {/* ---------- Owner Dashboard ---------- */}
+        <Route
+          path="/owner"
+          element={
+            <ProtectedRoute requiredRole="owner">
+              <OwnerSideNav />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<OwnerDashboard />} />
+          <Route path="dashboard" element={<OwnerDashboard />} />
+          <Route path="profile" element={<OwnerProfile />} />
+          <Route path="properties" element={<OwnerProperties />} />
+          <Route path="payments" element={<OwnerPayments />} />
+          <Route path="applications" element={<OwnerApplications />} />
+          <Route path="notifications" element={<OwnerNotifications />} />
+          <Route path="messages" element={<OwnerMessages />} />
+          <Route path="settings" element={<OwnerSettings />} />
+        </Route>
 
-      {/* ---------- Buyer Dashboard Routes ---------- */}
-      <Route
-        path="/buyer"
-        element={
-          <ProtectedRoute requiredRole="buyer">
-            <BuyerSideNav />
-          </ProtectedRoute>
-        }
-      >
-        {/* Default redirect to Dashboard */}
-        <Route index element={<Navigate to="dashboard" replace />} />
-        
-        <Route path="dashboard" element={<BuyerDashboard />} />
-        <Route path="profile" element={<BuyerProfile />} />
-        <Route path="favorites" element={<BuyerFavorites />} />
-        <Route path="applications" element={<BuyerApplications />} />
-        <Route path="viewings" element={<BuyerViewings />} />
-        <Route path="messages" element={<BuyerMessages />} />
-        <Route path="notifications" element={<BuyerNotifications />} />
-        <Route path="payments" element={<BuyerPayments />} />
-        
-        {/* Settings handles sub-routes like /settings/account internally */}
-        <Route path="settings/*" element={<BuyerSettings />} />
-      </Route>
+        {/* ---------- Buyer Dashboard ---------- */}
+        <Route
+          path="/buyer"
+          element={
+            <ProtectedRoute requiredRole="buyer">
+              <BuyerSideNav />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<BuyerDashboard />} />
+          <Route path="profile" element={<BuyerProfile />} />
+          <Route path="favorites" element={<BuyerFavorites />} />
+          <Route path="applications" element={<BuyerApplications />} />
+          <Route path="viewings" element={<BuyerViewings />} />
+          <Route path="messages" element={<BuyerMessages />} />
+          <Route path="notifications" element={<BuyerNotifications />} />
+          <Route path="payments" element={<BuyerPayments />} />
+          <Route path="settings/*" element={<BuyerSettings />} />
+        </Route>
 
-      {/* ---------- Developer Dashboard ---------- */}
-      <Route
-        path="/developer"
-        element={
-          <ProtectedRoute requiredRole="developer">
-            <DeveloperSideNav />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<DeveloperDashboard />} />
-        <Route path="dashboard" element={<DeveloperDashboard />} />
-        <Route path="projects" element={<DeveloperProjects />} />
-        <Route path="messages" element={<DeveloperMessages />} />
-        <Route path="settings" element={<DeveloperSettings />} />
-      </Route>
+        {/* ---------- Developer Dashboard ---------- */}
+        <Route
+          path="/developer"
+          element={
+            <ProtectedRoute requiredRole="developer">
+              <DeveloperSideNav />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<DeveloperDashboard />} />
+          <Route path="dashboard" element={<DeveloperDashboard />} />
+          <Route path="projects" element={<DeveloperProjects />} />
+          <Route path="messages" element={<DeveloperMessages />} />
+          <Route path="settings" element={<DeveloperSettings />} />
+        </Route>
 
-      {/* ---------- Standard Admin Dashboard ---------- */}
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminSideNav />
-          </ProtectedRoute>
-        }
-      >
-        {/* Redirect /admin to /admin/dashboard automatically */}
-        <Route index element={<Navigate to="dashboard" replace />} />
-        
-        <Route path="dashboard" element={<AdminDashboard />} />
-        
-        {/* ✅ AI Profile Verification (Matches SideNav) */}
-        <Route path="profile-reviews" element={<ProfileReviews />} /> 
-        
-        {/* ✅ Property Listings Approval (Matches SideNav) */}
-        <Route path="property-reviews" element={<PropertyReviews />} />
-        
-        <Route path="messages" element={<AdminMessages />} />
-        <Route path="notifications" element={<AdminNotifications />} />
-        <Route path="settings" element={<AdminSettings />} />
-      </Route>
+        {/* ---------- Admin Dashboard ---------- */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminSideNav />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          
+          {/* ✅ 1. VERIFICATIONS (Legal/Trust) */}
+          <Route path="verifications" element={<AdminVerifications />} />
+          
+          {/* ✅ 2. PROFILE REVIEWS (Quality/AI) */}
+          <Route path="profile-reviews" element={<AdminProfileReviews />} />
+          
+          {/* Property Approval */}
+          <Route path="properties" element={<PropertyReviews />} />
+          
+          <Route path="messages" element={<AdminMessages />} />
+          <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
 
-      {/* ---------- Super Admin Dashboard (CEO) ---------- */}
-      <Route
-        path="/super-admin"
-        element={
-          <ProtectedRoute requiredRole="super_admin"> 
-            <SuperAdminSideNav />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<SuperAdminDashboard />} />
-        <Route path="dashboard" element={<SuperAdminDashboard />} />
-        <Route path="users" element={<SuperAdminUsers />} />
-        <Route path="admins" element={<SuperAdminAdmins />} />
-        <Route path="properties" element={<SuperAdminProperties />} />
-        <Route path="payments" element={<SuperAdminPayments />} />
-        <Route path="messages" element={<SuperAdminMessages />} />
-        <Route path="notifications" element={<SuperAdminNotifications />} />
-        <Route path="settings" element={<SuperAdminSettings />} />
-      </Route>
+        {/* ---------- Super Admin Dashboard (CEO) ---------- */}
+        <Route
+          path="/super-admin"
+          element={
+            <ProtectedRoute requiredRole="super_admin">
+              <SuperAdminSideNav />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<SuperAdminDashboard />} />
+          <Route path="dashboard" element={<SuperAdminDashboard />} />
+          <Route path="users" element={<SuperAdminUsers />} />
+          <Route path="admins" element={<SuperAdminAdmins />} />
+          <Route path="properties" element={<SuperAdminProperties />} />
+          <Route path="payments" element={<SuperAdminPayments />} />
+          <Route path="messages" element={<SuperAdminMessages />} />
+          <Route path="notifications" element={<SuperAdminNotifications />} />
+          <Route path="settings" element={<SuperAdminSettings />} />
+        </Route>
 
-      {/* ---------- 404 ---------- */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        {/* ---------- 404 ---------- */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
   );
 }
 

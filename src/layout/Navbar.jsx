@@ -2,9 +2,21 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FaChevronDown, FaBell } from "react-icons/fa"; 
 import style from "../styles/navbar.module.css";
-import logo from "../assets/logoImg.png";
-import defaultProfile from "../assets/person.png";
+
+// ✅ Import both logos
+import logoWhite from "../assets/logoImg.png"; // White logo for transparent headers
+import logoDark from "../assets/mainLogo.png";  // Brand color logo for white headers
+
 import { useAuth } from "../context/AuthProvider.jsx";
+
+// ✅ HELPER: Avatar Color
+const getAvatarColor = (name) => {
+  if (!name) return "#09707D";
+  const colors = ["#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFC107", "#FF9800", "#FF5722", "#795548", "#607D8B"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+};
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -12,7 +24,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ Define which paths use the Transparent Navbar
+  // ✅ Define which paths use the Transparent Navbar (White Logo)
   const transparentPaths = ["/", "/sell"];
   const isTransparent = transparentPaths.includes(location.pathname);
 
@@ -22,22 +34,18 @@ const Navbar = () => {
     navigate("/"); 
   };
 
-  // ✅ Dashboard Link Logic (Fixed for Super Admin)
+  // ✅ Dashboard Link Logic
   const getDashboardLink = () => {
     if (!user) return "/";
-
-    // 1. Super Admin Check
     if (user.is_super_admin || user.role === 'superadmin' || user.role === 'super_admin') {
         return "/super-admin/dashboard";
     }
-
-    // 2. Standard Roles
     const roleMap = {
       admin: "/admin/dashboard",
       agent: "/dashboard",
       owner: "/owner",
       developer: "/developer",
-      buyer: "/buyer"
+      buyer: "/buyer/dashboard" 
     };
     return roleMap[user.role] || "/";
   };
@@ -70,7 +78,12 @@ const Navbar = () => {
       {/* Logo */}
       <div className={style.logoContainer}>
         <Link to="/">
-          <img className={style.logo} src={logo} alt="keyvia-logo" />
+          {/* ✅ DYNAMIC LOGO SWAP */}
+          <img 
+            className={style.logo} 
+            src={isTransparent ? logoWhite : logoDark} 
+            alt="keyvia-logo" 
+          />
         </Link>
       </div>
 
@@ -104,11 +117,31 @@ const Navbar = () => {
               className={style.profileSection}
               onClick={() => setDropdownOpen((prev) => !prev)}
             >
-              <img
-                src={user.avatar_url || defaultProfile} 
-                alt="profile"
-                className={style.profileImage}
-              />
+              {/* ✅ Dynamic Avatar / Initials */}
+              {user.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt="profile"
+                  className={style.profileImage}
+                />
+              ) : (
+                <div 
+                  className={style.profileImage}
+                  style={{
+                    backgroundColor: getAvatarColor(user?.name),
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    textTransform: "uppercase"
+                  }}
+                >
+                  {displayName.charAt(0)}
+                </div>
+              )}
+
               <span className={style.username}>
                 {displayName}
               </span>

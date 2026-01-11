@@ -1,0 +1,277 @@
+/* --- Global Container --- */
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f8fafc;
+    font-family: 'Inter', sans-serif;
+    padding: 20px;
+}
+
+/* --- Main Card --- */
+.onboardingCard {
+    background: white;
+    width: 100%;
+    max-width: 500px; /* Slightly wider for better spacing */
+    padding: 40px;
+    border-radius: 20px; /* Softer corners */
+    box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Progress Bar --- */
+.progressRow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 35px;
+}
+.step {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #94a3b8;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+    transition: all 0.3s ease;
+}
+.activeStep {
+    background: #09707d; color: white;
+    box-shadow: 0 4px 10px rgba(9, 112, 125, 0.3);
+}
+.line {
+    width: 50px; height: 3px; background: #f1f5f9; margin: 0 5px;
+    border-radius: 2px;
+}
+
+/* --- Header Section --- */
+.iconHeader {
+    background: #f0fdff;
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    color: #09707d;
+}
+
+.stepContent h2 {
+    margin: 0 0 8px 0;
+    font-size: 26px;
+    color: #0f172a;
+    font-weight: 800;
+}
+.stepContent p {
+    margin: 0 0 30px 0;
+    color: #64748b;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+/* --- Inputs --- */
+.inputGroup {
+    text-align: left;
+    margin-bottom: 24px;
+    position: relative;
+}
+.inputGroup label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.inputGroup input {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    font-size: 16px;
+    outline: none;
+    transition: 0.2s;
+    background: #fff;
+    color: #1e293b;
+}
+.inputGroup input:focus {
+    border-color: #09707d;
+    box-shadow: 0 0 0 4px rgba(9, 112, 125, 0.1);
+}
+
+/* --- Phone Specific --- */
+.phoneRow {
+    display: flex; gap: 12px;
+}
+.dialCode {
+    padding: 14px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-weight: 700;
+    min-width: 70px;
+    display: flex; align-items: center; justify-content: center;
+    color: #475569;
+}
+
+/* --- Dropdown --- */
+.dropdownTrigger {
+    padding: 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer;
+    background: white;
+    font-size: 16px; color: #1e293b;
+}
+.dropdownTrigger img { width: 22px; height: 16px; object-fit: cover; border-radius: 3px; margin-right: 10px; }
+
+.dropdownMenu {
+    position: absolute;
+    top: 100%; left: 0;
+    background: white;
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+    margin-top: 8px;
+    z-index: 100;
+    max-height: 280px;
+    overflow-y: auto;
+}
+.dropdownMenu input {
+    border: none; border-bottom: 1px solid #f1f5f9; border-radius: 12px 12px 0 0;
+}
+.dropdownMenu ul { list-style: none; padding: 0; margin: 0; }
+.dropdownMenu li {
+    padding: 12px 20px;
+    cursor: pointer;
+    display: flex; gap: 12px; align-items: center;
+    font-size: 15px; color: #334155;
+    transition: background 0.1s;
+}
+.dropdownMenu li:hover { background: #f1f5f9; }
+.dropdownMenu img { width: 24px; border-radius: 3px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+/* --- OTP Input --- */
+.otpInput {
+    font-size: 36px;
+    letter-spacing: 14px;
+    text-align: center;
+    font-weight: 800;
+    border: 2px solid #e2e8f0 !important;
+    background: #f8fafc;
+    margin-bottom: 30px;
+    color: #0f172a;
+}
+.otpInput:focus {
+    border-color: #09707d !important;
+    background: #fff;
+}
+
+/* --- Info Box --- */
+.infoBox {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    padding: 18px;
+    border-radius: 12px;
+    font-size: 14px;
+    display: flex; gap: 15px;
+    text-align: left;
+    margin-bottom: 25px;
+    line-height: 1.6;
+    align-items: flex-start;
+}
+.greenIcon { color: #16a34a; flex-shrink: 0; margin-top: 2px; }
+
+/* --- Upload Box (The Main Improvement) --- */
+.uploadBox {
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    background: #f8fafc;
+    transition: all 0.3s ease;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.uploadBox:hover {
+    border-color: #09707d;
+    background: #f0fdff;
+    transform: translateY(-2px);
+}
+
+.uploadBox svg {
+    transition: transform 0.3s;
+}
+.uploadBox:hover svg {
+    transform: scale(1.1);
+}
+
+.uploadBox span {
+    font-size: 14px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* Read Only Field (Region) */
+.readOnlyField {
+    background: #f1f5f9;
+    padding: 12px;
+    border-radius: 8px;
+    color: #64748b;
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* --- Buttons --- */
+.primaryBtn {
+    width: 100%;
+    padding: 16px;
+    background: #09707d;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 15px;
+    box-shadow: 0 4px 15px rgba(9, 112, 125, 0.25);
+}
+.primaryBtn:hover {
+    background: #075963;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(9, 112, 125, 0.35);
+}
+.primaryBtn:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.textBtn {
+    background: none; border: none;
+    color: #64748b;
+    margin-top: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+.textBtn:hover { color: #09707d; text-decoration: underline; }

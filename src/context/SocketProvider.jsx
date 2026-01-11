@@ -1,4 +1,3 @@
-// src/context/SocketProvider.jsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthProvider.jsx";
@@ -15,31 +14,38 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     if (!user) return;
 
+    // Initialize Socket Connection
     const newSocket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
       auth: { token: localStorage.getItem("accessToken") },
-      transports: ["websocket"],  // improve stability
+      transports: ["websocket"], // Forces WebSocket only for better performance
+      reconnection: true,
+      reconnectionAttempts: 5,
     });
 
     // -------------------------
-    // CONNECT
+    // CONNECT EVENTS
     // -------------------------
     newSocket.on("connect", () => {
       console.log("🔌 Socket connected:", newSocket.id);
 
-      // Existing role logic
+      // Join rooms based on role
       if (user.role === "agent") {
         newSocket.emit("join_agent_room", { agent_id: user.unique_id });
-        console.log("Agent connected to socket:", user.unique_id);
-      }
-
-      if (user.role === "admin") {
+        console.log(`Agent ${user.unique_id} joined agent room`);
+      } else if (user.role === "admin") {
         newSocket.emit("join_admins");
-        console.log("Admin connected to socket");
+        console.log("Admin joined admin room");
+      } else {
+        // Buyers and Owners just connect; specific chats are joined dynamically in Messages.jsx
+        console.log(`${user.role} connected:`, user.unique_id);
       }
+      
+      // Announce user is online globally
+      newSocket.emit("user_online", { userId: user.unique_id });
     });
 
     // -------------------------
-    // EXISTING LISTING EVENTS
+    // LISTING ALERTS (Global)
     // -------------------------
     newSocket.on("listing_status_update", ({ listing }) => {
       toast.info(
@@ -48,51 +54,50 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("new_listing_submitted", ({ listing }) => {
-      toast.success(`New listing pending: ${listing.title}`);
+      if (user.role === "admin") {
+        toast.success(`New listing pending review: ${listing.title}`);
+      }
     });
 
     // -------------------------
-// REAL-TIME MESSAGE RECEIVED
-// -------------------------
-newSocket.on("receive_message", (msg) => {
-  console.log("📩 New message:", msg);
-
-  // Dispatch globally so Messages.jsx receives it
-  window.dispatchEvent(
-    new CustomEvent("global_new_message", { detail: msg })
-  );
-});
-
-
-
+    // GLOBAL MESSAGE NOTIFICATION
     // -------------------------
-    // TYPING INDICATOR
-    // -------------------------
-    newSocket.on("typing_indicator", (userId) => {
-      console.log("✏️ Someone typing:", userId);
-
-      // ChatWindow will hook into this event
+    newSocket.on("receive_message", (data) => {
+      // Only show toast if user is NOT on the messages page
+      if (!window.location.pathname.includes("/messages")) {
+        // We assume 'data.message' holds the text
+        toast.info(`New Message: ${data.message.substring(0, 30)}${data.message.length > 30 ? "..." : ""}`, {
+            onClick: () => window.location.href = "/dashboard/messages" // Or appropriate route based on role
+        });
+      }
     });
 
     // -------------------------
-    // DISCONNECT
+    // CONNECTION ERRORS
     // -------------------------
-    newSocket.on("disconnect", () => {
-      console.log("❌ Socket disconnected");
+    newSocket.on("connect_error", (err) => {
+      console.error("Socket connection error:", err.message);
+    });
+
+    newSocket.on("disconnect", (reason) => {
+      console.log("❌ Socket disconnected:", reason);
     });
 
     setSocket(newSocket);
 
+    // Cleanup on unmount
     return () => {
+      newSocket.off("connect");
+      newSocket.off("receive_message");
+      newSocket.off("listing_status_update");
       newSocket.disconnect();
     };
-  }, [user]);
+  }, [user]); // Re-run if user changes (login/logout)
 
-  // Helper to join a conversation room
+  // Helper function to force join a specific chat room
   const joinConversation = (conversationId) => {
     if (socket) {
       socket.emit("join_conversation", { conversationId });
-      console.log("Joined conversation room:", conversationId);
     }
   };
 

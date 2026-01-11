@@ -1,30 +1,25 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import { getNames } from "country-list";
 import Swal from "sweetalert2";
 import client from "../api/axios"; 
 import styles from "../styles/profile.module.css"; 
 import { useAuth } from "../context/AuthProvider.jsx";
 import { toast } from 'react-toastify';
-// ✅ ADDED 'Clock' to imports below
 import {
   User, Mail, Phone, MapPin, Building, FileText, Briefcase, Globe,
   Camera, Save, X, Instagram, Facebook, Linkedin, Twitter, Info,
-  Share2, CheckCircle2, ShieldAlert, AlertTriangle, Sparkles, RefreshCw, Loader2, Clock
+  Share2, CheckCircle2, ShieldAlert, AlertTriangle, Sparkles, RefreshCw, Loader2, Clock, UploadCloud
 } from "lucide-react";
+
+// ✅ Import Countries & Cities Logic
+import { COUNTRIES } from "../data/countries"; 
+import { City } from 'country-state-city'; 
 
 // ✅ HELPER: Generate Consistent Color
 const getAvatarColor = (name) => {
   if (!name) return "#09707D"; 
-  const colors = [
-    "#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5",
-    "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50",
-    "#8BC34A", "#CDDC39", "#FFC107", "#FF9800", "#FF5722", 
-    "#795548", "#607D8B"
-  ];
+  const colors = ["#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFC107", "#FF9800", "#FF5722", "#795548", "#607D8B"];
   let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
 };
 
@@ -32,31 +27,12 @@ const OwnerProfile = () => {
   const { user, updateUser } = useAuth();
   const fileInputRef = useRef(null);
 
-  // ------------------ Countries ------------------
-  const countries = useMemo(() => {
-    const extras = ["Taiwan", "Kosovo"];
-    return Array.from(new Set([...getNames(), ...extras])).sort((a, b) =>
-      a.localeCompare(b)
-    );
-  }, []);
-
   // ------------------ Form State ------------------
   const [form, setForm] = useState({
-    username: "",
-    full_name: user?.name || "",
-    email: user?.email || "",
-    phone: "",
-    gender: "",
-    country: "",
-    city: "",
-    bio: "",
-    company_name: "", 
-    experience: "", 
-    social_tiktok: "",
-    social_instagram: "",
-    social_facebook: "",
-    social_linkedin: "",
-    social_twitter: "",
+    username: "", full_name: user?.name || "", email: user?.email || "",
+    phone: "", gender: "", country: "", city: "", bio: "",
+    company_name: "", experience: "", 
+    social_tiktok: "", social_instagram: "", social_facebook: "", social_linkedin: "", social_twitter: "",
   });
 
   const [initialForm, setInitialForm] = useState({});
@@ -77,6 +53,11 @@ const OwnerProfile = () => {
   
   // Modals
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showUploadGuideline, setShowUploadGuideline] = useState(false);
+
+  // 🏙️ City Autocomplete State
+  const [citySuggestions, setCitySuggestions] = useState([]);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
 
   // ------------------ Fetch Profile ------------------
   const fetchProfile = async (isManualRefresh = false) => {
@@ -87,13 +68,20 @@ const OwnerProfile = () => {
       const res = await client.get("/api/profile");
       const data = res.data || {};
       
+      const validCountry = (data.country && data.country !== "Unknown") 
+                           ? data.country 
+                           : (user?.country && user.country !== "Unknown" ? user.country : "");
+
+      const validPhone = data.phone || user?.phone || "";
+
       const profileData = {
         username: data.username ?? "",
         full_name: data.full_name ?? user?.name ?? "",
         email: data.email ?? user?.email ?? "",
-        phone: data.phone ?? "",
+        phone: validPhone,
+        country: validCountry,
+        
         gender: data.gender ?? "",
-        country: data.country ?? "",
         city: data.city ?? "",
         bio: data.bio ?? "",
         company_name: data.agency_name ?? "", 
@@ -108,7 +96,6 @@ const OwnerProfile = () => {
       setForm(profileData);
       setInitialForm(profileData);
       setRemoteAvatarUrl(data.avatar_url || null);
-      
       setVerificationStatus(data.verification_status || "new");
       setRejectionReason(data.rejection_reason || "");
       setErrors({});
@@ -116,8 +103,8 @@ const OwnerProfile = () => {
       updateUser({
         name: profileData.full_name,
         avatar_url: data.avatar_url || null,
-        phone: profileData.phone,
-        country: profileData.country
+        phone: validPhone,
+        country: validCountry
       });
 
       if (isManualRefresh) toast.success("Status refreshed!");
@@ -133,25 +120,79 @@ const OwnerProfile = () => {
 
   useEffect(() => { fetchProfile(); }, []);
 
+  // =========================================================
+  // 🏙️ DEBUGGED CITY LOGIC
+  // =========================================================
+
+  // 1. Get Country Code (FIXED: Handles Lowercase ISOs)
+  const currentCountryCode = useMemo(() => {
+      const c = COUNTRIES.find(c => c.name === form.country);
+      
+      // Get the code (e.g., "ng" or "us")
+      const rawCode = c ? (c.iso || c.code || c.iso2) : null;
+
+      // CRITICAL FIX: Convert "ng" -> "NG" because the library requires Uppercase
+      return rawCode ? rawCode.toUpperCase() : null;
+  }, [form.country]);
+
+  // 2. Load Cities
+  const citiesOfCountry = useMemo(() => {
+      if (!currentCountryCode) {
+          console.log("❌ No Country Code found, cannot load cities.");
+          return [];
+      }
+      const cities = City.getCitiesOfCountry(currentCountryCode);
+      console.log(`✅ Loaded ${cities.length} cities for ${currentCountryCode}`);
+      return cities;
+  }, [currentCountryCode]);
+
+  // 3. Filter
+  const handleCityChange = (e) => {
+      const val = e.target.value;
+      setForm(prev => ({ ...prev, city: val }));
+
+      // If empty, hide dropdown
+      if (!val || val.length === 0) {
+          setShowCityDropdown(false);
+          return;
+      }
+
+      // Filter cities
+      const matches = citiesOfCountry.filter(c => 
+          c.name.toLowerCase().startsWith(val.toLowerCase())
+      ).slice(0, 10);
+      
+      console.log(`🔎 Typing "${val}" - Found ${matches.length} matches`); // DEBUG
+
+      setCitySuggestions(matches);
+      setShowCityDropdown(matches.length > 0);
+  };
+
+  const selectCity = (cityName) => {
+      setForm(prev => ({...prev, city: cityName}));
+      setShowCityDropdown(false);
+  };
+
   // ------------------ Avatar Logic ------------------
+  const handleCameraClick = () => setShowUploadGuideline(true);
+
+  const handleProceedToUpload = () => {
+    setShowUploadGuideline(false);
+    if(fileInputRef.current) fileInputRef.current.click();
+  };
+
   const onSelectAvatar = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (!file.type.startsWith("image/")) {
       toast.error("Please select a valid image file.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5MB.");
-      return;
-    }
-
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
   };
 
-  // ------------------ Form Handlers ------------------
+  // ------------------ Save Logic ------------------
   const onChange = (e) => {
     const { id, value } = e.target;
     setForm((prev) => ({ ...prev, [id]: value }));
@@ -160,26 +201,19 @@ const OwnerProfile = () => {
   const validate = () => {
     const e = {};
     if (!form.username.trim()) e.username = "Username is required.";
-    // Note: Full name, phone, country are locked, so we assume they are valid from onboarding
-    if (!form.city.trim()) e.city = "Required.";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  // ✅ Handle Save Request (With Warning)
   const handleSaveRequest = async () => {
     if (!validate()) {
         toast.error("Please fill in required fields.");
         return;
     }
-
-    // New User Validation
     if (verificationStatus === 'new' && !avatarFile && !remoteAvatarUrl) {
         toast.error("Please upload a profile photo to complete registration.");
         return;
     }
-
-    // Approved User Warning
     if (verificationStatus === 'approved') {
         const result = await Swal.fire({
             title: 'Update Profile?',
@@ -190,10 +224,8 @@ const OwnerProfile = () => {
             cancelButtonColor: '#d33',
             confirmButtonText: 'Yes, update it!'
         });
-
         if (!result.isConfirmed) return;
     }
-
     executeSave();
   };
 
@@ -203,17 +235,13 @@ const OwnerProfile = () => {
       if (avatarFile) {
         const formData = new FormData();
         formData.append("avatar", avatarFile);
-        
         const avatarRes = await client.put("/api/profile/avatar", formData);
-        const newAvatarUrl = avatarRes.data.avatar_url;
-        
-        setRemoteAvatarUrl(newAvatarUrl);
+        setRemoteAvatarUrl(avatarRes.data.avatar_url);
         setAvatarFile(null);
-        updateUser({ avatar_url: newAvatarUrl });
+        updateUser({ avatar_url: avatarRes.data.avatar_url });
       }
 
       const payload = { ...form, agency_name: form.company_name };
-
       const res = await client.put("/api/profile", payload);
       const updatedProfile = res.data.profile;
       
@@ -225,10 +253,8 @@ const OwnerProfile = () => {
       setForm((f) => ({ ...f, ...mappedProfile }));
       setInitialForm((f) => ({ ...f, ...mappedProfile }));
       setEditing(false);
-      setVerificationStatus('pending'); // Optimistic Update
-
+      setVerificationStatus('pending'); 
       updateUser({ name: updatedProfile.full_name });
-
       toast.success("Submitted for review!", { icon: "🚀" });
 
     } catch (err) {
@@ -247,53 +273,6 @@ const OwnerProfile = () => {
     setForm(initialForm);
   };
 
-  // ✅ Render Dynamic Avatar
-  const renderAvatar = () => {
-    const source = avatarPreview || remoteAvatarUrl;
-    
-    if (source) {
-        return (
-            <img 
-                src={source} 
-                alt="Avatar" 
-                className={styles.avatar} 
-                onClick={() => setShowImageModal(true)} 
-            />
-        );
-    }
-
-    const name = form.full_name?.trim() || "User";
-    const nameParts = name.split(" ");
-    let initials = "";
-    if (nameParts.length > 1) {
-        initials = (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase();
-    } else {
-        initials = nameParts[0][0]?.toUpperCase() || "U";
-    }
-    const bgColor = getAvatarColor(name);
-
-    return (
-        <div 
-            className={styles.avatar} 
-            onClick={() => setShowImageModal(true)}
-            style={{
-                backgroundColor: bgColor,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontSize: '48px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                objectFit: 'cover'
-            }}
-        >
-            {initials}
-        </div>
-    );
-  };
-
-  // ------------------ Render Input Helper ------------------
   const renderInput = (id, label, icon, type = "text", disabled = false) => (
     <div className={styles.inputGroup}>
       <label htmlFor={id} className={styles.label}>
@@ -302,21 +281,83 @@ const OwnerProfile = () => {
       <input
         id={id}
         type={type}
-        className={`${styles.input} ${errors[id] ? styles.errorBorder : ""}`}
+        className={`${styles.input} ${errors[id] ? styles.errorBorder : ""} ${disabled ? styles.inputDisabled : ""}`}
         value={form[id] || ""}
         onChange={onChange}
-        disabled={!editing || disabled} // Use the passed 'disabled' prop
+        disabled={!editing || disabled}
         placeholder={!editing ? "" : `Enter ${label}`}
       />
       {errors[id] && <span className={styles.errorText}>{errors[id]}</span>}
     </div>
   );
 
+  const renderCountryInput = () => {
+      const countryObj = COUNTRIES.find(c => c.name === form.country);
+      const flag = countryObj?.flag || "🌍"; 
+      const displayCountry = form.country || "Select via Edit";
+
+      return (
+        <div className={styles.inputGroup}>
+            <label className={styles.label}><Globe size={16}/> Country</label>
+            <div className={`${styles.input} ${styles.inputDisabled}`} style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <img src={flag} alt="" style={{width: 20, borderRadius: 2}} />
+                <span>{displayCountry}</span>
+            </div>
+        </div>
+      );
+  };
+
+  const renderCityInput = () => (
+      <div className={styles.inputGroup} style={{position: 'relative'}}>
+          <label htmlFor="city" className={styles.label}><MapPin size={16}/> City</label>
+          <input
+            id="city"
+            className={`${styles.input} ${errors.city ? styles.errorBorder : ""}`}
+            value={form.city || ""}
+            onChange={handleCityChange}
+            disabled={!editing}
+            placeholder={!editing ? "" : "Start typing city..."}
+            autoComplete="off"
+            onFocus={() => editing && form.city && handleCityChange({target: {value: form.city}})}
+            onBlur={() => setTimeout(() => setShowCityDropdown(false), 200)}
+          />
+          {errors.city && <span className={styles.errorText}>{errors.city}</span>}
+          
+          {showCityDropdown && editing && (
+              <div className={styles.cityDropdown}>
+                  {citySuggestions.map((c) => (
+                      <div key={c.name} className={styles.cityOption} onClick={() => selectCity(c.name)}>
+                          {c.name}
+                      </div>
+                  ))}
+                  {citySuggestions.length === 0 && (
+                      <div className={styles.cityOption} style={{color: '#999', cursor: 'default'}}>No cities found</div>
+                  )}
+              </div>
+          )}
+      </div>
+  );
+
+  const renderAvatar = () => {
+    const source = avatarPreview || remoteAvatarUrl;
+    if (source) {
+        return <img src={source} alt="Avatar" className={styles.avatar} onClick={() => setShowImageModal(true)} />;
+    }
+    const name = form.full_name?.trim() || "User";
+    const nameParts = name.split(" ");
+    let initials = nameParts.length > 1 ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase() : nameParts[0][0]?.toUpperCase() || "U";
+    const bgColor = getAvatarColor(name);
+    return (
+        <div className={styles.avatar} onClick={() => setShowImageModal(true)} style={{backgroundColor: bgColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '48px', fontWeight: 'bold', cursor: 'pointer', objectFit: 'cover'}}>
+            {initials}
+        </div>
+    );
+  };
+
   if (loading) {
       return (
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-              <style>{`@keyframes spin { 100% { transform: rotate(360deg); } } .custom-spinner { animation: spin 1s linear infinite; }`}</style>
-              <Loader2 size={50} color="#09707D" className="custom-spinner" />
+              <Loader2 size={50} color="#09707D" className="animate-spin" />
               <p style={{ marginTop: '15px', color: '#09707D', fontSize: '18px', fontWeight: '600' }}>Loading profile...</p>
           </div>
       );
@@ -325,27 +366,16 @@ const OwnerProfile = () => {
   return (
     <div className={styles.container}>
       
-      {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerContent}>
             <h1>Landlord Profile</h1>
             <p>Manage your public identity & properties</p>
         </div>
         <div className={styles.headerActions}>
-             <button 
-                className={styles.refreshBtn} 
-                onClick={() => fetchProfile(true)}
-                disabled={refreshing}
-                title="Refresh Status"
-             >
+             <button className={styles.refreshBtn} onClick={() => fetchProfile(true)} disabled={refreshing} title="Refresh Status">
                 <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} /> Refresh
              </button>
-
-             <div className={`${styles.statusPill} ${
-                verificationStatus === 'approved' ? styles.statusVerified : 
-                verificationStatus === 'rejected' ? styles.statusRejected : 
-                verificationStatus === 'pending' ? styles.statusPending : ''
-             }`} style={verificationStatus === 'new' ? {display:'none'} : {}}>
+             <div className={`${styles.statusPill} ${verificationStatus === 'approved' ? styles.statusVerified : verificationStatus === 'rejected' ? styles.statusRejected : verificationStatus === 'pending' ? styles.statusPending : ''}`} style={verificationStatus === 'new' ? {display:'none'} : {}}>
                 {verificationStatus === 'approved' && <><CheckCircle2 size={16} /> APPROVED</>}
                 {verificationStatus === 'pending' && <><Clock size={16} /> PENDING</>}
                 {verificationStatus === 'rejected' && <><AlertTriangle size={16} /> REJECTED</>}
@@ -353,7 +383,6 @@ const OwnerProfile = () => {
         </div>
       </div>
 
-      {/* --- Status Banners --- */}
       {(verificationStatus === 'new' || !verificationStatus) && (
         <div className={styles.actionBox}>
             <Sparkles size={24} className={styles.actionIcon} />
@@ -363,60 +392,44 @@ const OwnerProfile = () => {
             </div>
         </div>
       )}
-
       {verificationStatus === 'pending' && (
         <div className={styles.infoBox}>
             <Clock size={24} className={styles.infoIcon} />
-            <div>
-                <strong>Profile Under Review</strong>
-                <p>Thanks for submitting! Our team is reviewing your details.</p>
-            </div>
+            <div><strong>Profile Under Review</strong><p>Thanks for submitting! Our team is reviewing your details.</p></div>
         </div>
       )}
-
       {verificationStatus === 'rejected' && (
         <div className={styles.errorBox}>
             <ShieldAlert size={24} className={styles.errorIcon} />
-            <div>
-                <strong>Verification Rejected:</strong> 
-                <p>{rejectionReason || "Please fix your profile details."}</p>
-            </div>
+            <div><strong>Verification Rejected:</strong> <p>{rejectionReason || "Please fix your profile details."}</p></div>
         </div>
       )}
 
-      {/* Main Layout */}
       <div className={styles.layout}>
-        
-        {/* --- LEFT SIDEBAR (Avatar & Quick Info) --- */}
         <div className={styles.sidebar}>
           <div className={styles.avatarCard}>
             <div className={styles.avatarWrapper}>
                 {renderAvatar()}
                 {editing && (
-                    <label className={styles.cameraBtn}>
-                        <Camera size={20} />
-                        <input type="file" hidden accept="image/*" onChange={onSelectAvatar} />
-                    </label>
+                    <button className={styles.cameraBtn} onClick={handleCameraClick} type="button">
+                        <Camera size={18} />
+                    </button>
                 )}
+                <input type="file" hidden accept="image/*" ref={fileInputRef} onChange={onSelectAvatar} />
             </div>
             
-            <h2 className={styles.userName}>{form.full_name || "Landlord Name"}</h2>
-            <p className={styles.userRole}>Property Owner</p>
-            
-            <div className={styles.locationTag}>
-                <MapPin size={14} />
-                {form.city || "City"}, {form.country || "Country"}
+            <div className={styles.userInfo}>
+                <h2 className={styles.userName}>{form.full_name || "Landlord Name"}</h2>
+                <p className={styles.userRole}>Property Owner</p>
+                <div className={styles.locationTag}>
+                    <MapPin size={14} /> {form.city || "City"}, {form.country || "Country"}
+                </div>
             </div>
 
             <div className={styles.actionButtons}>
-                <button 
-                    className={editing ? styles.cancelBtn : styles.editBtn} 
-                    onClick={editing ? onCancel : () => setEditing(true)}
-                    disabled={saving}
-                >
+                <button className={editing ? styles.cancelBtn : styles.editBtn} onClick={editing ? onCancel : () => setEditing(true)} disabled={saving}>
                     {editing ? <><X size={18} /> Cancel</> : <><Briefcase size={18} /> Edit Profile</>}
                 </button>
-
                 {editing && (
                     <button className={styles.saveBtn} onClick={handleSaveRequest} disabled={saving}>
                         {saving ? "Saving..." : <><Save size={18} /> {verificationStatus === 'new' ? "Submit" : "Update"}</>}
@@ -426,120 +439,86 @@ const OwnerProfile = () => {
           </div>
         </div>
 
-        {/* --- RIGHT CONTENT (Tabs & Forms) --- */}
         <div className={styles.content}>
             <div className={styles.tabs}>
-                {[
-                    { id: "profile", label: "Overview", icon: <User size={18}/> },
-                    { id: "about", label: "About & Bio", icon: <Info size={18}/> },
-                    { id: "socials", label: "Social Media", icon: <Share2 size={18}/> },
-                ].map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`${styles.tab} ${activeTab === tab.id ? styles.activeTab : ""}`}
-                    >
+                {[{ id: "profile", label: "Overview", icon: <User size={18}/> }, { id: "about", label: "About & Bio", icon: <Info size={18}/> }, { id: "socials", label: "Social Media", icon: <Share2 size={18}/> }].map(tab => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`${styles.tab} ${activeTab === tab.id ? styles.activeTab : ""}`}>
                         {tab.icon} {tab.label}
                     </button>
                 ))}
             </div>
 
             <div className={styles.tabContent}>
-                {/* --- TAB: PROFILE --- */}
                 {activeTab === "profile" && (
                     <div className={styles.formGrid}>
                         {renderInput("username", "Username", <User size={16}/>)}
-                        
-                        {/* ✅ LOCKED FIELDS: Full Name, Email, Phone */}
                         {renderInput("full_name", "Full Name", <FileText size={16}/>, "text", true)}
                         {renderInput("email", "Email Address", <Mail size={16}/>, "email", true)}
+                        {renderCountryInput()}
                         {renderInput("phone", "Phone Number", <Phone size={16}/>, "tel", true)}
                         
                         {renderInput("company_name", "Company Name", <Building size={16}/>)}
                         {renderInput("experience", "Years as Landlord", <Briefcase size={16}/>)}
-                        {renderInput("city", "City", <MapPin size={16}/>)}
                         
-                        {/* ✅ LOCKED COUNTRY DROPDOWN */}
-                        <div className={styles.inputGroup}>
-                            <label className={styles.label}><Globe size={16}/> Country</label>
-                            <select 
-                                id="country" 
-                                className={styles.select} 
-                                value={form.country} 
-                                onChange={onChange}
-                                disabled={true} // 🔒 Always Disabled
-                            >
-                                <option value="">Select Country</option>
-                                {countries.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                            {errors.country && <span className={styles.errorText}>{errors.country}</span>}
-                        </div>
-
+                        {renderCityInput()}
+                        
                         <div className={styles.inputGroup}>
                             <label className={styles.label}><User size={16}/> Gender</label>
-                            <select 
-                                id="gender" 
-                                className={styles.select} 
-                                value={form.gender} 
-                                onChange={onChange}
-                                disabled={!editing}
-                            >
-                                <option value="">Select Gender</option>
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                                <option value="Prefer not to say">Prefer not to say</option>
+                            <select id="gender" className={styles.select} value={form.gender} onChange={onChange} disabled={!editing}>
+                                <option value="">Select Gender</option><option value="Male">Male</option><option value="Female">Female</option>
                             </select>
                         </div>
                     </div>
                 )}
 
-                {/* --- TAB: ABOUT --- */}
                 {activeTab === "about" && (
                     <div className={styles.inputGroupFull}>
-                        <label htmlFor="bio" className={styles.label}>
-                            <Info size={16}/> Bio / About Me
-                        </label>
-                        <textarea
-                            id="bio"
-                            rows={8}
-                            className={styles.textarea}
-                            value={form.bio}
-                            onChange={onChange}
-                            disabled={!editing}
-                            placeholder="Tell potential tenants about yourself or your property management style..."
-                        />
+                        <label className={styles.label}><Info size={16}/> Bio / About Me</label>
+                        <textarea rows={8} className={styles.textarea} value={form.bio} onChange={onChange} disabled={!editing} placeholder="Tell potential tenants about yourself..." />
                     </div>
                 )}
 
-                {/* --- TAB: SOCIALS --- */}
                 {activeTab === "socials" && (
                     <div className={styles.socialGrid}>
                         {renderInput("social_instagram", "Instagram", <Instagram size={16}/>)}
                         {renderInput("social_facebook", "Facebook", <Facebook size={16}/>)}
                         {renderInput("social_linkedin", "LinkedIn", <Linkedin size={16}/>)}
                         {renderInput("social_twitter", "Twitter / X", <Twitter size={16}/>)}
-                        {renderInput("social_tiktok", "TikTok", <Share2 size={16}/>)}
                     </div>
                 )}
             </div>
         </div>
       </div>
 
-      {/* Image Modal */}
       {showImageModal && (
         <div className={styles.modalOverlay} onClick={() => setShowImageModal(false)}>
             <div className={styles.modalContent}>
-                {(avatarPreview || remoteAvatarUrl) ? (
-                    <img src={avatarPreview || remoteAvatarUrl} alt="Full" />
-                ) : (
-                    <div style={{ width: '100%', height: '100%', minHeight: '300px', backgroundColor: getAvatarColor(form.full_name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '100px', fontWeight: 'bold', borderRadius: '8px' }}>
-                        {(() => {
-                            const n = form.full_name?.trim() || "User";
-                            const parts = n.split(" ");
-                            return parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : parts[0][0]?.toUpperCase();
-                        })()}
-                    </div>
-                )}
+                {(avatarPreview || remoteAvatarUrl) ? <img src={avatarPreview || remoteAvatarUrl} alt="Full" /> : null}
+            </div>
+        </div>
+      )}
+
+      {showUploadGuideline && (
+        <div className={styles.modalOverlay}>
+            <div className={styles.guidelineModal}>
+                <div className={styles.guidelineHeader}>
+                    <AlertTriangle size={32} className={styles.guidelineIcon} />
+                    <h3>Photo Upload Rules</h3>
+                </div>
+                <div className={styles.guidelineBody}>
+                    <p>To verify your identity, you must upload a valid photo.</p>
+                    <ul className={styles.rulesList}>
+                        <li>✅ <strong>Real Photo:</strong> A clear picture of yourself.</li>
+                        <li>✅ <strong>Professional:</strong> Straight face, decent dressing.</li>
+                        <li>❌ <strong>No Animations:</strong> No cartoons, anime, or avatars.</li>
+                    </ul>
+                </div>
+                <div className={styles.guidelineActions}>
+                    <button className={styles.cancelBtn} onClick={() => setShowUploadGuideline(false)}>Cancel</button>
+                    <button className={styles.confirmBtn} onClick={handleProceedToUpload}>
+                        <UploadCloud size={18} /> Select Photo
+                    </button>
+                </div>
             </div>
         </div>
       )}

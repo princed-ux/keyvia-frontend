@@ -6,27 +6,29 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import "./index.css";
 import App from "./App";
+
+// --- Context Providers ---
 import { AuthProvider } from "./context/AuthProvider";
 import { SocketProvider } from "./context/SocketProvider.jsx";
 import { LoadingProvider } from "./context/LoadingContext"; 
-import { CallProvider } from "./context/CallProvider"; // ✅ IMPORT CALL PROVIDER
+import { CallProvider } from "./context/CallProvider"; 
+import { NetworkStatusProvider } from "./context/NetworkStatusProvider"; // ✅ IMPORT NEW PROVIDER
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <LoadingProvider> 
-      <BrowserRouter>
-        <AuthProvider>
-          <SocketProvider>
-            {/* ✅ WRAP APP WITH CALL PROVIDER */}
-            {/* Must be inside SocketProvider because it uses the socket */}
-            <CallProvider>
+      {/* ✅ ADD GLOBAL NETWORK CHECK HERE */}
+      <NetworkStatusProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <SocketProvider>
+              <CallProvider>
                 <App />
-                <ToastContainer
+                {/* <ToastContainer
                   position="top-right"
                   autoClose={3500}
                   hideProgressBar={false}
@@ -36,11 +38,12 @@ createRoot(document.getElementById("root")).render(
                   pauseOnFocusLoss
                   draggable
                   pauseOnHover
-                />
-            </CallProvider>
-          </SocketProvider>
-        </AuthProvider>
-      </BrowserRouter>
+                /> */}
+              </CallProvider>
+            </SocketProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </NetworkStatusProvider>
     </LoadingProvider>
   </React.StrictMode>
 );

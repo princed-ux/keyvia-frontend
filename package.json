@@ -47,6 +47,7 @@
     "simple-peer": "^9.11.1",
     "socket.io-client": "^4.8.1",
     "sweetalert2": "^11.22.5",
+    "use-places-autocomplete": "^4.0.1",
     "use-supercluster": "^1.2.0",
     "util": "^0.12.5"
   },

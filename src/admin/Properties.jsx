@@ -149,15 +149,17 @@ const Properties = () => {
     return [];
   };
 
+  // ✅ FIXED: Explicitly handle 'owner' as 'Landlord'
   const getRoleLabel = (role) => {
-      if (!role) return "Property Landlord"; 
-      if (role.toLowerCase() === 'agent') return "Real Estate Agent";
+      if (!role) return "Property Landlord"; // Default fallback
+      const r = role.toLowerCase();
+      if (r === 'agent') return "Real Estate Agent";
+      if (r === 'owner') return "Property Landlord"; // Explicit Owner check
       return "Property Landlord"; 
   };
 
   // ✅ Helper to format category title
   const getCategoryLabel = (l) => {
-      // If category is set, use it. If empty, use listing_type (Rent/Sale)
       const cat = l.category || l.listing_type || "Property";
       return cat.charAt(0).toUpperCase() + cat.slice(1);
   };
@@ -304,7 +306,6 @@ const Properties = () => {
                  
                  <div className={style.infoItem}>
                     <label>Category</label>
-                    {/* ✅ FIX: Fallback to Listing Type */}
                     <p>{getCategoryLabel(selected)}</p>
                  </div>
                  
@@ -325,7 +326,6 @@ const Properties = () => {
                  
                  <div className={style.infoItem}>
                     <label>Lot Size</label>
-                    {/* ✅ FIX: Simplified Lot Size */}
                     <p>{selected.lot_size ? `${selected.lot_size} sqft` : "N/A"}</p>
                  </div>
                  
@@ -372,7 +372,7 @@ const Properties = () => {
               </div>
 
               <div className={style.agentCard}>
-                <img src={selected.agent?.avatar_url || "/person-placeholder.png"} className={style.agentAvatarLarge} alt="Agent" />
+                <img src={selected.agent?.avatar_url || "/person-placeholder.png"} className={style.agentAvatarLarge} alt="Profile" />
                 <div className={style.agentInfo}>
                   <h4>{selected.agent?.full_name}</h4>
                   <p style={{margin:'0', fontSize:'0.8rem', color:'#64748b'}}>{getRoleLabel(selected.agent?.role)}</p>
@@ -455,7 +455,7 @@ const Properties = () => {
                                     <p style={{margin: '0', color: '#6b7280', fontSize: '0.9rem'}}>{getRoleLabel(selected.agent?.role)}</p>
                                 </div>
                             </div>
-                            <button style={{width: '100%', padding: '12px', background: '#09707d', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'not-allowed', opacity: '0.8'}}>Contact Agent</button>
+                            <button style={{width: '100%', padding: '12px', background: '#09707d', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'not-allowed', opacity: '0.8'}}>Contact {getRoleLabel(selected.agent?.role).split(' ')[1]}</button>
                         </div>
                     </div>
                 </div>

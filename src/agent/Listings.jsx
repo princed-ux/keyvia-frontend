@@ -6,13 +6,13 @@ import {
   Plus, Edit, Trash2, MapPin, Home, RefreshCcw, X, CreditCard,
   Eye, AlertTriangle, ChevronLeft, ChevronRight, Bed, Bath, Square, Loader2, CheckCircle, Lock,
   Calendar, Hash, Clock, XCircle 
-} from "lucide-react"; // Added Icons
+} from "lucide-react"; 
 
 import client from "../api/axios"; 
 import { useAuth } from "../context/AuthProvider";
 import PropertyForm from "../common/PropertyForm";
 import style from "../styles/Listings.module.css"; 
-import dayjs from "dayjs"; // Assuming dayjs is installed
+import dayjs from "dayjs"; 
 
 export default function Listings() {
   const { user, updateUser } = useAuth(); 
@@ -50,11 +50,19 @@ export default function Listings() {
 
       setListings(Array.isArray(listingsRes.data) ? listingsRes.data : []);
       
-      const serverStatus = profileRes.data.verification_status;
-      setLocalStatus(serverStatus);
+      const serverData = profileRes.data;
+      setLocalStatus(serverData.verification_status);
 
-      if (profileRes.data && updateUser) {
-          updateUser(profileRes.data); 
+      // ✅ KEY FIX: Preserve existing user data (Role, Token, etc.)
+      if (updateUser && serverData) {
+          updateUser({ 
+              ...user, // 👈 Keep existing state (role, token, id)
+              verification_status: serverData.verification_status,
+              full_name: serverData.full_name || user.full_name,
+              avatar_url: serverData.avatar_url || user.avatar_url,
+              // Explicitly ensure role doesn't get overwritten unless server sends it
+              role: serverData.role || user.role 
+          }); 
       }
 
       if(isRefresh) setTimeout(() => setRefreshing(false), 800); 
@@ -210,25 +218,37 @@ export default function Listings() {
       }
       if (editingListing?.photos?.length) formData.append("existingPhotos", JSON.stringify(editingListing.photos));
       
-      // ✅ Force status to 'pending' on update
+      // ✅ Force status to 'pending' on update (handled by backend too, but safe here)
       if (product_id) {
           formData.append('status', 'pending');
       }
 
       const url = product_id ? `/api/listings/${product_id}` : `/api/listings`;
       const method = product_id ? "put" : "post";
+      
+      // 🚀 ASYNC SUBMIT (Returns immediately while processing happens on server)
       const res = await client[method](url, formData, { headers: { "Content-Type": "multipart/form-data" } });
       const data = res.data.listing || res.data;
 
+      // ⚡ Optimistic UI Update
       setListings((prev) => {
           if (product_id) return prev.map(l => l.product_id === product_id ? { ...data, status: 'pending' } : l);
-          return [data, ...prev];
+          return [data, ...prev]; // Add new listing to top immediately
       });
+      
       setShowForm(false);
-      Swal.fire({ icon: "success", title: "Success!", text: product_id ? "Listing updated and submitted for review." : "Listing created.", confirmButtonColor: "#09707d" });
+      
+      Swal.fire({ 
+          icon: "success", 
+          title: "Listing Submitted!", 
+          text: "Your listing is processing in the background. It will appear shortly.", 
+          confirmButtonColor: "#09707d",
+          timer: 3000
+      });
+
     } catch (err) {
       console.error(err);
-      Swal.fire("Error", "Failed to save listing.", "error");
+      Swal.fire("Error", "Failed to save listing. Please try again.", "error");
     }
   };
 
@@ -302,16 +322,34 @@ export default function Listings() {
               {listings.map((listing) => {
                 let badgeClass = style.pending;
                 let statusText = "Pending Review";
-                if (listing.status === 'rejected') { badgeClass = style.rejected; statusText = "Verification Failed"; }
-                else if (listing.status === 'approved') { badgeClass = style.active; statusText = listing.is_active ? "Active" : "Approved (Unpaid)"; }
+                
+                // Show 'Processing' if status is processing
+                if (listing.status === 'processing') {
+                    badgeClass = style.pending; // Use pending style or add a new one
+                    statusText = "Processing Media...";
+                } else if (listing.status === 'rejected') { 
+                    badgeClass = style.rejected; 
+                    statusText = "Verification Failed"; 
+                } else if (listing.status === 'approved') { 
+                    badgeClass = style.active; 
+                    statusText = listing.is_active ? "Active" : "Approved (Unpaid)"; 
+                }
 
                 // ✅ Payment Logic: Approved + Not Active + Not Paid
                 const needsPayment = listing.status === 'approved' && !listing.is_active && listing.payment_status !== 'paid';
+                const isProcessing = listing.status === 'processing';
 
                 return (
-                  <div key={listing.product_id} className={style.card} onClick={(e) => handlePreview(listing, e)}>
+                  <div key={listing.product_id} className={style.card} onClick={(e) => !isProcessing && handlePreview(listing, e)}>
                     <div className={style.imageWrapper}>
-                      <img src={getPhotoUrl(listing, 0)} alt={listing.title} className={style.cardImage} />
+                      {isProcessing ? (
+                          <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', background:'#f1f5f9', flexDirection:'column'}}>
+                              <Loader2 className="animate-spin" size={32} color="#09707d" />
+                              <span style={{marginTop:10, color:'#64748b', fontSize:'0.85rem'}}>Optimizing...</span>
+                          </div>
+                      ) : (
+                          <img src={getPhotoUrl(listing, 0)} alt={listing.title} className={style.cardImage} />
+                      )}
                       <span className={`${style.badge} ${badgeClass}`}>{statusText}</span>
                     </div>
                     {listing.status === 'rejected' && (
@@ -328,7 +366,9 @@ export default function Listings() {
                         <span className={style.price}>{Number(listing.price).toLocaleString()} {listing.price_currency}</span>
                       </div>
                       <div className={style.actions}>
-                        {needsPayment ? (
+                        {isProcessing ? (
+                            <button className={style.actionBtn} disabled style={{opacity:0.5, cursor:'wait'}}>Processing...</button>
+                        ) : needsPayment ? (
                           <button className={`${style.actionBtn} ${style.payBtn}`} onClick={(e) => handleGoToPayment(listing, e)} disabled={busyId === listing.product_id}>
                             {busyId === listing.product_id ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />} Pay to Activate
                           </button>
@@ -449,4 +489,4 @@ export default function Listings() {
       )}
     </div>
   );
-}
+};

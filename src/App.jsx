@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
 
 // ✅ IMPORT TITLE UPDATER
-import TitleUpdater from "./components/TitleUpdater"; 
+import TitleUpdater from "./components/TitleUpdater";
 
 // ---------- Public Pages ----------
 import Home from "./pages/Home.jsx";
@@ -45,26 +45,26 @@ import PrivacySecurity from "./settings/PrivacySecurity.jsx";
 import ManageListings from "./settings/ManageListings.jsx";
 
 // ---------- Owner Pages ----------
-import OwnerSideNav from "./owner/SideNav.jsx"; 
+import OwnerSideNav from "./owner/SideNav.jsx";
 import OwnerDashboard from "./owner/Dashboard.jsx";
-import OwnerProfile from "./owner/Profile.jsx";         
-import OwnerProperties from "./owner/Properties.jsx";   
+import OwnerProfile from "./owner/Profile.jsx";
+import OwnerProperties from "./owner/Properties.jsx";
 import OwnerMessages from "./owner/Messages.jsx";
-import OwnerPayments from "./owner/Payments.jsx";       
-import OwnerApplications from "./owner/Applications.jsx"; 
-import OwnerNotifications from "./owner/Notifications.jsx"; 
+import OwnerPayments from "./owner/Payments.jsx";
+import OwnerApplications from "./owner/Applications.jsx";
+import OwnerNotifications from "./owner/Notifications.jsx";
 import OwnerSettings from "./owner/Settings.jsx";
 
 // ---------- Buyer Page Imports ----------
 import BuyerSideNav from "./buyer/SideNav";
 import BuyerDashboard from "./buyer/Dashboard";
-import BuyerProfile from "./buyer/Profile";       
+import BuyerProfile from "./buyer/Profile";
 import BuyerFavorites from "./buyer/Favorites";
-import BuyerApplications from "./buyer/Applications"; 
-import BuyerViewings from "./buyer/Viewings";       
-import BuyerMessages from "./buyer/Messages";       
-import BuyerNotifications from "./buyer/Notifications"; 
-import BuyerPayments from "./buyer/Payments";       
+import BuyerApplications from "./buyer/Applications";
+import BuyerViewings from "./buyer/Viewings";
+import BuyerMessages from "./buyer/Messages";
+import BuyerNotifications from "./buyer/Notifications";
+import BuyerPayments from "./buyer/Payments";
 import BuyerSettings from "./buyer/Settings";
 
 // ---------- Developer Pages ----------
@@ -75,11 +75,11 @@ import DeveloperMessages from "./developer/Messages.jsx";
 import DeveloperSettings from "./developer/Settings.jsx";
 
 // ---------- Admin Pages (Standard) ----------
-import AdminSideNav from "./admin/SideNav.jsx"; 
+import AdminSideNav from "./admin/SideNav.jsx";
 import AdminDashboard from "./admin/Dashboard.jsx";
 
 // ✅ DISTINCT VERIFICATION PAGES
-import AdminVerifications from "./admin/Verifications.jsx";   // Legal/License Check
+import AdminVerifications from "./admin/Verifications.jsx"; // Legal/License Check
 import AdminProfileReviews from "./admin/ProfileReviews.jsx"; // Quality/AI Check
 
 import PropertyReviews from "./admin/Properties.jsx";
@@ -89,12 +89,12 @@ import AdminSettings from "./admin/Settings.jsx";
 
 // ---------- Super Admin Pages (CEO) ----------
 import SuperAdminSideNav from "./admin-super/SideNav.jsx";
-import SuperAdminDashboard from "./admin-super/Dashboard.jsx"; 
-import SuperAdminUsers from "./admin-super/Users.jsx";         
-import SuperAdminAdmins from "./admin-super/ManageAdmins.jsx"; 
-import SuperAdminProperties from "./admin-super/Properties.jsx"; 
-import SuperAdminPayments from "./admin-super/Payments.jsx";     
-import SuperAdminMessages from "./admin-super/Messages.jsx";     
+import SuperAdminDashboard from "./admin-super/Dashboard.jsx";
+import SuperAdminUsers from "./admin-super/Users.jsx";
+import SuperAdminAdmins from "./admin-super/ManageAdmins.jsx";
+import SuperAdminProperties from "./admin-super/Properties.jsx";
+import SuperAdminPayments from "./admin-super/Payments.jsx";
+import SuperAdminMessages from "./admin-super/Messages.jsx";
 import SuperAdminNotifications from "./admin-super/Notifications.jsx";
 import SuperAdminSettings from "./admin-super/Settings.jsx";
 
@@ -124,10 +124,23 @@ function App() {
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
-        <Route path="/profile/:unique_id" element={<AgentProfiles />} />
+        {/* ✅ 1. Match the parameter name (:profileId) to your Component code */}
+        <Route path="/agent/:profileId" element={<AgentProfiles />} />
+        <Route path="/owner/:profileId" element={<AgentProfiles />} />
+        <Route path="/user/:profileId" element={<AgentProfiles />} />
+
+        {/* Legacy/Fallback Route */}
+        <Route path="/profile/:profileId" element={<AgentProfiles />} />
 
         {/* ✅ ONBOARDING (For Phone/License Setup) */}
-        <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
 
         {/* ---------- Agent Dashboard ---------- */}
         <Route
@@ -224,16 +237,16 @@ function App() {
         >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
-          
+
           {/* ✅ 1. VERIFICATIONS (Legal/Trust) */}
           <Route path="verifications" element={<AdminVerifications />} />
-          
+
           {/* ✅ 2. PROFILE REVIEWS (Quality/AI) */}
           <Route path="profile-reviews" element={<AdminProfileReviews />} />
-          
+
           {/* Property Approval */}
           <Route path="properties" element={<PropertyReviews />} />
-          
+
           <Route path="messages" element={<AdminMessages />} />
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="settings" element={<AdminSettings />} />

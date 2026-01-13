@@ -8,9 +8,8 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
   const [showGallery, setShowGallery] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
 
-  // ✅ DEBUG: Check your console to see exactly where the "role" is hiding!
   useEffect(() => {
-    if(listing) console.log("🔍 DEBUG LISTING:", listing);
+    if(listing) console.log("🔍 DEBUG LISTING DATA:", listing);
   }, [listing]);
 
   if (!listing) return null;
@@ -25,61 +24,58 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
   while (gridPhotos.length < 5) gridPhotos.push({ type: 'placeholder', url: "/placeholder.png" });
   const remainingPhotos = allMedia.length > 5 ? allMedia.length - 5 : 0;
 
-  // --- 2. ROBUST ROLE DETECTION ---
-  // We grab the user object from wherever it might be
-  const userObj = listing.agent || listing.owner || listing.user || {};
+  // --- 2. ROBUST ROLE DETECTION (FIXED) ---
   
-  // Check ALL possible role locations
-  const roleString = String(
-      listing.role || 
-      listing.user_type || 
-      userObj.role || 
-      userObj.user_type || 
-      ""
-  ).toLowerCase();
+  // A. Determine the Primary User Object
+  // We prioritize listing.agent if it exists.
+  const agentObject = listing.agent && Object.keys(listing.agent).length > 0 ? listing.agent : null;
+  const userObj = agentObject || listing.owner || listing.user || {};
+  
+  // B. Get the Raw Role String
+  // This is the most reliable indicator if your backend is sending it correctly
+  const rawRole = (userObj.role || listing.agent_role || "").toLowerCase();
 
-  // It is an agent if:
-  // 1. The role string contains "agent"
-  // 2. OR listing.agent exists and is not empty
-  // 3. OR an agency name exists
-  const isAgent = 
-      roleString.includes("agent") || 
-      (listing.agent && Object.keys(listing.agent).length > 0) ||
-      !!userObj.agency_name;
+  // C. Strict Logic
+  let isAgent = false;
+  let profileLabel = "Landlord";
+  let displayRole = userObj.company_name || "Property Landlord";
 
-  // Labels
-  const profileLabel = isAgent ? "Agent" : "Landlord";
+  if (rawRole === 'agent' || rawRole === 'broker' || rawRole === 'realtor') {
+      isAgent = true;
+      profileLabel = "Agent";
+      displayRole = userObj.agency_name || listing.agency_name || "Real Estate Agent";
+  } else if (rawRole === 'owner' || rawRole === 'landlord') {
+      isAgent = false;
+      profileLabel = "Landlord";
+      displayRole = "Property Landlord";
+  } else {
+      // Fallback Heuristics if role is missing (Legacy data)
+      if (userObj.agency_name || listing.agency_name) {
+          isAgent = true;
+          profileLabel = "Agent";
+          displayRole = userObj.agency_name || listing.agency_name;
+      }
+  }
   
   // Display Name & Avatar
   const displayName = userObj.full_name || userObj.name || listing.contact_name || "Property Contact";
   const avatarUrl = userObj.avatar_url || userObj.avatar || "/person.png";
 
-  // Role Label (Company Name)
-  const displayRole = isAgent 
-    ? (userObj.agency_name || "Real Estate Agent") 
-    : (userObj.company_name || "Property Landlord");
-
   // --- HANDLERS ---
   
-  // ✅ UPDATED: Route to /profile/@username in NEW TAB
   const handleProfileClick = () => {
-    // 1. Try to find a username
     const username = userObj.username || listing.username;
-    // 2. Fallback to unique_id
     const uniqueId = userObj.unique_id || userObj.id || listing.user_id;
 
     let url = "";
     if (username) {
-        // Strip @ if it's already there to avoid double @@
         const cleanUsername = username.startsWith('@') ? username.substring(1) : username;
         url = `/profile/@${cleanUsername}`;
     } else if (uniqueId) {
         url = `/profile/${uniqueId}`;
     } else {
-        console.warn("No user identifier found", listing);
         return;
     }
-
     window.open(url, '_blank');
   };
 
@@ -95,7 +91,6 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
   const nextSlide = (e) => { e.stopPropagation(); setGalleryIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1)); };
   const prevSlide = (e) => { e.stopPropagation(); setGalleryIndex((prev) => (prev === 0 ? allMedia.length - 1 : prev - 1)); };
 
-  // --- GALLERY OVERLAY ---
   if (showGallery) {
     const current = allMedia[galleryIndex];
     return (
@@ -113,7 +108,6 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
     );
   }
 
-  // --- MAIN RENDER ---
   return (
     <div className={style.overlay} onClick={onClose}>
       <div className={style.modalContainer} onClick={(e) => e.stopPropagation()}>
@@ -193,13 +187,14 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
               <h3>Neighborhood & Schools</h3>
               <div className={style.mapWrapper} style={{ borderRadius: '12px', overflow: 'hidden', height: '400px' }}>
                 <iframe
+                  title="Listing Location"
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}
                   loading="lazy"
                   allowFullScreen
                   referrerPolicy="no-referrer-when-downgrade"
-                  src={`https://maps.google.com/maps?q=${listing.latitude},${listing.longitude}&hl=es&z=14&output=embed`}
+                  src={`https://maps.google.com/maps?q=${listing.latitude},${listing.longitude}&hl=en&z=14&output=embed`}
                 ></iframe>
               </div>
             </div>
@@ -213,13 +208,12 @@ const ListingModal = ({ listing, onClose, currentUser, onActionAttempt }) => {
                 <div className={style.agentInfo}>
                   <h4>{displayName}</h4>
                   
-                  {/* ✅ DYNAMIC ROLE LABEL */}
+                  {/* DYNAMIC ROLE LABEL */}
                   <p style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {isAgent ? <Building size={14} /> : <User size={14} />}
                     {displayRole}
                   </p>
 
-                  {/* ✅ OPEN IN NEW TAB */}
                   <button className={style.viewProfileLink} onClick={handleProfileClick}>
                     View {profileLabel}'s Profile
                   </button>

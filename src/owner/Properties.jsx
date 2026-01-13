@@ -18,17 +18,19 @@ export default function Properties() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth(); 
 
+  // ✅ LOCAL STATUS: Ensures the UI unlocks INSTANTLY after refresh
   const [localStatus, setLocalStatus] = useState(user?.verification_status || 'pending');
+  
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState(null); 
   
-  // 📝 Form State
+  // Form State
   const [showForm, setShowForm] = useState(false);
   const [editingListing, setEditingListing] = useState(null);
 
-  // Search & Filter State
+  // Search & Filter
   const [filter, setFilter] = useState("all"); 
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -38,7 +40,7 @@ export default function Properties() {
 
   const lottieUrl = "https://lottie.host/37a0df00-47f6-43d0-873c-01acfb5d1e7d/wvtiKE3P1d.lottie";
 
-  // --- Fetch ---
+  // --- Fetch Data ---
   const fetchListings = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
@@ -54,12 +56,15 @@ export default function Properties() {
       const serverData = profileRes.data;
       setLocalStatus(serverData.verification_status);
 
+      // ✅ SAFE STATE UPDATE: Preserves Role & Token
       if (updateUser && serverData) {
-          updateUser({ 
+          updateUser((prevUser) => ({ 
+              ...prevUser, // Keep existing token, id, role
               verification_status: serverData.verification_status,
-              name: serverData.full_name || user.name,
-              avatar_url: serverData.avatar_url || user.avatar_url
-          }); 
+              full_name: serverData.full_name || prevUser.full_name,
+              avatar_url: serverData.avatar_url || prevUser.avatar_url,
+              role: serverData.role || prevUser.role // Ensure role stays correct
+          })); 
       }
 
       if(isRefresh) setTimeout(() => setRefreshing(false), 800); 
@@ -93,12 +98,25 @@ export default function Properties() {
 
   const handleOpenCreate = () => {
     if (!isVerified) {
+        let title = "Verification Required";
+        let text = "You must be an approved landlord to create listings.";
+        
+        if (localStatus === 'pending') {
+            title = "Under Review";
+            text = "Your profile is currently under review.";
+        } else if (localStatus === 'rejected') {
+            title = "Profile Rejected";
+            text = "Your verification was rejected. Please check your profile.";
+        }
+
         Swal.fire({
             icon: 'warning',
-            title: "Verification Required",
-            text: "You must be an approved landlord to create listings.",
-            confirmButtonText: 'Check Profile',
-            confirmButtonColor: '#0f766e'
+            title,
+            text,
+            confirmButtonText: 'Go to Profile',
+            confirmButtonColor: '#09707d',
+            showCancelButton: true,
+            cancelButtonText: 'Close'
         }).then((res) => { if(res.isConfirmed) navigate('/owner/profile'); });
         return;
     }
@@ -108,15 +126,14 @@ export default function Properties() {
   };
 
   const handleEdit = async (listing, e) => {
-    e.stopPropagation();
+    if(e) e.stopPropagation();
 
-    // Allow editing if Rejected (even if marked active)
     if (listing.is_active && listing.status === 'approved') {
         Swal.fire({
             icon: 'info',
-            title: 'Listing is Active',
-            text: 'This listing is currently active. Contact support for changes.',
-            confirmButtonColor: '#0f766e'
+            title: 'Listing is Live',
+            text: 'This listing is currently active. Contact support for major changes.',
+            confirmButtonColor: '#09707d'
         });
         return;
     }
@@ -128,7 +145,8 @@ export default function Properties() {
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Yes, Edit',
-            confirmButtonColor: '#f59e0b'
+            confirmButtonColor: '#f59e0b',
+            cancelButtonText: 'Cancel'
         });
         if (!result.isConfirmed) return;
     }
@@ -152,7 +170,7 @@ export default function Properties() {
       }
       if (editingListing?.photos?.length) formData.append("existingPhotos", JSON.stringify(editingListing.photos));
       
-      // ✅ Force status to 'pending'
+      // ✅ Force status to 'pending' on update
       if (product_id) {
           formData.append('status', 'pending');
       }
@@ -160,16 +178,26 @@ export default function Properties() {
       const url = product_id ? `/api/listings/${product_id}` : `/api/listings`;
       const method = product_id ? "put" : "post";
       
+      // 🚀 ASYNC SUBMIT (Returns immediately while processing happens on server)
       const res = await client[method](url, formData, { headers: { "Content-Type": "multipart/form-data" } });
       const data = res.data.listing || res.data;
 
+      // ⚡ Optimistic Update
       setListings((prev) => {
           if (product_id) return prev.map(l => l.product_id === product_id ? { ...data, status: 'pending' } : l);
-          return [data, ...prev];
+          return [data, ...prev]; // Add new listing to top
       });
       
       setShowForm(false); 
-      Swal.fire({ icon: "success", title: "Success!", text: product_id ? "Listing updated." : "Listing created.", confirmButtonColor: "#0f766e" });
+      
+      Swal.fire({ 
+          icon: "success", 
+          title: "Submitted!", 
+          text: product_id ? "Listing updated & processing." : "Listing created! Media processing in background.", 
+          confirmButtonColor: "#09707d",
+          timer: 2500
+      });
+
     } catch (err) {
       console.error(err);
       Swal.fire("Error", "Failed to save listing.", "error");
@@ -226,7 +254,7 @@ export default function Properties() {
       title: 'Action Required',
       text: listing.admin_notes || "General quality standards not met.",
       confirmButtonText: 'Edit & Fix',
-      confirmButtonColor: '#0f766e'
+      confirmButtonColor: '#09707d'
     }).then((result) => {
         if(result.isConfirmed) handleEdit(listing, e);
     });
@@ -239,7 +267,7 @@ export default function Properties() {
   const getPhotoUrl = (l, i=0) => { if(!l?.photos?.length) return "/placeholder.png"; const p = l.photos[i]; return typeof p === 'string' ? p : (p.url || "/placeholder.png"); };
   const getFeaturesList = (f) => { if(!f) return []; let p={}; if(typeof f==='string'){try{p=JSON.parse(f)}catch{}}else{p=f} return Object.keys(p).filter(k=>p[k]); };
 
-  // Status Badge Helper for Modal
+  // Status Badge
   const getStatusBadge = (l) => {
     if (l.status === 'rejected') return <span style={{display:'flex', alignItems:'center', gap:5, background:'#fee2e2', color:'#991b1b', padding:'5px 12px', borderRadius:20, fontSize:'0.8rem', fontWeight:600}}><XCircle size={14}/> Rejected</span>;
     if (l.status === 'approved' && l.is_active) return <span style={{display:'flex', alignItems:'center', gap:5, background:'#d1fae5', color:'#065f46', padding:'5px 12px', borderRadius:20, fontSize:'0.8rem', fontWeight:600}}><CheckCircle size={14}/> Active</span>;
@@ -298,8 +326,8 @@ export default function Properties() {
                 {['all', 'active', 'pending'].map(t => (
                     <button 
                         key={t}
-                        className={`${style.tab} ${filter === t ? style.activeTab : ''}`}
                         onClick={() => setFilter(t)}
+                        className={`${style.tab} ${filter === t ? style.activeTab : ''}`}
                     >
                         {t.charAt(0).toUpperCase() + t.slice(1)}
                     </button>
@@ -310,6 +338,7 @@ export default function Properties() {
           {/* GRID */}
           {loading ? (
             <div className={style.grid}>
+                {/* ✅ SKELETON LOADING */}
                 {Array(6).fill(0).map((_, i) => (
                     <div key={i} className={`${style.card} ${style.skeleton}`}>
                         <div className={style.skeletonImage}></div>
@@ -329,10 +358,10 @@ export default function Properties() {
             <div className={style.emptyState}>
               <DotLottieReact src={lottieUrl} loop autoplay style={{ width: 250, height: 250 }} />
               <h3 className={style.emptyTitle}>
-                 {searchTerm ? "No results found" : "No Properties Yet"}
+                  {searchTerm ? "No results found" : "No Properties Yet"}
               </h3>
               <p className={style.emptyDesc}>
-                 {searchTerm ? "Try adjusting your search terms." : "List your first property today and reach thousands of potential tenants."}
+                  {searchTerm ? "Try adjusting your search terms." : "List your first property today and reach thousands of potential tenants."}
               </p>
               {!searchTerm && (
                   <button onClick={handleOpenCreate} className={style.createLink} disabled={!isVerified}>
@@ -346,22 +375,36 @@ export default function Properties() {
                 let badgeClass = style.pendingBadge;
                 let statusText = "Pending";
                 
-                if (listing.status === 'rejected') { badgeClass = style.rejectedBadge; statusText = "Rejected"; }
-                else if (listing.status === 'approved') {
+                // Show 'Processing' if newly created
+                if (listing.status === 'processing') {
+                    badgeClass = style.pendingBadge; 
+                    statusText = "Processing Media...";
+                } else if (listing.status === 'rejected') { 
+                    badgeClass = style.rejectedBadge; 
+                    statusText = "Rejected"; 
+                } else if (listing.status === 'approved') {
                     if (listing.is_active) { badgeClass = style.activeBadge; statusText = "Active"; }
                     else { badgeClass = style.pendingBadge; statusText = "Unpaid"; }
                 }
 
-                // Payment Logic: Approved + Not Active + Not Paid
+                // Payment Logic
                 const needsPayment = listing.status === 'approved' && !listing.is_active && listing.payment_status !== 'paid';
+                const isProcessing = listing.status === 'processing';
 
                 return (
-                  <div key={listing.product_id} className={style.card} onClick={(e) => handlePreview(listing, e)}>
+                  <div key={listing.product_id} className={style.card} onClick={(e) => !isProcessing && handlePreview(listing, e)}>
                     
                     {/* Image Section */}
                     <div className={style.imageWrapper}>
-                      <img src={getPhotoUrl(listing, 0)} alt={listing.title} className={style.cardImage} />
-                      <div className={`${style.badge} ${badgeClass}`}>{statusText}</div>
+                      {isProcessing ? (
+                          <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', background:'#f1f5f9', flexDirection:'column'}}>
+                              <Loader2 className="animate-spin" size={32} color="#09707d" />
+                              <span style={{marginTop:10, color:'#64748b', fontSize:'0.85rem'}}>Optimizing...</span>
+                          </div>
+                      ) : (
+                          <img src={getPhotoUrl(listing, 0)} alt={listing.title} className={style.cardImage} />
+                      )}
+                      <span className={`${style.badge} ${badgeClass}`}>{statusText}</span>
                     </div>
 
                     {listing.status === 'rejected' && (
@@ -376,44 +419,41 @@ export default function Properties() {
                       <span className={style.price}>
                         {Number(listing.price).toLocaleString()} {listing.price_currency}
                       </span>
-                      <h3 className={style.title}>{listing.title}</h3>
-                      <div className={style.address}>
+                      <h3 className={style.cardTitle}>{listing.title}</h3>
+                      <div className={style.cardAddress}>
                         <MapPin size={16} /> {listing.city}, {listing.country}
                       </div>
 
-                      <div className={style.metaRow}>
-                        <span className={style.metaItem}><Bed size={16}/> {listing.bedrooms}</span>
-                        <span className={style.metaItem}><Bath size={16}/> {listing.bathrooms}</span>
-                        <span className={style.metaItem}><Square size={16}/> {listing.square_footage}</span>
+                      <div className={style.cardMeta}>
+                        <span style={{display:'flex', alignItems:'center', gap:4}}><Bed size={16}/> {listing.bedrooms}</span>
+                        <span style={{display:'flex', alignItems:'center', gap:4}}><Bath size={16}/> {listing.bathrooms}</span>
+                        <span style={{display:'flex', alignItems:'center', gap:4}}><Square size={16}/> {listing.square_footage}</span>
                       </div>
 
                       <div className={style.actions}>
-                        {/* PAY Button */}
-                        {needsPayment && (
+                        {isProcessing ? (
+                            <button className={style.actionBtn} disabled style={{opacity:0.5, cursor:'wait'}}>Processing...</button>
+                        ) : needsPayment ? (
                           <button 
-                            className={`${style.btn} ${style.btnPrimary}`} 
+                            className={`${style.actionBtn} ${style.btnPrimary}`} 
                             onClick={(e) => handleActivate(listing, e)}
                             disabled={busyId === listing.product_id}
                           >
                             {busyId === listing.product_id ? <Loader2 size={16} className="animate-spin"/> : <CreditCard size={16} />} Pay
                           </button>
+                        ) : (
+                           <button 
+                               className={`${style.actionBtn}`} 
+                               onClick={(e) => handleEdit(listing, e)}
+                               disabled={listing.is_active && listing.status === 'approved'}
+                               style={(listing.is_active && listing.status === 'approved') ? {opacity: 0.5, cursor: 'not-allowed'} : {}}
+                           >
+                               <Edit size={16}/> Edit
+                           </button>
                         )}
 
-                        {/* VIEW Button (REMOVED as per request, since card is clickable) */}
-
-                        {/* EDIT Button */}
                         <button 
-                            className={`${style.btn} ${style.btnSecondary}`} 
-                            onClick={(e) => handleEdit(listing, e)}
-                            disabled={listing.is_active && listing.status === 'approved'}
-                            style={(listing.is_active && listing.status === 'approved') ? {opacity: 0.5, cursor: 'not-allowed'} : {}}
-                        >
-                            <Edit size={16}/> Edit
-                        </button>
-
-                        {/* DELETE Button */}
-                        <button 
-                            className={`${style.btn} ${style.btnDanger}`} 
+                            className={`${style.actionBtn} ${style.deleteBtn}`} 
                             onClick={(e) => handleDelete(listing, e)}
                             disabled={busyId === listing.product_id}
                         >
@@ -429,7 +469,7 @@ export default function Properties() {
         </>
       )}
 
-      {/* --- ENHANCED PREVIEW MODAL --- */}
+      {/* --- PREVIEW MODAL --- */}
       {previewListing && (
         <div className={style.modalOverlay} onClick={() => setPreviewListing(null)}>
           <div className={style.modalContent} onClick={e => e.stopPropagation()}>
@@ -445,7 +485,7 @@ export default function Properties() {
             </div>
             
             <div className={style.modalBody}>
-                {/* 1. Header Info */}
+                {/* Header */}
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20}}>
                     <div>
                         <h2 style={{fontSize:'1.8rem', margin:'0 0 5px 0', color:'#111827'}}>{previewListing.title}</h2>
@@ -457,11 +497,11 @@ export default function Properties() {
                     <div>{getStatusBadge(previewListing)}</div>
                 </div>
 
-                {/* 2. Key Metrics */}
+                {/* Metrics */}
                 <div style={{background:'#f8fafc', padding:20, borderRadius:12, display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:30}}>
                     <div>
                         <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600, textTransform:'uppercase'}}>Price</p>
-                        <p style={{margin:0, fontSize:'1.8rem', fontWeight:800, color:'#0f766e'}}>
+                        <p style={{margin:0, fontSize:'1.8rem', fontWeight:800, color:'#09707d'}}>
                             {Number(previewListing.price).toLocaleString()} <span style={{fontSize:'1rem', color:'#64748b'}}>{previewListing.price_currency}</span>
                         </p>
                     </div>
@@ -475,15 +515,10 @@ export default function Properties() {
                             <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600}}>BATHS</p>
                             <p style={{margin:0, fontSize:'1.2rem', fontWeight:700, display:'flex', alignItems:'center', gap:5}}><Bath size={18}/> {previewListing.bathrooms}</p>
                         </div>
-                        <div style={{width:1, height:30, background:'#cbd5e1'}}></div>
-                        <div>
-                            <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600}}>SQFT</p>
-                            <p style={{margin:0, fontSize:'1.2rem', fontWeight:700, display:'flex', alignItems:'center', gap:5}}><Square size={18}/> {previewListing.square_footage}</p>
-                        </div>
                     </div>
                 </div>
 
-                {/* 3. Details & Description */}
+                {/* Info */}
                 <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:30}}>
                     <div>
                         <h3 style={{fontSize:'1.2rem', marginBottom:10, color:'#1e293b'}}>Description</h3>
@@ -499,7 +534,6 @@ export default function Properties() {
                         </div>
                     </div>
 
-                    {/* Sidebar Info */}
                     <div style={{background:'#f8fafc', padding:20, borderRadius:12, height:'fit-content', border:'1px solid #e2e8f0'}}>
                         <h4 style={{marginTop:0, color:'#334155'}}>Property Details</h4>
                         <div style={{display:'flex', flexDirection:'column', gap:12}}>

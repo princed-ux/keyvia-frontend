@@ -14,12 +14,11 @@ import {
   Bed,
   Bath,
   Square,
-  Layers,
-  Map as MapIcon,
   RotateCcw,
   MapPin,
   Globe, 
-  Satellite
+  Satellite,
+  Map as MapIcon
 } from "lucide-react";
 
 // Brand Color Constant
@@ -43,36 +42,40 @@ const MapLibreMapViewer = ({
   });
 
   const [showSearchBtn, setShowSearchBtn] = useState(false);
-  // ✅ Default to "google" (Streets)
   const [mapStyle, setMapStyle] = useState("google"); 
   const [popupInfo, setPopupInfo] = useState(null);
   const [showLocationPin, setShowLocationPin] = useState(false);
 
-  // --- 1. DATA PREP ---
+  // --- 1. DATA PREP (With Strict 0,0 Filtering) ---
   const points = useMemo(() => {
     return properties
       .map((p) => {
         const lat = parseFloat(p.latitude);
         const lng = parseFloat(p.longitude);
+        
+        // 🛑 STRICT FILTER: Remove Invalid Numbers AND Null Island (0,0)
         if (isNaN(lat) || isNaN(lng)) return null;
+        if (Math.abs(lat) < 0.0001 && Math.abs(lng) < 0.0001) return null; // Filters out 0,0
+
         return {
           type: "Feature",
           properties: {
             cluster: false,
             productId: p.product_id,
             price: p.price,
-            currency: p.price_currency,
+            price_currency: p.price_currency, // Fixed prop name
             ...p,
           },
           geometry: { type: "Point", coordinates: [lng, lat] },
         };
       })
-      .filter(Boolean);
+      .filter(Boolean); // Removes nulls
   }, [properties]);
 
   const bounds = mapRef.current
     ? mapRef.current.getMap().getBounds().toArray().flat()
     : null;
+  
   const clusterOptions = useMemo(() => ({ radius: 60, maxZoom: 16 }), []);
 
   const { clusters, supercluster } = useSupercluster({
@@ -100,7 +103,7 @@ const MapLibreMapViewer = ({
         });
       }
     }
-  }, [points]);
+  }, [points, flyToCoords]); // Added flyToCoords dependency check
 
   // --- 3. SEARCH FLY-TO & SHOW PIN ---
   useEffect(() => {
@@ -108,7 +111,6 @@ const MapLibreMapViewer = ({
       setShowLocationPin(true);
       mapRef.current.flyTo({
         center: [flyToCoords.lng, flyToCoords.lat],
-        // ✅ Zoom 16: This is where Shops and POIs appear clearly
         zoom: 16, 
         pitch: 0,
         duration: 2000,
@@ -127,11 +129,8 @@ const MapLibreMapViewer = ({
     }
   }, [hoveredId, points]);
 
-  // ✅ DEFINED MAP STYLES (Optimized for Clarity)
+  // ✅ DEFINED MAP STYLES
   const styles = {
-    // 1. Google Maps (Standard Roadmap)
-    // lyrs=m : Standard Roadmap
-    // hl=en  : Force English Labels (Best for clarity)
     google: {
         version: 8,
         sources: {
@@ -147,19 +146,8 @@ const MapLibreMapViewer = ({
                 attribution: "Google Maps"
             }
         },
-        layers: [
-            {
-                id: "google-tiles-layer",
-                type: "raster",
-                source: "google-tiles",
-                minzoom: 0,
-                maxzoom: 22
-            }
-        ]
+        layers: [{ id: "google-tiles-layer", type: "raster", source: "google-tiles", minzoom: 0, maxzoom: 22 }]
     },
-
-    // 2. Google Hybrid (Satellite + Streets/Shops Overlay)
-    // lyrs=y : Hybrid (Satellite + Labels) - This shows streets ON TOP of satellite
     satellite: {
       version: 8,
       sources: {
@@ -177,31 +165,17 @@ const MapLibreMapViewer = ({
       },
       layers: [{ id: "google-sat-layer", type: "raster", source: "google-sat" }],
     },
-
-    // 3. OpenStreetMap
     osm: {
         version: 8,
         sources: {
             "osm-tiles": {
                 type: "raster",
-                tiles: [
-                    "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                    "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                    "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                ],
+                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
                 tileSize: 256,
                 attribution: '&copy; OpenStreetMap',
             },
         },
-        layers: [
-            {
-                id: "osm-tiles-layer",
-                type: "raster",
-                source: "osm-tiles",
-                minzoom: 0,
-                maxzoom: 19,
-            },
-        ],
+        layers: [{ id: "osm-tiles-layer", type: "raster", source: "osm-tiles", minzoom: 0, maxzoom: 19 }],
     }
   };
 
@@ -245,46 +219,15 @@ const MapLibreMapViewer = ({
           display: "flex", flexDirection: "column"
         }}
       >
-        {/* Google Streets Button */}
-        <button
-          onClick={() => setMapStyle("google")}
-          style={{
-            padding: "12px", background: mapStyle === "google" ? "#eff6ff" : "transparent",
-            border: "none", cursor: "pointer", transition: "background 0.2s",
-            borderLeft: mapStyle === "google" ? `3px solid ${BRAND_COLOR}` : "3px solid transparent"
-          }}
-          title="Google Maps"
-        >
+        <button onClick={() => setMapStyle("google")} style={{ padding: "12px", background: mapStyle === "google" ? "#eff6ff" : "transparent", border: "none", cursor: "pointer", borderLeft: mapStyle === "google" ? `3px solid ${BRAND_COLOR}` : "3px solid transparent" }} title="Google Maps">
           <MapIcon size={20} color={mapStyle === "google" ? BRAND_COLOR : "#666"} />
         </button>
-        
         <div style={{ height: 1, background: "#eee" }} />
-
-        {/* Satellite Button */}
-        <button
-          onClick={() => setMapStyle("satellite")}
-          style={{
-            padding: "12px", background: mapStyle === "satellite" ? "#eff6ff" : "transparent",
-            border: "none", cursor: "pointer", transition: "background 0.2s",
-             borderLeft: mapStyle === "satellite" ? `3px solid ${BRAND_COLOR}` : "3px solid transparent"
-          }}
-          title="Satellite View"
-        >
+        <button onClick={() => setMapStyle("satellite")} style={{ padding: "12px", background: mapStyle === "satellite" ? "#eff6ff" : "transparent", border: "none", cursor: "pointer", borderLeft: mapStyle === "satellite" ? `3px solid ${BRAND_COLOR}` : "3px solid transparent" }} title="Satellite View">
           <Satellite size={20} color={mapStyle === "satellite" ? BRAND_COLOR : "#666"} />
         </button>
-
         <div style={{ height: 1, background: "#eee" }} />
-
-        {/* OSM Button */}
-        <button
-          onClick={() => setMapStyle("osm")}
-          style={{
-            padding: "12px", background: mapStyle === "osm" ? "#eff6ff" : "transparent",
-            border: "none", cursor: "pointer", transition: "background 0.2s",
-             borderLeft: mapStyle === "osm" ? `3px solid ${BRAND_COLOR}` : "3px solid transparent"
-          }}
-          title="OpenStreetMap"
-        >
+        <button onClick={() => setMapStyle("osm")} style={{ padding: "12px", background: mapStyle === "osm" ? "#eff6ff" : "transparent", border: "none", cursor: "pointer", borderLeft: mapStyle === "osm" ? `3px solid ${BRAND_COLOR}` : "3px solid transparent" }} title="OpenStreetMap">
           <Globe size={20} color={mapStyle === "osm" ? BRAND_COLOR : "#666"} />
         </button>
       </div>
@@ -296,7 +239,7 @@ const MapLibreMapViewer = ({
           setViewState(evt.viewState);
           if (!showSearchBtn) setShowSearchBtn(true);
         }}
-        mapStyle={styles[mapStyle]} // ✅ Dynamically pick style
+        mapStyle={styles[mapStyle]} 
         style={{ width: "100%", height: "100%" }}
         maxPitch={60}
       >
@@ -365,7 +308,8 @@ const MapLibreMapViewer = ({
                   <div style={{
                     transform: hoveredId === cluster.properties.productId ? "scale(1.15) translateY(-4px)" : "scale(1)",
                     position: "relative", transition: "all 0.2s ease",
-                  }}>
+                  }}
+                  >
                     <div style={{
                       backgroundColor: hoveredId === cluster.properties.productId ? "#111827" : BRAND_COLOR,
                       color: "white", padding: "6px 12px", borderRadius: "20px", fontSize: "13px",

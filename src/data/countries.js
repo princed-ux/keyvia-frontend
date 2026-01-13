@@ -1,3 +1,5 @@
+//data/countries.js
+
 export const COUNTRIES = [
   { name: "Afghanistan", iso: "af", code: "+93", flag: "https://flagcdn.com/w40/af.png" },
   { name: "Albania", iso: "al", code: "+355", flag: "https://flagcdn.com/w40/al.png" },
@@ -130,4 +132,45 @@ export const COUNTRIES = [
   { name: "Vietnam", iso: "vn", code: "+84", flag: "https://flagcdn.com/w40/vn.png" },
   { name: "Zambia", iso: "zm", code: "+260", flag: "https://flagcdn.com/w40/zm.png" },
   { name: "Zimbabwe", iso: "zw", code: "+263", flag: "https://flagcdn.com/w40/zw.png" }
+];
+
+
+
+// utils/currency.js or inside your component
+
+// 1. Map Country Names to their Currency Codes
+export const COUNTRY_TO_CURRENCY = {
+  "Nigeria": "NGN",
+  "United States": "USD",
+  "United Kingdom": "GBP",
+  "China": "CNY",
+  "Russia": "RUB",
+  "Japan": "JPY",
+  "India": "INR",
+  "Canada": "CAD",
+  "Australia": "AUD",
+  "South Africa": "ZAR",
+  "Brazil": "BRL",
+  "United Arab Emirates": "AED",
+  "Saudi Arabia": "SAR",
+  "Kenya": "KES",
+  "Ghana": "GHS",
+  // ... European countries map to EUR often, handle generically below or add specific mappings
+  "France": "EUR", "Germany": "EUR", "Spain": "EUR", "Italy": "EUR", "Netherlands": "EUR"
+};
+
+// 2. Define the list of "Big" currencies you want available
+export const AVAILABLE_CURRENCIES = [
+  { code: "USD", flag: "🇺🇸", name: "USD" },
+  { code: "EUR", flag: "🇪🇺", name: "EUR" },
+  { code: "GBP", flag: "🇬🇧", name: "GBP" },
+  { code: "NGN", flag: "🇳🇬", name: "NGN" },
+  { code: "CNY", flag: "🇨🇳", name: "CNY" }, // Yuan
+  { code: "RUB", flag: "🇷🇺", name: "RUB" }, // Ruble
+  { code: "JPY", flag: "🇯🇵", name: "JPY" },
+  { code: "CAD", flag: "🇨🇦", name: "CAD" },
+  { code: "AUD", flag: "🇦🇺", name: "AUD" },
+  { code: "INR", flag: "🇮🇳", name: "INR" },
+  { code: "ZAR", flag: "🇿🇦", name: "ZAR" },
+  { code: "AED", flag: "🇦🇪", name: "AED" },
 ];

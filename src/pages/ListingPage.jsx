@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import client from "../api/axios"; 
-import { Search, Heart, ChevronDown, X, Maximize, AlertCircle, CheckCircle, WifiOff, MapPin, Home, Bed, Bath, Square, Globe } from "lucide-react"; 
+import { Search, Heart, ChevronDown, X, Maximize, AlertCircle, CheckCircle, MapPin, Globe } from "lucide-react"; 
 import Navbar from "../layout/Navbar"; 
 import MapLibreMapViewer from "../components/MapLibreMapViewer";
 import ListingModal from "../components/ListingModal";
@@ -88,9 +88,6 @@ const ListingPage = ({ pageType }) => {
   const [loading, setLoading] = useState(true);
   const [hoveredId, setHoveredId] = useState(null);
   
-  // ✅ NETWORK STATE
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-
   // --- FILTERS ---
   const [locationQuery, setLocationQuery] = useState("");
   const [countryQuery, setCountryQuery] = useState(""); 
@@ -108,20 +105,6 @@ const ListingPage = ({ pageType }) => {
   const selectedProductId = searchParams.get("listing");
   const selectedListing = useMemo(() => properties.find(p => p.product_id === selectedProductId), [properties, selectedProductId]);
 
-  // --- 0. NETWORK LISTENER ---
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
   // --- 1. INITIALIZE LOCATION ---
   useEffect(() => {
     const savedLoc = localStorage.getItem("lastMapLocation");
@@ -137,7 +120,9 @@ const ListingPage = ({ pageType }) => {
 
   // --- 2. FETCH LISTINGS ---
   const fetchListings = useCallback(async (params = {}) => {
-    if (isOffline) return; 
+    // Basic optimization: don't fetch if we know we are offline
+    if (!navigator.onLine) return; 
+
     try {
       setLoading(true);
       const category = pageType === 'buy' ? 'Sale' : 'Rent';
@@ -146,13 +131,10 @@ const ListingPage = ({ pageType }) => {
       setProperties(res.data || []);
     } catch (err) {
       console.error("Error fetching listings:", err);
-      if (err.message === "Network Error") setIsOffline(true);
     } finally {
-      // Small artificial delay to prevent flickering if API is too fast (optional)
-      // setTimeout(() => setLoading(false), 300); 
       setLoading(false);
     }
-  }, [pageType, isOffline]);
+  }, [pageType]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
 
@@ -275,38 +257,6 @@ const ListingPage = ({ pageType }) => {
   const toggleDropdown = (name) => setActiveDropdown(activeDropdown === name ? null : name);
 
   // --- RENDER ---
-
-  if (isOffline) {
-    return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-            backgroundColor: '#ffffff', zIndex: 99999,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            textAlign: 'center', padding: '20px'
-        }}>
-            <div style={{
-                backgroundColor: '#fee2e2', padding: '30px', borderRadius: '50%', marginBottom: '20px',
-                boxShadow: '0 0 0 20px #fef2f2'
-            }}>
-                <WifiOff size={64} color="#dc2626" />
-            </div>
-            <h1 style={{ color: '#1f2937', fontSize: '24px', marginBottom: '10px' }}>No Internet Connection</h1>
-            <p style={{ color: '#6b7280', maxWidth: '400px', lineHeight: '1.6' }}>
-                It looks like you've lost your connection. Please check your internet settings. We'll try to reconnect automatically.
-            </p>
-            <button 
-                onClick={() => window.location.reload()} 
-                style={{
-                    marginTop: '30px', padding: '12px 24px', backgroundColor: '#09707D', color: 'white',
-                    border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '16px'
-                }}
-            >
-                Try Again
-            </button>
-        </div>
-    );
-  }
-
   return (
     <div className={style.pageWrapper}>
       <Navbar />
@@ -448,7 +398,7 @@ const ListingPage = ({ pageType }) => {
             </div>
           </div>
 
-          {/* ✅ UPDATED LOADING STATE: SKELETONS */}
+          {/* SKELETONS & GRID */}
           {loading ? (
             <div className={style.cardGrid}>
                 {/* Render 8 Skeletons while loading */}

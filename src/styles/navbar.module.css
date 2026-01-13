@@ -6,15 +6,18 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 40px;
-  transition: all 0.3s ease;
-  z-index: 100;
+  transition: background-color 0.3s ease, border-bottom 0.3s ease;
+  z-index: 1000;
+  position: relative;
 }
 
 .logo {
   width: 120px;
   object-fit: contain;
+  display: block;
 }
 
+/* Desktop Links */
 .navlinks {
   display: flex;
   gap: 40px;
@@ -33,35 +36,19 @@
   border-bottom: 2px solid transparent;
 }
 
-/* --- THEME 1: TRANSPARENT (Home / Sell) --- */
+/* --- THEME 1: TRANSPARENT --- */
 .transparent {
   background-color: transparent;
-  position: relative; /* Or absolute depending on HeaderWrapper */
+  position: absolute;
+  top: 0; left: 0; right: 0;
 }
+.transparent .link { color: #fff; }
+.transparent .link:hover, .transparent .activeLink { color: #00e0ff; border-bottom-color: #00e0ff; }
+.transparent .username { color: #fff; }
+.transparent .dropdownArrow { color: #fff; }
+.iconTransparent { color: #fff; }
 
-.transparent .link {
-  color: #fff;
-}
-
-.transparent .link:hover,
-.transparent .activeLink {
-  color: #00e0ff; /* Light cyan highlight for dark bg */
-  border-bottom-color: #00e0ff;
-}
-
-.transparent .username {
-  color: #fff;
-}
-
-.transparent .dropdownArrow {
-  color: #fff;
-}
-
-.iconTransparent {
-  color: #fff;
-}
-
-/* --- THEME 2: WHITE (Buy / Rent) --- */
+/* --- THEME 2: WHITE --- */
 .white {
   background-color: white;
   border-bottom: 1px solid #e5e7eb;
@@ -69,170 +56,231 @@
   top: 0;
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
+.white .link { color: #374151; }
+.white .link:hover, .white .activeLink { color: #007983; border-bottom-color: #007983; }
+.white .username { color: #333; }
+.white .dropdownArrow { color: #666; }
+.iconDark { color: #374151; }
 
-.white .link {
-  color: #374151; /* Dark Gray */
-}
+/* --- RIGHT SECTION --- */
+.rightSection { display: flex; align-items: center; gap: 15px; }
+.desktopButtons { display: flex; align-items: center; gap: 15px; }
+.authBtns { display: flex; gap: 15px; }
 
-.white .link:hover,
-.white .activeLink {
-  color: #007983; /* Teal */
-  border-bottom-color: #007983;
-}
+/* Buttons */
+.login { padding: 10px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; background-color: white; border: 1px solid #09707d; color: #09707d; transition: all 0.3s ease; }
+.login:hover { background-color: #09707d; color: white; }
+.loginDark { border-color: #374151; color: #374151; }
+.loginDark:hover { background-color: #374151; color: white; border-color: #374151; }
 
-.white .username {
-  color: #333;
-}
+.signup { padding: 10px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; background-color: #09707d; border: 1px solid #09707d; color: white; transition: all 0.3s ease; }
+.signup:hover { background-color: #005f6b; border-color: #005f6b; }
 
-.white .dropdownArrow {
-  color: #666;
-}
+/* Profile */
+.iconBtn { background: none; border: none; cursor: pointer; display: flex; align-items: center; }
+.profileWrapper { display: flex; align-items: center; gap: 15px; position: relative; }
+.profileSection { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 10px; border-radius: 20px; transition: background 0.2s; }
+.profileSection:hover { background-color: rgba(128, 128, 128, 0.1); }
+.profileImage { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.5); flex-shrink: 0; }
+.white .profileImage { border: 1px solid #e5e7eb; }
+.rotate { transform: rotate(180deg); }
 
-.iconDark {
-  color: #374151;
-}
+/* Dropdown */
+.dropdown { position: absolute; top: 50px; right: 0; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); width: 200px; padding: 8px 0; display: flex; flex-direction: column; z-index: 200; border: 1px solid #eee; }
+.dropdownItem { padding: 12px 16px; text-decoration: none; color: #333; font-size: 14px; text-align: left; background: none; border: none; cursor: pointer; transition: background 0.2s; width: 100%; }
+.dropdownItem:hover { background-color: #f9fafb; color: #09707d; }
 
-/* --- BUTTONS --- */
-.buttons {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-/* Login Button */
-.login {
-  padding: 10px 24px;
-  border-radius: 8px;
-  font-weight: 600;
+/* --- ANIMATED HAMBURGER --- */
+.hamburger {
+  display: none; /* Hidden on Desktop */
   cursor: pointer;
-  background-color: white;
-  border: 1px solid #09707d;
-  color: #09707d;
-  transition: all 0.3s ease;
-}
-
-.login:hover {
-  background-color: #09707d;
-  color: white;
-}
-
-/* Dark variant of Login button for White Navbar */
-.loginDark {
-  border-color: #374151;
-  color: #374151;
-}
-.loginDark:hover {
-  background-color: #374151;
-  color: white;
-  border-color: #374151;
-}
-
-/* Signup Button (Always Teal) */
-.signup {
-  padding: 10px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  background-color: #09707d;
-  border: 1px solid #09707d;
-  color: white;
-  transition: all 0.3s ease;
-}
-
-.signup:hover {
-  background-color: #005f6b;
-  border-color: #005f6b;
-}
-
-/* --- PROFILE & ICONS --- */
-.iconBtn {
+  width: 30px;
+  height: 24px;
   background: none;
   border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
+  position: relative;
+  z-index: 1100;
 }
 
-.profileWrapper {
+.bar {
+  display: block;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  position: absolute;
+  left: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hamWhite .bar { background-color: white; }
+.hamDark .bar { background-color: #1e293b; }
+
+.bar:nth-child(1) { top: 0; }
+.bar:nth-child(2) { top: 50%; transform: translateY(-50%); }
+.bar:nth-child(3) { bottom: 0; }
+
+/* ACTIVE STATE (X Shape) */
+.isActive .bar:nth-child(1) { top: 50%; transform: translateY(-50%) rotate(45deg); }
+.isActive .bar:nth-child(2) { opacity: 0; transform: translateX(10px); }
+.isActive .bar:nth-child(3) { bottom: 50%; transform: translateY(50%) rotate(-45deg); }
+.transparent .hamburger.isActive .bar { background-color: #1e293b; } /* Make sure X is visible on white menu */
+
+
+/* --- MOBILE MENU (IMPROVED UI) --- */
+.mobileMenu {
+  position: absolute;
+  top: 80px;
+  left: 0;
+  width: 100%;
+  background-color: white;
+  border-top: 1px solid #e5e7eb;
+  padding: 0;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  overflow: hidden;
+  max-height: 0; 
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 900;
+}
+
+.menuOpen {
+  max-height: 600px; /* Expanded height */
+  opacity: 1;
+}
+
+.mobileContent {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  gap: 20px;
+}
+
+/* User Card in Mobile */
+.mobileUserCard {
+  background: linear-gradient(135deg, #09707d 0%, #065f6a 100%);
+  border-radius: 12px;
+  padding: 20px;
+  color: white;
+  box-shadow: 0 4px 10px rgba(9, 112, 125, 0.2);
+}
+
+.mobileUserHeader {
   display: flex;
   align-items: center;
   gap: 15px;
-  position: relative;
+  margin-bottom: 15px;
 }
 
-.profileSection {
+.mobileUserName { display: block; font-weight: 700; font-size: 18px; }
+.mobileUserRole { display: block; font-size: 12px; opacity: 0.8; font-weight: 600; margin-top: 2px; }
+
+.mobileUserActions {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 4px 10px;
-  border-radius: 20px;
+  gap: 10px;
+}
+
+.mobileUserBtn {
+  flex: 1;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  text-decoration: none;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.mobileUserBtn:hover { background: rgba(255, 255, 255, 0.3); }
+
+/* Links */
+.mobileLinksContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobileLink {
+  font-size: 16px;
+  font-weight: 500;
+  color: #334155;
+  text-decoration: none;
+  padding: 12px 15px;
+  border-radius: 8px;
   transition: background 0.2s;
 }
 
-.profileSection:hover {
-  background-color: rgba(128, 128, 128, 0.1);
+.mobileLink:hover {
+  background-color: #f1f5f9;
+  color: #09707d;
+  padding-left: 20px; /* Slide effect */
 }
 
-.profileImage {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid rgba(255,255,255,0.5);
+.mobileDivider {
+  height: 1px;
+  background-color: #e2e8f0;
+  margin: 10px 0;
 }
 
-.white .profileImage {
-  border: 1px solid #e5e7eb;
-}
-
-.rotate {
-  transform: rotate(180deg);
-}
-
-/* --- DROPDOWN --- */
-.dropdown {
-  position: absolute;
-  top: 50px;
-  right: 0;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-  width: 180px;
-  padding: 8px 0;
-  display: flex;
-  flex-direction: column;
-  z-index: 200;
-  border: 1px solid #eee;
-}
-
-.dropdownItem {
-  padding: 12px 16px;
-  text-decoration: none;
-  color: #333;
-  font-size: 14px;
+.mobileLogoutBtn {
   text-align: left;
   background: none;
   border: none;
+  color: #ef4444;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 12px 15px;
   cursor: pointer;
-  transition: background 0.2s;
-  width: 100%;
 }
 
-.dropdownItem:hover {
-  background-color: #f9fafb;
-  color: #09707d;
+/* Auth Buttons Mobile */
+.mobileAuthContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
 }
 
-/* --- MOBILE --- */
-@media (max-width: 768px) {
-  .navbar {
-    padding: 0 20px;
-  }
-  .navlinks {
-    display: none; /* Hide links on mobile */
-  }
-  .username {
-    display: none;
+.mobileAuthLogin {
+  text-align: center;
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mobileAuthSignup {
+  text-align: center;
+  padding: 14px;
+  background: #09707d;
+  color: white;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* --- LOGOUT MODAL --- */
+.modalOverlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); z-index: 2000; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s ease; }
+.modalContent { background: white; padding: 30px; border-radius: 16px; text-align: center; width: 90%; max-width: 350px; box-shadow: 0 20px 50px rgba(0,0,0,0.2); animation: scaleIn 0.2s ease; }
+.modalContent h3 { margin: 0 0 10px 0; color: #1e293b; }
+.modalContent p { color: #64748b; margin-bottom: 25px; }
+.modalActions { display: flex; gap: 10px; justify-content: center; }
+.modalCancel, .modalConfirm { flex: 1; padding: 10px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; }
+.modalCancel { background: #f1f5f9; color: #475569; }
+.modalConfirm { background: #ef4444; color: white; }
+
+/* --- RESPONSIVE BREAKPOINT --- */
+@media (max-width: 900px) {
+  .navbar { padding: 0 20px; }
+  .navlinks { display: none; }
+  .desktopButtons { display: none; }
+  .hamburger { display: block; }
+}
+
+/* ✅ CRITICAL FIX: FORCE HIDE MENU ON DESKTOP */
+@media (min-width: 901px) {
+  .mobileMenu {
+    display: none !important;
   }
 }

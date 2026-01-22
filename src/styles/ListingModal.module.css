@@ -19,15 +19,15 @@
   width: 100%;
   max-width: 1200px;
   height: 95vh;
-  overflow-y: auto;
   border-radius: 12px;
   position: relative;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
+  overflow: hidden; /* Prevent body scroll */
 }
 
-/* --- Top Controls (Header) --- */
+/* --- Top Controls (Fixed Header) --- */
 .topControls {
   display: grid;
   grid-template-columns: 1fr auto 1fr; /* Left, Center, Right */
@@ -35,9 +35,8 @@
   padding: 12px 24px;
   border-bottom: 1px solid #e5e7eb;
   background: white;
-  position: sticky;
-  top: 0;
   z-index: 100;
+  flex-shrink: 0;
 }
 
 .backBtn {
@@ -52,31 +51,54 @@
 }
 
 .centerLogo img {
-    /* height: 60px; */
-    width: 100px;
+  width: 100px;
 }
 
 .actionBtns {
   display: flex;
   justify-content: flex-end;
-  gap: 16px;
+  gap: 12px;
+  align-items: center;
 }
 
 .actionBtns button {
-  background: transparent;
-  border: none;
+  background: white;
+  border: 1px solid #e5e7eb;
+  padding: 8px 14px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #09707D; /* Brand Color */
+  color: #374151;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
-  transition: color 0.2s;
+  transition: all 0.2s;
 }
 
 .actionBtns button:hover {
-  color: #065a63;
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.closeIconBtn {
+  border: none !important;
+  padding: 8px !important;
+  color: #666 !important;
+}
+
+.reportBtn {
+  color: #dc2626 !important; /* Red for report */
+  border-color: #fee2e2 !important;
+  background: #fef2f2 !important;
+}
+
+/* --- Scrollable Content Area --- */
+.scrollableContent {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 40px;
 }
 
 /* --- Image Grid --- */
@@ -87,7 +109,7 @@
   height: 450px;
   background: #f3f4f6;
   padding: 8px;
-  position: relative; /* Needed for See All button */
+  position: relative;
 }
 
 .mainImage {
@@ -96,18 +118,31 @@
   overflow: hidden;
   border-top-left-radius: 8px;
   border-bottom-left-radius: 8px;
+  cursor: pointer;
 }
 
 .mainImage img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  cursor: pointer;
   transition: transform 0.3s ease;
 }
 
 .mainImage:hover img {
   transform: scale(1.02);
+}
+
+.statusBadge {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: #09707d;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .subImages {
@@ -121,13 +156,13 @@
   position: relative;
   overflow: hidden;
   height: 100%;
+  cursor: pointer;
 }
 
 .imageWrapper img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  cursor: pointer;
   transition: opacity 0.2s;
 }
 
@@ -135,67 +170,104 @@
   opacity: 0.9;
 }
 
-/* Specific Border Radius for Corners */
 .subImages .imageWrapper:nth-child(2) { border-top-right-radius: 8px; }
 .subImages .imageWrapper:nth-child(4) { border-bottom-right-radius: 8px; }
 
 /* Floating "See All" Button */
 .seeAllBtn {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 8px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #333;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    transition: transform 0.1s;
-    z-index: 20;
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: transform 0.1s;
+  z-index: 20;
 }
 
 .seeAllBtn:hover {
-    background: #f9f9f9;
-    transform: scale(1.02);
+  background: #f9f9f9;
+  transform: scale(1.02);
 }
 
 .moreOverlay {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.5);
-    color: white;
-    font-size: 24px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-}
-
-/* --- Logo Overlay --- */
-.logoOverlay {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 6px 12px;
-  border-radius: 4px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
   display: flex;
   align-items: center;
+  justify-content: center;
   pointer-events: none;
 }
 
-.logoOverlay img {
-  height: 24px;
-  width: auto;
+/* --- Gallery Overlay --- */
+.galleryOverlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: black;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.galleryContent {
+  width: 80%;
+  height: 80%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.galleryContent img {
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
+}
+
+.closeGalleryBtn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+.navBtnLeft, .navBtnRight {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 50%;
+}
+
+.navBtnLeft { left: 20px; }
+.navBtnRight { right: 20px; }
+
+.galleryCounter {
+  position: absolute;
+  bottom: -40px;
+  color: white;
+  font-size: 14px;
 }
 
 /* --- Content Layout --- */
@@ -203,6 +275,7 @@
   display: flex;
   padding: 30px 40px;
   gap: 50px;
+  align-items: flex-start;
 }
 
 .leftColumn {
@@ -220,26 +293,19 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 8px;
+  margin-bottom: 20px;
 }
 
-.header h1 {
+.titleBlock h1 {
   font-size: 28px;
   font-weight: 800;
   color: #111827;
-  margin: 0;
+  margin: 0 0 8px 0;
   line-height: 1.1;
-}
-
-.priceTag {
-  font-size: 28px;
-  font-weight: 800;
-  color: #111827;
 }
 
 .addressText {
   color: #4b5563;
-  margin-top: 4px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -247,58 +313,57 @@
   font-weight: 500;
 }
 
+.pinIcon { color: #09707d; }
+
+.priceBlock {
+  text-align: right;
+}
+
+.priceTag {
+  font-size: 28px;
+  font-weight: 800;
+  color: #111827;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.listedDate {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
 /* --- Key Stats --- */
 .keyStats {
   display: flex;
-  gap: 40px;
-  margin-top: 24px;
+  gap: 30px;
   padding: 20px 0;
   border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
 }
 
 .statBox {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .statVal {
-  font-size: 22px;
   font-weight: 700;
   color: #111827;
 }
 
-.statLabel {
-  font-size: 14px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-/* --- Media Links --- */
-.mediaLinks {
-    display: flex;
-    gap: 12px;
-    margin: 20px 0;
-}
-
-.mediaLinks button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: #f0fdf4;
-    border: 1px solid #09707D;
-    color: #09707D;
-    padding: 8px 14px;
-    border-radius: 30px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
 /* --- Sections --- */
 .section {
-  margin-top: 40px;
+  margin: 30px 0;
 }
 
 .section h3 {
@@ -306,6 +371,12 @@
   font-weight: 700;
   margin-bottom: 16px;
   color: #111827;
+}
+
+.sectionDivider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 30px 0;
 }
 
 .descText {
@@ -317,7 +388,7 @@
 /* --- Feature Grid --- */
 .featureGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
 }
 
@@ -335,13 +406,14 @@
 
 /* --- Map --- */
 .mapWrapper {
-  height: 300px;
+  height: 350px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid #e5e7eb;
+  background: #f3f4f6;
 }
 
-/* --- Sticky Agent Card (Right Column) --- */
+/* --- Sticky Sidebar Card --- */
 .stickyCard {
   position: sticky;
   top: 20px;
@@ -349,7 +421,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
 }
 
 .agentHeader {
@@ -361,6 +433,10 @@
   border-bottom: 1px solid #f3f4f6;
 }
 
+.avatarContainer {
+  position: relative;
+}
+
 .agentAvatar {
   width: 60px;
   height: 60px;
@@ -370,223 +446,225 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.agentInfo {
-    display: flex;
-    flex-direction: column;
+.verifiedBadge {
+  position: absolute;
+  bottom: 0; right: 0;
+  background: #09707d;
+  color: white;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
 }
 
-.agentHeader h4 {
+.agentInfo h4 {
   margin: 0;
   font-size: 18px;
-  font-weight: 700;
-  color: #09707D; /* Brand Color */
-}
-
-.agentHeader p {
-  margin: 4px 0 0 0;
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.viewProfileLink {
-    background: none;
-    border: none;
-    color: #09707D;
-    font-size: 13px;
-    font-weight: 600;
-    text-align: left;
-    padding: 0;
-    margin-top: 4px;
-    cursor: pointer;
-    text-decoration: underline;
-}
-
-.viewProfileLink:hover {
-    color: #065a63;
-}
-
-.contactForm h5 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
   font-weight: 700;
   color: #111827;
 }
 
-.inputWrap {
+.roleLabel {
   display: flex;
   align-items: center;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 12px;
-  gap: 10px;
-  margin-bottom: 16px;
-  background: #fff;
-  transition: border-color 0.2s;
+  gap: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  margin: 4px 0;
 }
 
-.inputWrap:focus-within {
-  border-color: #09707D;
-  box-shadow: 0 0 0 3px rgba(9, 112, 125, 0.1);
-}
-
-.inputWrap select {
-  border: none;
-  width: 100%;
-  outline: none;
-  background: transparent;
-  font-size: 15px;
-  color: #374151;
+.viewProfileLink {
+  color: #09707D;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+}
+
+.viewProfileLink:hover { text-decoration: underline; }
+
+/* --- Sidebar Actions --- */
+.contactForm h5 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 15px;
+}
+
+.quickActionsVertical {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tourBtn, .messageBtn, .applicationBtn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
 }
 
 .tourBtn {
-  width: 100%;
-  background: #09707D;
+  background-color: #09707d;
   color: white;
-  padding: 14px;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 16px;
-  cursor: pointer;
-  margin-bottom: 12px;
-  transition: background 0.2s;
 }
-
-.tourBtn:hover {
-  background: #075a63;
-}
+.tourBtn:hover { background-color: #075a64; }
 
 .messageBtn {
-  width: 100%;
-  background: white;
-  border: 1px solid #09707D;
-  color: #09707D;
+  background-color: white;
+  border: 1px solid #ddd;
+  color: #333;
+}
+.messageBtn:hover { border-color: #09707d; color: #09707d; }
+
+.applicationBtn {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+.applicationBtn:hover { background-color: #bbdefb; }
+
+.phoneRevealBtn {
+  background: #f3f4f6;
+  color: #374151;
+  text-align: center;
   padding: 12px;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+.phoneRevealBtn:hover { background: #e5e7eb; }
+
+.safetyBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fffbeb; 
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.safetyIcon { flex-shrink: 0; margin-top: 2px; }
+
+/* --- Owner Panel --- */
+.ownerPanel {
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.ownerGreeting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.wave { font-size: 24px; }
+
+.ownerGreeting h5 { margin: 0; font-size: 16px; color: #09707d; }
+.ownerGreeting p { margin: 0; font-size: 13px; color: #555; }
+
+.dashboardBtn {
+  width: 100%;
+  background: #09707d;
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background 0.1s;
+  margin-bottom: 10px;
 }
 
-.messageBtn:hover {
-  background: #f0fdfe;
+.viewPublicBtn {
+  width: 100%;
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-/* --- Full Screen Gallery --- */
-.galleryOverlay {
-    position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background: #000;
-    z-index: 3000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* --- Mortgage Calculator --- */
+.accordionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9fafb;
+  padding: 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
 }
 
-.galleryContent {
-    max-width: 90%;
-    max-height: 90%;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.accordionHeader h3 { margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.estimateValue { font-weight: 700; color: #09707d; font-size: 18px; }
+
+.mortgageCalc {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  padding: 20px;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
 }
 
-.galleryContent img, .mediaPlayer {
-    max-width: 100%;
-    max-height: 80vh;
-    object-fit: contain;
+.calcRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-.iframeWrapper {
-    width: 80vw;
-    height: 80vh;
-    background: #000;
+.calcRow label { font-size: 14px; color: #4b5563; }
+.calcRow input {
+  width: 80px;
+  padding: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  text-align: right;
+  font-weight: 600;
 }
 
-.iframeWrapper iframe {
-    width: 100%;
-    height: 100%;
-}
-
-.closeGalleryBtn {
-    position: absolute;
-    top: 20px; right: 20px;
-    background: rgba(255,255,255,0.2);
-    color: white;
-    border: none;
-    padding: 10px;
-    border-radius: 50%;
-    cursor: pointer;
-}
-
-.navBtnLeft, .navBtnRight {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(255,255,255,0.2);
-    color: white;
-    border: none;
-    padding: 10px;
-    border-radius: 50%;
-    cursor: pointer;
-}
-
-.navBtnLeft { left: 20px; }
-.navBtnRight { right: 20px; }
-
-.galleryCounter {
-    color: white;
-    margin-top: 15px;
-    font-size: 16px;
-    font-weight: 500;
-}
-
-/* --- Mobile --- */
+/* --- Responsive --- */
 @media (max-width: 1024px) {
   .contentLayout {
     flex-direction: column;
-    padding: 24px;
+    padding: 20px;
   }
-  
-  .rightColumn {
-    max-width: 100%;
-  }
-  
-  .stickyCard {
-    position: static;
-  }
+  .rightColumn { max-width: 100%; margin-top: 20px; }
+  .stickyCard { position: static; }
 }
 
 @media (max-width: 768px) {
-  .imageGrid {
-    height: 300px;
-    grid-template-columns: 1fr;
-  }
-  
-  .subImages {
-    display: none; /* Hide smaller images on mobile */
-  }
-  
-  .mainImage {
-    border-radius: 8px;
-  }
-  
-  .topControls {
-    padding: 10px 16px;
-  }
-  
-  .header h1 {
-    font-size: 22px;
-  }
-  
-  .priceTag {
-    font-size: 24px;
-  }
+  .imageGrid { height: 280px; grid-template-columns: 1fr; }
+  .subImages { display: none; }
+  .mainImage { border-radius: 8px; }
+  .topControls { padding: 10px 16px; }
+  .btnText { display: none; } 
 }

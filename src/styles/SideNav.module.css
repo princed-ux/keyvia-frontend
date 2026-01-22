@@ -287,3 +287,148 @@
   .logo, .footer { display: none; } /* Hide heavy elements on mobile top bar */
   .mainContainer { height: calc(100vh - 60px); }
 }
+
+/* --- TOP RIGHT SECTION --- */
+.topRightSection {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* --- NOTIFICATION BELL --- */
+.notifWrapper {
+  position: relative;
+}
+
+.bellContainer {
+  position: relative;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  background-color: #f8fafc;
+  transition: all 0.2s;
+}
+
+.bellContainer:hover {
+  background-color: #e2e8f0;
+}
+
+.bellIcon {
+  color: #64748b;
+}
+
+.redDot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background-color: #ef4444;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+}
+
+/* --- NOTIFICATION DROPDOWN --- */
+.notifDropdown {
+  position: absolute;
+  top: 120%;
+  right: -10px;
+  width: 320px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  border: 1px solid #e2e8f0;
+  z-index: 1000;
+  overflow: hidden;
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.notifHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.notifHeader h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #334155;
+}
+
+.notifHeader button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+}
+
+.notifList {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.notifItem {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  transition: background 0.2s;
+}
+
+.notifItem:hover {
+  background-color: #f8fafc;
+}
+
+.notifContent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notifContent strong {
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.notifContent p {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.notifContent span {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.unreadIndicator {
+  width: 8px;
+  height: 8px;
+  background-color: #09707D;
+  border-radius: 50%;
+  margin-top: 6px;
+}
+
+.emptyNotif {
+  padding: 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}

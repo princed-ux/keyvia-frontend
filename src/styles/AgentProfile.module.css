@@ -2,9 +2,15 @@
 .pageContainer {
   background-color: #f8fafc;
   min-height: 100vh;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #0f172a;
   padding-bottom: 80px;
+}
+
+.contentContainer {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
 }
 
 /* --- Banner Header --- */
@@ -14,22 +20,22 @@
   background-size: cover;
   background-position: center;
   position: relative;
-  background-color: #1e293b; /* Fallback */
+  background-color: #1e293b; /* Fallback color */
 }
 
 .bannerOverlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.5));
+  background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%);
 }
 
 .backBtn {
   position: absolute;
   top: 24px;
   left: 24px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   border: none;
-  padding: 10px 18px;
+  padding: 10px 20px;
   border-radius: 30px;
   font-weight: 600;
   font-size: 13px;
@@ -38,7 +44,7 @@
   align-items: center;
   gap: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   z-index: 10;
   color: #1e293b;
 }
@@ -49,24 +55,19 @@
   box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 }
 
-.contentContainer {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 24px;
-}
-
 /* --- Profile Header Card --- */
 .profileHeader {
   background: white;
   border-radius: 20px;
   padding: 32px;
-  margin-top: -80px; /* Overlap Banner */
+  margin-top: -80px; /* Pull up over banner */
   position: relative;
   box-shadow: 0 20px 40px -10px rgba(0,0,0,0.08);
   display: flex;
   gap: 32px;
   align-items: flex-start;
   border: 1px solid #e2e8f0;
+  z-index: 5;
 }
 
 .avatarWrapper {
@@ -81,9 +82,9 @@
   object-fit: cover;
   border: 5px solid white;
   box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-  background: white;
+  background: #f1f5f9;
   cursor: zoom-in;
-  transition: transform 0.2s;
+  transition: transform 0.2s ease;
 }
 
 .avatar:hover {
@@ -122,18 +123,19 @@
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.5px;
+  line-height: 1.2;
 }
 
 .subInfo {
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-top: 8px;
+  margin-top: 10px;
   flex-wrap: wrap;
 }
 
 .roleBadge {
-  background: #f0fdfa; /* Teal-ish tint */
+  background: #f0fdfa; /* Teal Tint */
   color: #0f766e;
   padding: 6px 12px;
   border-radius: 8px;
@@ -152,7 +154,7 @@
 }
 
 .primaryBtn {
-  background: #09707d;
+  background: #09707d; /* Brand Color */
   color: white;
   border: none;
   padding: 12px 24px;
@@ -173,6 +175,13 @@
   box-shadow: 0 8px 20px rgba(9, 112, 125, 0.35);
 }
 
+.primaryBtn:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .statsBar {
   display: flex;
   gap: 40px;
@@ -183,7 +192,7 @@
 .statItem {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: #475569;
   font-size: 14px;
 }
@@ -197,12 +206,21 @@
   font-weight: 700;
 }
 
-/* --- Main Grid --- */
+/* --- Main Content Grid --- */
 .mainGrid {
   display: grid;
   grid-template-columns: 340px 1fr;
   gap: 32px;
   margin-top: 32px;
+  position: relative;
+}
+
+/* BLUR EFFECT FOR LOCKED PROFILES */
+.blurred {
+  filter: blur(12px);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* Left Sidebar */
@@ -413,6 +431,7 @@
   border-radius: 20px;
   border: 2px dashed #e2e8f0;
   color: #94a3b8;
+  text-align: center;
 }
 
 .emptyState p {
@@ -420,70 +439,64 @@
   font-weight: 500;
 }
 
-/* Loading State */
-.fullPageLoader {
-  position: fixed;
-  inset: 0;
-  background-color: #f8fafc;
-  z-index: 9999;
+/* --- Pending/Locked Overlay (For Visitors) --- */
+.pendingOverlay {
+  position: absolute; /* Keeps it inside container */
+  top: 100px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50; /* Above blurred content */
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
   justify-content: center;
-  align-items: center;
+  padding-top: 100px;
 }
 
-.spinner {
-  animation: spin 1s linear infinite;
-  color: #09707d;
-  margin-bottom: 15px;
+.pendingCard {
+  background: white;
+  padding: 40px;
+  border-radius: 24px;
+  max-width: 450px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+  border: 1px solid #e2e8f0;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.pendingIcon {
+  color: #f59e0b; /* Amber */
+  margin-bottom: 16px;
 }
 
-/* Responsive */
-@media (max-width: 900px) {
-  .profileHeader {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    margin-top: -100px;
-    padding: 24px;
-  }
-
-  .headerTop {
-    flex-direction: column;
-    align-items: center;
-    gap: 24px;
-  }
-
-  .subInfo {
-    justify-content: center;
-  }
-
-  .statsBar {
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 20px;
-  }
-
-  .mainGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .sectionCard {
-    position: static;
-    margin-bottom: 30px;
-  }
-  
-  .banner {
-    height: 200px;
-  }
+.pendingCard h2 {
+  font-size: 22px;
+  color: #0f172a;
+  margin-bottom: 12px;
 }
 
-/* --- Drawer (Side Panel) --- */
+.pendingCard p {
+  color: #64748b;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.secondaryBtn {
+  background: #f1f5f9;
+  color: #0f172a;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.secondaryBtn:hover {
+  background: #e2e8f0;
+}
+
+/* --- Drawer (Slide-in Panel) --- */
 .overlay {
   position: fixed;
   inset: 0;
@@ -499,7 +512,7 @@
   right: 0;
   bottom: 0;
   width: 100%;
-  max-width: 550px; /* Wider drawer */
+  max-width: 550px;
   background: white;
   z-index: 1001;
   display: flex;
@@ -556,9 +569,7 @@
   transition: opacity 0.2s;
 }
 
-.thumbs img:hover {
-  opacity: 1;
-}
+.thumbs img:hover { opacity: 1; }
 
 .drawerInfo h2 {
   font-size: 24px;
@@ -602,7 +613,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  background: #e2e8f0; /* Border color */
+  background: #e2e8f0;
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 30px;
@@ -647,12 +658,22 @@
   font-weight: 500;
 }
 
+.stickyContact {
+  position: sticky;
+  bottom: -30px;
+  background: white;
+  padding-top: 20px;
+  padding-bottom: 10px;
+  margin-top: auto;
+  border-top: 1px solid #f1f5f9;
+}
+
 .contactFloatBtn {
   width: 100%;
-  background: #0f172a;
+  background: #09707d;
   color: white;
   border: none;
-  padding: 18px;
+  padding: 16px;
   border-radius: 14px;
   font-weight: 700;
   font-size: 16px;
@@ -661,16 +682,16 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  box-shadow: 0 10px 20px -5px rgba(15, 23, 42, 0.3);
+  box-shadow: 0 10px 20px -5px rgba(9, 112, 125, 0.3);
   transition: transform 0.2s;
 }
 
 .contactFloatBtn:hover {
   transform: translateY(-2px);
-  background: #1e293b;
+  background: #075a63;
 }
 
-/* Lightbox */
+/* --- Lightbox --- */
 .lightbox {
   position: fixed;
   inset: 0;
@@ -705,9 +726,7 @@
   transition: background 0.2s;
 }
 
-.closeLb:hover {
-  background: rgba(255,255,255,0.2);
-}
+.closeLb:hover { background: rgba(255,255,255,0.2); }
 
 .prevLb, .nextLb {
   position: absolute;
@@ -722,9 +741,125 @@
   transition: background 0.2s;
 }
 
-.prevLb:hover, .nextLb:hover {
-  background: rgba(255,255,255,0.25);
-}
-
+.prevLb:hover, .nextLb:hover { background: rgba(255,255,255,0.25); }
 .prevLb { left: 40px; }
 .nextLb { right: 40px; }
+
+/* --- Loading Spinner --- */
+.spinner {
+  animation: spin 1s linear infinite;
+  color: #09707d;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.errorState {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.errorIcon { color: #ef4444; margin-bottom: 20px; }
+
+/* --- RESPONSIVE DESIGN --- */
+@media (max-width: 900px) {
+  .profileHeader {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-top: -100px;
+    padding: 24px;
+  }
+
+  .headerTop {
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .subInfo { justify-content: center; }
+
+  .statsBar {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .mainGrid { grid-template-columns: 1fr; }
+
+  .sectionCard { position: static; margin-bottom: 30px; }
+  
+  .banner { height: 200px; }
+  
+  .pendingOverlay {
+    position: fixed; /* Full screen lock on mobile */
+    top: 0;
+    padding-top: 0;
+    align-items: center;
+    background: rgba(241, 245, 249, 0.8);
+    backdrop-filter: blur(5px);
+  }
+}
+
+
+/* ... existing code ... */
+
+/* --- NEW STATUS BADGE (Top Right) --- */
+.statusBadge {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #fff7ed; /* Light Orange Background */
+  border: 1px solid #fed7aa; /* Orange Border */
+  color: #c2410c; /* Dark Orange Text */
+  padding: 8px 16px;
+  border-radius: 30px; /* Pill Shape */
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  z-index: 20;
+  white-space: nowrap;
+  animation: fadeIn 0.5s ease;
+}
+
+.statusBadge svg {
+  color: #ea580c;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ... existing code ... */
+
+/* --- RESPONSIVE UPDATE --- */
+@media (max-width: 900px) {
+  .profileHeader {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-top: -100px;
+    padding: 24px;
+    padding-top: 50px; /* Make room for badge on mobile */
+  }
+
+  /* On mobile, center the badge at the top */
+  .statusBadge {
+    top: 16px;
+    right: auto; 
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}  

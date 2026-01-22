@@ -1,12 +1,15 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import Swal from "sweetalert2";
-import client from "../api/axios"; // ✅ Corrected Path
+import client from "../api/axios"; 
 import { 
   CheckCircle2, XCircle, Shield, AlertTriangle, 
   Search, ScanFace, Globe, Loader2, Sparkles,
   MapPin, Briefcase, UserCheck, Calendar, RefreshCw, Filter, User, Hash, Star, FileText
 } from "lucide-react";
 import style from "../styles/adminProfileReviews.module.css"; 
+
+// ✅ 1. Import Hook
+import useAutoFetch from '../hooks/useAutoFetch';
 
 const ProfileReviews = () => {
   const [profiles, setProfiles] = useState([]);
@@ -19,34 +22,38 @@ const ProfileReviews = () => {
   const [bulkScanning, setBulkScanning] = useState(false);
   const [aiReport, setAiReport] = useState(null);
 
-  // --- FETCH DATA ---
+  // --- FETCH DATA (Updated) ---
   const fetchProfiles = async () => {
-    setLoading(true);
+    // Only show full page loader on initial load
+    if (profiles.length === 0) setLoading(true);
+    
     try {
       const res = await client.get("/api/admin/profiles/pending");
       setProfiles(res.data);
     } catch (err) {
       console.error(err);
-      Swal.fire("Error", "Failed to load profiles", "error");
+      // Only show alert if it's a manual interaction failure
+      if(loading) Swal.fire("Error", "Failed to load profiles", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchProfiles(); }, []);
-  useEffect(() => { setAiReport(null); }, [selected]);
+  // ✅ 2. Use Hook (Replaces manual useEffect)
+  useAutoFetch(fetchProfiles);
 
-  // ✅ LOGIC: ROLE DETECTION (Fixes John Doe Issue)
+  // Reset AI report when selection changes
+  useMemo(() => { setAiReport(null); }, [selected]);
+
+  // ✅ LOGIC: ROLE DETECTION
   const detectRole = (p) => {
-      // 1. Trust Special ID Prefix first (AGT vs OWN)
+      // 1. Trust Special ID Prefix first
       if (p.special_id) {
           if (p.special_id.startsWith("AGT")) return "agent";
           if (p.special_id.startsWith("OWN")) return "owner";
       }
 
       // 2. Fallback: Check License Number
-      // If they have a valid license (>3 chars), they are an AGENT.
-      // If license is null/empty, they are an OWNER (even if DB role says 'agent').
       if (p.license_number && p.license_number.trim().length > 3) {
           return 'agent';
       }
@@ -135,8 +142,11 @@ const ProfileReviews = () => {
 
     try {
         await client.put(`/api/admin/profiles/${selected.unique_id}/status`, { status, reason });
+        
+        // Optimistic UI update
         setProfiles(prev => prev.filter(p => p.unique_id !== selected.unique_id));
         setSelected(null);
+        
         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Status Updated', showConfirmButton: false, timer: 2000 });
     } catch (err) {
         Swal.fire("Error", "Action failed", "error");
@@ -206,12 +216,12 @@ const ProfileReviews = () => {
                 <div className={style.cardImageHeader}>
                     <img src={p.avatar_url || "/person-placeholder.png"} alt="Avatar" className={style.cardAvatar} />
                     
-                    {/* ✅ BADGE: TEAL (Agent) vs PURPLE (Owner) */}
+                    {/* ✅ BADGE */}
                     <div className={style.roleBadge} style={{ backgroundColor: isAgent ? '#0f766e' : '#7c3aed' }}>
                         {isAgent ? 'AGENT' : 'OWNER'}
                     </div>
 
-                    {/* ✅ SHOW ID PREFIX (AGT/OWN) */}
+                    {/* ✅ ID PREFIX */}
                     <div className={style.cardBadge}>
                         {p.special_id ? p.special_id.split('-')[0] : (p.country?.slice(0, 2).toUpperCase() || "INT")}
                     </div>
@@ -255,7 +265,6 @@ const ProfileReviews = () => {
                     <div style={{display:'flex', gap:10, marginTop:5}}>
                         <span className={style.idTag}>ID: {selected.special_id || selected.unique_id}</span>
                         
-                        {/* ✅ DRAWER ROLE PILL */}
                         <span style={{ fontSize:'0.75rem', fontWeight:'bold', padding:'2px 8px', borderRadius:'4px', background: detectRole(selected) === 'agent' ? '#ccfbf1' : '#ede9fe', color: detectRole(selected) === 'agent' ? '#0f766e' : '#5b21b6', textTransform: 'uppercase' }}>
                             {detectRole(selected) === 'agent' ? 'Real Estate Agent' : 'Property Owner'}
                         </span>
@@ -291,7 +300,7 @@ const ProfileReviews = () => {
                     )}
                 </div>
 
-                {/* ✅ FULL DETAILS IN DRAWER */}
+                {/* ✅ FULL DETAILS */}
                 <div className={style.section}>
                     <h4>Profile Details</h4>
                     <div className={style.infoGrid}>

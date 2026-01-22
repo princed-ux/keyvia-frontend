@@ -5,95 +5,132 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const client = axios.create({
   baseURL: API_BASE,
-  withCredentials: true, // Allows cookies (for refresh tokens)
+  withCredentials: true, 
 });
 
-// 1. Automatically add the Access Token to every request
+let isRefreshing = false;
+let failedQueue = [];
+
+// ✅ Helper to safely set headers (Fixes Axios v1.x+ issues)
+const setAuthHeader = (config, token) => {
+  if (config.headers && config.headers.set) {
+    // Axios v1.x+ style
+    config.headers.set('Authorization', `Bearer ${token}`);
+  } else {
+    // Legacy style
+    config.headers = config.headers || {};
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+};
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// =========================================================
+// 1. REQUEST INTERCEPTOR
+// =========================================================
 client.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("accessToken");
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      setAuthHeader(config, token);
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// 2. The "Global Guard" Interceptor (Refreshes Tokens OR Kicks Banned Users)
+// =========================================================
+// 2. RESPONSE INTERCEPTOR
+// =========================================================
 client.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    const { response } = error;
 
-    // =========================================================
-    // 🚨 CASE 1: HANDLE BANS & SUSPENSIONS (403 Forbidden)
-    // =========================================================
-    // The backend sends 403 when 'is_banned' is true.
-    if (response && response.status === 403) {
-       const msg = response.data?.message || "";
-       
-       // We check strictly for the ban messages we wrote in the backend
-       if (msg.includes("Banned") || msg.includes("Suspended") || msg.includes("Account")) {
-           // Freezing the screen with an alert they cannot close
+    // ⛔ Prevent infinite loops on auth routes
+    if (originalRequest.url?.includes("/auth/login") || originalRequest.url?.includes("/auth/refresh")) {
+      return Promise.reject(error);
+    }
+
+    // ⛔ CASE 1: Banned/Suspended (403)
+    if (error.response?.status === 403) {
+       const msg = error.response.data?.message || "";
+       if (msg.includes("Banned") || msg.includes("Suspended")) {
            await Swal.fire({
              icon: "error",
              title: "Access Denied",
-             text: response.data.reason || "Your account has been suspended due to a violation of our terms.",
+             text: error.response.data.reason || "Your account has been suspended.",
              confirmButtonColor: "#d33",
              confirmButtonText: "Log Out",
-             allowOutsideClick: false,
-             allowEscapeKey: false
+             allowOutsideClick: false
            });
-
-           // Force Logout immediately after they click
            localStorage.clear();
-           sessionStorage.clear();
            window.location.href = "/login?sessionExpired=true";
            return Promise.reject(error);
        }
     }
 
-    // =========================================================
-    // 🔄 CASE 2: TOKEN EXPIRED (401 Unauthorized) -> TRY REFRESH
-    // =========================================================
-    if (response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true; // Prevent infinite loops
+    // 🔄 CASE 2: Token Expired (401) -> Try Refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      
+      if (isRefreshing) {
+        // Queue concurrent requests while refreshing
+        return new Promise(function (resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            // ✅ FIX: Apply new token to queued requests using helper
+            setAuthHeader(originalRequest, token);
+            return client(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
-        console.log("🔄 Token expired. Attempting to refresh...");
+        console.log("🔄 Refreshing token...");
         
-        // Call backend refresh endpoint
         const res = await client.post("/api/auth/refresh");
         const newAccessToken = res.data.accessToken;
 
         if (newAccessToken) {
-          console.log("✅ Token refreshed!");
+          console.log("✅ Token refreshed successfully!");
           
-          // 1. Save new token
           localStorage.setItem("accessToken", newAccessToken);
           
-          // 2. Update default headers for future requests
-          client.defaults.headers.common["Authorization"] = `Bearer ${newAccessToken}`;
+          // Update defaults for future requests
+          setAuthHeader(client.defaults, newAccessToken);
           
-          // 3. Update the *failed* request's headers and retry it
-          originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
+          // ✅ FIX: Apply new token to THIS failed request
+          setAuthHeader(originalRequest, newAccessToken);
+
+          // Process queue
+          processQueue(null, newAccessToken);
+
+          // Retry original
           return client(originalRequest);
         }
       } catch (refreshError) {
-        console.error("❌ Session expired or User Deleted. Logging out.");
-        
-        // If Refresh Fails (or User was Deleted from DB), we must log them out
+        console.error("❌ Session expired. Logging out.");
+        processQueue(refreshError, null);
         localStorage.clear();
-        sessionStorage.clear();
-        
-        // Only redirect if we aren't already on the login page (prevents loops)
-        if (window.location.pathname !== "/login") {
-            window.location.href = "/login?sessionExpired=true";
-        }
-        
+        window.location.href = "/login?sessionExpired=true";
         return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
 
@@ -103,7 +140,7 @@ client.interceptors.response.use(
 
 export const attachToken = (token) => {
   if (token) {
-    client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    setAuthHeader(client.defaults, token);
   } else {
     delete client.defaults.headers.common["Authorization"];
   }

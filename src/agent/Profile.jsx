@@ -14,6 +14,9 @@ import {
 import { COUNTRIES } from "../data/countries"; 
 import { City } from 'country-state-city'; 
 
+// ✅ 1. Import the Hook
+import useAutoFetch from '../hooks/useAutoFetch'; 
+
 const getAvatarColor = (name) => {
   if (!name) return "#09707D";
   const colors = ["#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39", "#FFC107", "#FF9800", "#FF5722", "#795548", "#607D8B"];
@@ -54,10 +57,11 @@ const Profile = () => {
   const [citySuggestions, setCitySuggestions] = useState([]);
   const [showCityDropdown, setShowCityDropdown] = useState(false);
 
-  // ------------------ Fetch Profile ------------------
+  // ------------------ Fetch Profile (Updated for Auto-Fetch) ------------------
   const fetchProfile = async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
-    else setLoading(true);
+    // Don't set loading(true) if it's an auto-refresh to avoid UI flash
+    else if (!initialForm.email) setLoading(true); 
 
     try {
       const res = await client.get("/api/profile");
@@ -88,11 +92,14 @@ const Profile = () => {
         social_twitter: data.social_twitter || "",
       };
 
-      setForm(profileData);
-      setInitialForm(profileData);
-      setRemoteAvatarUrl(data.avatar_url || user?.avatar_url || null);
-      setVerificationStatus(data.verification_status || "new"); 
-      setRejectionReason(data.rejection_reason || "");
+      // Only update form if NOT currently editing (to prevent overwriting user input)
+      if (!editing) {
+          setForm(profileData);
+          setInitialForm(profileData);
+          setRemoteAvatarUrl(data.avatar_url || user?.avatar_url || null);
+          setVerificationStatus(data.verification_status || "new"); 
+          setRejectionReason(data.rejection_reason || "");
+      }
       
       updateUser({
         name: profileData.full_name,
@@ -112,53 +119,37 @@ const Profile = () => {
     }
   };
 
-  useEffect(() => { fetchProfile(); }, []);
+  // ✅ 2. Use the Hook (Replaces manual useEffect)
+  useAutoFetch(fetchProfile);
 
   // =========================================================
-  // 🏙️ DEBUGGED CITY LOGIC
+  // 🏙️ CITY LOGIC
   // =========================================================
 
-  // 1. Get Country Code
-  // 1. Get Country Code (FIXED: Handles Lowercase ISOs)
   const currentCountryCode = useMemo(() => {
       const c = COUNTRIES.find(c => c.name === form.country);
-      
-      // Get the code (e.g., "ng" or "us")
       const rawCode = c ? (c.iso || c.code || c.iso2) : null;
-
-      // CRITICAL FIX: Convert "ng" -> "NG" because the library requires Uppercase
       return rawCode ? rawCode.toUpperCase() : null;
   }, [form.country]);
 
-  // 2. Load Cities
   const citiesOfCountry = useMemo(() => {
-      if (!currentCountryCode) {
-          console.log("❌ No Country Code found, cannot load cities.");
-          return [];
-      }
-      const cities = City.getCitiesOfCountry(currentCountryCode);
-      console.log(`✅ Loaded ${cities.length} cities for ${currentCountryCode}`);
-      return cities;
+      if (!currentCountryCode) return [];
+      return City.getCitiesOfCountry(currentCountryCode);
   }, [currentCountryCode]);
 
-  // 3. Filter
   const handleCityChange = (e) => {
       const val = e.target.value;
       setForm(prev => ({ ...prev, city: val }));
 
-      // If empty, hide dropdown
       if (!val || val.length === 0) {
           setShowCityDropdown(false);
           return;
       }
 
-      // Filter cities
       const matches = citiesOfCountry.filter(c => 
           c.name.toLowerCase().startsWith(val.toLowerCase())
       ).slice(0, 10);
       
-      console.log(`🔎 Typing "${val}" - Found ${matches.length} matches`); // DEBUG
-
       setCitySuggestions(matches);
       setShowCityDropdown(matches.length > 0);
   };
@@ -327,13 +318,26 @@ const Profile = () => {
         </div>
         <div className={styles.headerActions}>
              <button className={styles.refreshBtn} onClick={() => fetchProfile(true)} disabled={refreshing} title="Refresh Status">
-                <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} /> Refresh
+                <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} /> Refresh Status
              </button>
              <div className={`${styles.statusPill} ${verificationStatus === 'approved' ? styles.statusVerified : verificationStatus === 'rejected' ? styles.statusRejected : verificationStatus === 'pending' ? styles.statusPending : ''}`} style={verificationStatus === 'new' ? {display:'none'} : {}}>
                 {verificationStatus === 'approved' && <><CheckCircle2 size={16} /> APPROVED</>}
                 {verificationStatus === 'pending' && <><Clock size={16} /> PENDING</>}
                 {verificationStatus === 'rejected' && <><AlertTriangle size={16} /> REJECTED</>}
             </div>
+
+            <button 
+                className={styles.viewPublicBtn} 
+                onClick={() => window.open(`/profile/@${form.username || user?.unique_id}`, '_blank')}
+                title="View Public Profile"
+                style={{
+                    display:'flex', alignItems:'center', gap:'8px', padding:'8px 16px', 
+                    background:'white', border:'1px solid #ddd', borderRadius:'8px', 
+                    cursor:'pointer', fontWeight:'600', color:'#333', marginRight: '10px'
+                }}
+            >
+                <Globe size={18}/> View Public
+            </button>
         </div>
       </div>
 

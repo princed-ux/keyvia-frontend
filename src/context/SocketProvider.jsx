@@ -17,7 +17,7 @@ export const SocketProvider = ({ children }) => {
     // Initialize Socket Connection
     const newSocket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
       auth: { token: localStorage.getItem("accessToken") },
-      transports: ["websocket"], // Forces WebSocket only for better performance
+      transports: ["websocket"],
       reconnection: true,
       reconnectionAttempts: 5,
     });
@@ -36,11 +36,11 @@ export const SocketProvider = ({ children }) => {
         newSocket.emit("join_admins");
         console.log("Admin joined admin room");
       } else {
-        // Buyers and Owners just connect; specific chats are joined dynamically in Messages.jsx
         console.log(`${user.role} connected:`, user.unique_id);
       }
       
-      // Announce user is online globally
+      // ✅ CRITICAL: This allows server.js to run socket.join(userId)
+      // This is what makes the Notification Bell work!
       newSocket.emit("user_online", { userId: user.unique_id });
     });
 
@@ -65,9 +65,8 @@ export const SocketProvider = ({ children }) => {
     newSocket.on("receive_message", (data) => {
       // Only show toast if user is NOT on the messages page
       if (!window.location.pathname.includes("/messages")) {
-        // We assume 'data.message' holds the text
         toast.info(`New Message: ${data.message.substring(0, 30)}${data.message.length > 30 ? "..." : ""}`, {
-            onClick: () => window.location.href = "/dashboard/messages" // Or appropriate route based on role
+            onClick: () => window.location.href = "/dashboard/messages"
         });
       }
     });
@@ -92,9 +91,9 @@ export const SocketProvider = ({ children }) => {
       newSocket.off("listing_status_update");
       newSocket.disconnect();
     };
-  }, [user]); // Re-run if user changes (login/logout)
+  }, [user]); 
 
-  // Helper function to force join a specific chat room
+  // Helper function to force join a specific chat room (Used in Chat UI)
   const joinConversation = (conversationId) => {
     if (socket) {
       socket.emit("join_conversation", { conversationId });

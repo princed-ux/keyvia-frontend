@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import client from "../api/axios";
 import style from "../styles/AdminVerifications.module.css"; 
 import { 
@@ -9,26 +9,32 @@ import {
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 
+// ✅ 1. Import Hook
+import useAutoFetch from '../hooks/useAutoFetch';
+
 const AdminVerifications = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null); // Open Drawer for details
 
-  // FETCH PENDING VERIFICATIONS
+  // ✅ 2. Define Fetch Function
   const fetchPending = async () => {
-    setLoading(true);
+    // Only show full loader on initial load
+    if (requests.length === 0) setLoading(true);
+    
     try {
       const res = await client.get("/api/admin/profiles/pending");
       setRequests(res.data);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load queue");
+      if(loading) toast.error("Failed to load queue");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchPending(); }, []);
+  // ✅ 3. Use Hook
+  useAutoFetch(fetchPending);
 
   // DETECT ROLE
   const getRole = (user) => {
@@ -67,8 +73,11 @@ const AdminVerifications = () => {
 
     try {
         await client.put(`/api/admin/profiles/${selected.unique_id}/status`, { status, reason });
+        
+        // Optimistic UI Update
         setRequests(prev => prev.filter(r => r.unique_id !== selected.unique_id));
         setSelected(null);
+        
         toast.success(status === 'approved' ? "User Verified!" : "User Rejected");
     } catch (err) {
         toast.error("Action Failed");
@@ -138,7 +147,7 @@ const AdminVerifications = () => {
         )}
       </div>
 
-      {/* DRAWER FOR DEEP CHECK */}
+      {/* DRAWER */}
       {selected && (
         <>
             <div className={style.overlay} onClick={() => setSelected(null)}/>
@@ -182,7 +191,6 @@ const AdminVerifications = () => {
                     <div className={style.section}>
                         <h4><FileText size={16}/> Uploaded Documents</h4>
                         <div className={style.docPreview}>
-                            {/* In Phase 1, we just show if they uploaded it. Later, display the image */}
                             <div className={style.docIcon}><FileText size={32}/></div>
                             <div>
                                 <span>{getRole(selected) === 'agent' ? "Agent_License.jpg" : "Passport_ID.pdf"}</span>

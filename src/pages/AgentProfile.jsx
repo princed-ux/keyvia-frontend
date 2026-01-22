@@ -4,8 +4,8 @@ import { useAuth } from "../context/AuthProvider";
 import axios from "axios";
 import { 
   MapPin, CheckCircle, Globe, ShieldCheck, Star, 
-  Bed, Bath, Square, X, Video, ChevronLeft, ChevronRight, 
-  MessageCircle, ArrowLeft, Building2, Calendar, LayoutGrid, Lock, AlertTriangle, Loader2
+  Bed, Bath, Square, X, ChevronLeft, ChevronRight, 
+  MessageCircle, ArrowLeft, Building2, Calendar, LayoutGrid, Lock, AlertTriangle, Loader2, User
 } from "lucide-react";
 import style from "../styles/AgentProfile.module.css";
 import AuthModal from "../components/AuthModal"; 
@@ -19,7 +19,6 @@ const getFlagEmoji = (countryCode) => {
 };
 
 const AgentProfile = () => {
-  // ✅ Change: Capture generic profileId (can be unique_id OR @username)
   const { profileId } = useParams(); 
   const navigate = useNavigate();
   const { user } = useAuth(); 
@@ -29,10 +28,8 @@ const AgentProfile = () => {
   const [error, setError] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Drawer State
+  // Drawer & Lightbox State
   const [selected, setSelected] = useState(null);
-
-  // Lightbox State
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [lightboxType, setLightboxType] = useState(null);
@@ -43,14 +40,9 @@ const AgentProfile = () => {
       setError(null);
       try {
         let identifier = profileId;
-
-        // ✅ Handle @username logic
-        // If URL is /profile/@john, profileId is "@john"
-        // We strip the '@' before sending to API
         if (identifier.startsWith('@')) {
             identifier = identifier.substring(1);
         }
-
         const res = await axios.get(`${API_BASE}/api/listings/public/agent/${encodeURIComponent(identifier)}`);
         setData(res.data);
       } catch (err) {
@@ -73,7 +65,6 @@ const AgentProfile = () => {
     
     if (data?.agent) {
         let messagePath = "/dashboard/messages"; 
-
         if (user.role === "buyer") messagePath = "/buyer/messages";
         else if (user.role === "owner" || user.role === "landlord") messagePath = "/owner/messages";
         else if (user.role === "admin") messagePath = "/admin/messages";
@@ -86,51 +77,24 @@ const AgentProfile = () => {
   };
 
   const openListing = (listing) => { setSelected(listing); setPhotoIndex(0); };
-  
-  const openListingLightbox = (index) => { 
-      setLightboxType('listing');
-      setPhotoIndex(index); 
-      setLightboxOpen(true); 
-  };
-
-  const openAvatarLightbox = (e) => {
-      e.stopPropagation();
-      setLightboxType('avatar');
-      setLightboxOpen(true);
-  };
-
-  const nextPhoto = (e) => { 
-      e.stopPropagation(); 
-      if (lightboxType === 'listing' && selected) {
-          setPhotoIndex((prev) => (prev + 1) % selected.photos.length); 
-      }
-  };
-
-  const prevPhoto = (e) => { 
-      e.stopPropagation(); 
-      if (lightboxType === 'listing' && selected) {
-          setPhotoIndex((prev) => (prev - 1 + selected.photos.length) % selected.photos.length); 
-      }
-  };
+  const openListingLightbox = (index) => { setLightboxType('listing'); setPhotoIndex(index); setLightboxOpen(true); };
+  const openAvatarLightbox = (e) => { e.stopPropagation(); setLightboxType('avatar'); setLightboxOpen(true); };
+  const nextPhoto = (e) => { e.stopPropagation(); if (lightboxType === 'listing' && selected) setPhotoIndex((prev) => (prev + 1) % selected.photos.length); };
+  const prevPhoto = (e) => { e.stopPropagation(); if (lightboxType === 'listing' && selected) setPhotoIndex((prev) => (prev - 1 + selected.photos.length) % selected.photos.length); };
 
   const getFeaturesList = (features) => {
     if (!features) return [];
     let parsed = features;
     if (typeof features === 'string') { try { parsed = JSON.parse(features); } catch(e) { return []; } }
     if (Array.isArray(parsed)) return parsed;
-    if (typeof parsed === 'object' && parsed !== null) {
-        return Object.keys(parsed).filter(key => parsed[key] === true || parsed[key] === "true");
-    }
+    if (typeof parsed === 'object' && parsed !== null) return Object.keys(parsed).filter(key => parsed[key] === true || parsed[key] === "true");
     return [];
   };
 
   if (loading) return (
-    <div style={{
-        position: 'fixed', inset: 0, backgroundColor: '#f8fafc', zIndex: 9999,
-        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center'
-    }}>
+    <div style={{ position: 'fixed', inset: 0, backgroundColor: '#f8fafc', zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
         <Loader2 size={40} className={style.spinner} />
-        <p style={{color: '#64748b', fontWeight: 500, marginTop: 10}}>Loading Public Profile...</p>
+        <p style={{color: '#64748b', fontWeight: 500, marginTop: 10}}>Loading Profile...</p>
     </div>
   );
 
@@ -143,16 +107,29 @@ const AgentProfile = () => {
   );
 
   const { agent, listings } = data;
-  // ✅ DYNAMIC ROLE LABEL: Show "Landlord" if role isn't agent
-  const roleLabel = agent.role === 'agent' ? "Real Estate Agent" : "Property Landlord";
-  const coverImage = listings[0]?.photos?.[0]?.url || "/default-cover.jpg";
-  const isPending = agent.status === 'pending' || agent.status === 'rejected';
+
+  // ✅ FIX: Dynamic Role Label
+  let roleLabel = "Property Landlord";
+  if (agent.role === 'agent') roleLabel = "Real Estate Agent";
+  else if (agent.role === 'buyer') roleLabel = "Verified Buyer"; // Or just "Home Buyer"
+
+  // ✅ FIX: Determine Cover Image
+  // If buyer has no listings, use a generic pleasant background or their avatar blur
+  const coverImage = listings.length > 0 
+    ? listings[0]?.photos?.[0]?.url 
+    : "/default-cover.jpg"; // Make sure you have a default generic cover image
+  
+  // ✅ STATUS LOGIC
+  const isPending = agent.status === 'pending' || agent.status === 'rejected' || agent.status === 'new';
+  const isOwner = user?.unique_id === agent.unique_id;
+  const showLockOverlay = isPending && !isOwner;
+  const isBuyerProfile = agent.role === 'buyer';
 
   return (
     <div className={style.pageContainer}>
       
       {/* 1. BANNER */}
-      <div className={style.banner} style={{backgroundImage: `url(${coverImage})`}}>
+      <div className={style.banner} style={{backgroundImage: `url(${coverImage})`, backgroundColor: '#cbd5e1'}}>
         <div className={style.bannerOverlay}></div>
         <button onClick={() => navigate(-1)} className={style.backBtn}>
             <ArrowLeft size={18}/> Go Back
@@ -163,15 +140,23 @@ const AgentProfile = () => {
         
         {/* 2. PROFILE CARD */}
         <div className={style.profileHeader}>
+            
+            {/* Top Right Status Badge */}
+            {isOwner && isPending && (
+                <div className={style.statusBadge} title="Your profile is visible only to you until approved.">
+                    <AlertTriangle size={16} />
+                    <span>Pending Approval</span>
+                </div>
+            )}
+
             <div className={style.avatarWrapper}>
                 <img 
                     src={agent.avatar_url || "/person-placeholder.png"} 
                     alt={agent.full_name} 
                     className={`${style.avatar} ${style.clickableAvatar}`} 
                     onClick={openAvatarLightbox}
-                    title="View Profile Picture"
                 />
-                {!isPending && <div className={style.verifiedTick} title="Identity Verified"><CheckCircle size={20} fill="#09707d" color="white"/></div>}
+                {!isPending && <div className={style.verifiedTick}><CheckCircle size={20} fill="#09707d" color="white"/></div>}
             </div>
 
             <div className={style.headerInfo}>
@@ -179,81 +164,94 @@ const AgentProfile = () => {
                     <div>
                         <h1 className={style.name}>{agent.full_name}</h1>
                         <div className={style.subInfo}>
-                            <span className={style.roleBadge}>{roleLabel}</span>
+                            {/* Role Badge */}
+                            <span className={`${style.roleBadge} ${isBuyerProfile ? style.buyerBadge : ''}`}>
+                                {roleLabel}
+                            </span>
+                            
+                            {/* Location */}
                             <span className={style.location}>
                                 <MapPin size={14}/> {agent.city}, {agent.country} {getFlagEmoji(agent.country_code)}
                             </span>
                         </div>
                     </div>
-                    <div className={style.headerActions}>
-                        <button onClick={handleContact} className={style.primaryBtn} disabled={isPending}>
-                            <MessageCircle size={18}/> Send Message
-                        </button>
-                    </div>
+                    {!isOwner && (
+                        <div className={style.headerActions}>
+                            <button onClick={handleContact} className={style.primaryBtn} disabled={isPending}>
+                                <MessageCircle size={18}/> Send Message
+                            </button>
+                        </div>
+                    )}
                 </div>
 
+                {/* ✅ FIX: HIDE LISTING STATS FOR BUYERS */}
                 <div className={style.statsBar}>
-                    <div className={style.statItem}><Building2 size={16}/><span><strong>{listings.length}</strong> Listings</span></div>
-                    <div className={style.statItem}><Star size={16}/><span><strong>4.9</strong> Rating</span></div>
-                    <div className={style.statItem}><ShieldCheck size={16}/><span><strong>{agent.experience || "1+"} Years</strong> Exp.</span></div>
+                    {!isBuyerProfile && (
+                        <>
+                            <div className={style.statItem}><Building2 size={16}/><span><strong>{listings.length}</strong> Listings</span></div>
+                            <div className={style.statItem}><Star size={16}/><span><strong>4.9</strong> Rating</span></div>
+                            <div className={style.statItem}><ShieldCheck size={16}/><span><strong>{agent.experience || "1+"} Years</strong> Exp.</span></div>
+                        </>
+                    )}
                     <div className={style.statItem}><Calendar size={16}/><span>Joined {dayjs(agent.created_at).format("MMM YYYY")}</span></div>
                 </div>
             </div>
         </div>
 
         {/* 3. MAIN CONTENT */}
-        <div className={`${style.mainGrid} ${isPending ? style.blurred : ''}`}>
-            {/* Left Sidebar */}
-            <aside className={style.leftSidebar}>
+        <div className={`${style.mainGrid} ${showLockOverlay ? style.blurred : ''}`}>
+            
+            <aside className={style.leftSidebar} style={isBuyerProfile ? {width: '100%', flex: '1'} : {}}>
                 <div className={style.sectionCard}>
                     <h3>About</h3>
-                    <p className={style.bio}>{agent.bio || `I am a professional ${roleLabel} on Keyvia. Contact me for inquiries regarding my listings.`}</p>
+                    <p className={style.bio}>{agent.bio || (isBuyerProfile ? "I am looking for my dream property." : `I am a professional ${roleLabel} on Keyvia.`)}</p>
                     <div className={style.divider}></div>
                     <div className={style.infoList}>
                         <div className={style.infoRow}><Globe size={16}/> Speaks English</div>
-                        {agent.agency_name && <div className={style.infoRow}><Building2 size={16}/> {agent.agency_name}</div>}
+                        {!isBuyerProfile && agent.agency_name && <div className={style.infoRow}><Building2 size={16}/> {agent.agency_name}</div>}
                         <div className={style.infoRow}><CheckCircle size={16}/> Identity Verified</div>
                     </div>
                 </div>
             </aside>
 
-            {/* Right Listings */}
-            <main className={style.listingSection}>
-                <div className={style.listingHeader}>
-                    <h3>Active Properties</h3>
-                    <span className={style.countPill}>{listings.length}</span>
-                </div>
-                <div className={style.listingsGrid}>
-                    {listings.length === 0 ? (
-                        <div className={style.emptyState}><LayoutGrid size={48} color="#cbd5e1"/><p>No active properties listed.</p></div>
-                    ) : (
-                        listings.map(l => (
-                            <div key={l.product_id} className={style.listingCard} onClick={() => !isPending && openListing(l)}>
-                                <div className={style.cardImage} style={{backgroundImage: `url(${l.photos?.[0]?.url || '/placeholder.png'})`}}>
-                                    <div className={style.cardOverlay}><span className={style.typeTag}>{l.listing_type}</span></div>
-                                </div>
-                                <div className={style.cardContent}>
-                                    <div className={style.priceRow}>
-                                        <span className={style.price}>{Number(l.price).toLocaleString()} <small>{l.price_currency}</small></span>
-                                        {l.listing_type === 'rent' && <span className={style.period}>/ {l.price_period}</span>}
+            {/* ✅ FIX: HIDE LISTINGS SECTION FOR BUYERS */}
+            {!isBuyerProfile && (
+                <main className={style.listingSection}>
+                    <div className={style.listingHeader}>
+                        <h3>Active Properties</h3>
+                        <span className={style.countPill}>{listings.length}</span>
+                    </div>
+                    <div className={style.listingsGrid}>
+                        {listings.length === 0 ? (
+                            <div className={style.emptyState}><LayoutGrid size={48} color="#cbd5e1"/><p>No active properties listed.</p></div>
+                        ) : (
+                            listings.map(l => (
+                                <div key={l.product_id} className={style.listingCard} onClick={() => (!showLockOverlay && openListing(l))}>
+                                    <div className={style.cardImage} style={{backgroundImage: `url(${l.photos?.[0]?.url || '/placeholder.png'})`}}>
+                                        <div className={style.cardOverlay}><span className={style.typeTag}>{l.listing_type}</span></div>
                                     </div>
-                                    <h4 className={style.cardTitle}>{l.title}</h4>
-                                    <p className={style.cardAddress}>{l.city}, {l.country}</p>
-                                    <div className={style.cardSpecs}>
-                                        <span><Bed size={14}/> {l.bedrooms}</span>
-                                        <span><Bath size={14}/> {l.bathrooms}</span>
-                                        <span><Square size={14}/> {l.square_footage}</span>
+                                    <div className={style.cardContent}>
+                                        <div className={style.priceRow}>
+                                            <span className={style.price}>{Number(l.price).toLocaleString()} <small>{l.price_currency}</small></span>
+                                        </div>
+                                        <h4 className={style.cardTitle}>{l.title}</h4>
+                                        <p className={style.cardAddress}>{l.city}, {l.country}</p>
+                                        <div className={style.cardSpecs}>
+                                            <span><Bed size={14}/> {l.bedrooms}</span>
+                                            <span><Bath size={14}/> {l.bathrooms}</span>
+                                            <span><Square size={14}/> {l.square_footage}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </main>
+                            ))
+                        )}
+                    </div>
+                </main>
+            )}
         </div>
 
         {/* PENDING OVERLAY */}
-        {isPending && (
+        {showLockOverlay && (
             <div className={style.pendingOverlay}>
                 <div className={style.pendingCard}>
                     <Lock size={40} className={style.pendingIcon} />
@@ -292,9 +290,12 @@ const AgentProfile = () => {
                     <div className={style.amenitiesList}>
                         {getFeaturesList(selected.features).map((f, i) => <span key={i} className={style.amenityTag}>{f}</span>)}
                     </div>
-                    <div className={style.stickyContact}>
-                        <button onClick={handleContact} className={style.contactFloatBtn}><MessageCircle size={18} /> Inquiry</button>
-                    </div>
+                    
+                    {!isOwner && (
+                        <div className={style.stickyContact}>
+                            <button onClick={handleContact} className={style.contactFloatBtn}><MessageCircle size={18} /> Inquiry</button>
+                        </div>
+                    )}
                 </div>
             </div>
           </div>
@@ -303,7 +304,6 @@ const AgentProfile = () => {
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
 
-      {/* --- UNIFIED LIGHTBOX --- */}
       {lightboxOpen && (
         <div className={style.lightbox} onClick={() => setLightboxOpen(false)}>
             <button className={style.closeLb}><X size={32}/></button>

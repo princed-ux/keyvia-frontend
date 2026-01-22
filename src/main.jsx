@@ -13,7 +13,7 @@ import { SocketProvider } from "./context/SocketProvider.jsx";
 import { LoadingProvider } from "./context/LoadingContext"; 
 import { CallProvider } from "./context/CallProvider"; 
 import { NetworkStatusProvider } from "./context/NetworkStatusProvider"; // ✅ IMPORT NEW PROVIDER
-
+import { GlobalRefreshProvider } from "./context/GlobalRefreshContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -26,6 +26,7 @@ createRoot(document.getElementById("root")).render(
         <BrowserRouter>
           <AuthProvider>
             <SocketProvider>
+              <GlobalRefreshProvider>
               <CallProvider>
                 <App />
                 {/* <ToastContainer
@@ -40,6 +41,7 @@ createRoot(document.getElementById("root")).render(
                   pauseOnHover
                 /> */}
               </CallProvider>
+              </GlobalRefreshProvider>
             </SocketProvider>
           </AuthProvider>
         </BrowserRouter>

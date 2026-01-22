@@ -17,7 +17,6 @@
   border-bottom: 1px solid #e0e0e0;
   background: white;
   justify-content: space-between;
-  /* gap: 16px; */
   z-index: 50;
   height: 64px;
 }
@@ -48,15 +47,6 @@
 .searchIcon {
   color: #9ca3af;
   margin-right: 8px;
-}
-
-.searchIconBtn {
-  background: none;
-  border: none;
-  color: #007983;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
 }
 
 .searchInput {
@@ -94,21 +84,13 @@
   border-color: #9ca3af;
 }
 
-.filterBtnActive {
-  background: #f0fdfe;
-  border: 1px solid #007983;
-  color: #007983;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* Active State for Filter Buttons */
+.active {
+  background-color: #e6f7f8 !important;
+  color: #007983 !important;
+  border-color: #007983 !important;
 }
 
-/* --- UPDATE: Save Search Button --- */
 .saveSearchBtn {
   margin-left: auto;
   background-color: white;
@@ -127,10 +109,10 @@
   box-shadow: 0 2px 5px rgba(0, 121, 131, 0.15);
 }
 
-/* --- UPDATE: Dropdown Inputs (Fit Width) --- */
+/* --- Dropdown Inputs & Pills --- */
 .inputSmall {
-  flex: 1; /* Makes inputs fill available space */
-  padding: 10px;
+  flex: 1;
+  padding: 8px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
@@ -143,14 +125,42 @@
   box-shadow: 0 0 0 2px rgba(0, 121, 131, 0.1);
 }
 
-/* Ensure pill buttons fill width */
 .pillGroup {
   display: flex;
   background: #f3f4f6;
   border-radius: 8px;
   padding: 4px;
   gap: 4px;
-  width: 100%; /* Full width */
+  width: 100%;
+}
+
+.pill {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  color: #666;
+}
+
+.pill:hover {
+  background: rgba(255,255,255,0.5);
+}
+
+.pillActive {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: #fff;
+  color: #007983;
+  font-weight: bold;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 4px;
 }
 
 /* --- Content Split --- */
@@ -161,7 +171,7 @@
 }
 
 .mapSection {
-  flex: 1.2; /* Map slightly larger than list */
+  flex: 1.2;
   background: #e5e7eb;
   position: relative;
 }
@@ -214,7 +224,6 @@
   gap: 20px;
 }
 
-/* --- Professional Card --- */
 .card {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
@@ -266,6 +275,7 @@
   border-radius: 4px;
   text-transform: uppercase;
   backdrop-filter: blur(4px);
+  height: fit-content;
 }
 
 .favBtn {
@@ -293,6 +303,13 @@
   padding: 16px;
   display: flex;
   flex-direction: column;
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 4px;
 }
 
 .price {
@@ -331,55 +348,51 @@
   font-weight: 700;
 }
 
-.cardActions {
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.requestBtn {
-  flex: 1;
-  background-color: white;
-  color: #007983;
-  border: 1px solid #007983;
-  border-radius: 6px;
-  padding: 8px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.requestBtn:hover {
-  background-color: #007983;
-  color: white;
-}
-
-.emailBtn {
-  width: 36px;
-  border: 1px solid #e5e7eb;
-  background: white;
-  color: #6b7280;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.emailBtn:hover {
-  border-color: #007983;
-  color: #007983;
-}
-
-/* --- Utilities --- */
-.loader, .empty {
+/* --- Empty State --- */
+.empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 300px;
   color: #9ca3af;
+  text-align: center;
+}
+
+.empty h3 {
+  color: #374151;
+  margin-bottom: 10px;
+}
+
+/* --- SKELETON LOADING ANIMATION --- */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: #f3f4f6;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+.skeletonImage {
+  width: 100%;
+  height: 200px;
+  border-radius: 12px 12px 0 0;
+}
+
+.skeletonTitle {
+  height: 24px;
+  width: 70%;
+  margin-bottom: 12px;
+}
+
+.skeletonText {
+  height: 16px;
+  margin-bottom: 8px;
 }
 
 /* --- Mobile --- */
@@ -389,82 +402,4 @@
   .listSection { height: 60vh; border-left: none; }
   .filterBar { overflow-x: auto; padding: 10px; gap: 10px; height: auto; flex-wrap: wrap; }
   .searchContainer { width: 100%; }
-}
-
-
-/* Buy.module.css additions */
-
-.inputSmall {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  width: 100px;
-  font-size: 14px;
-}
-
-.pill {
-  flex: 1;
-  padding: 8px 12px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.pillActive {
-  flex: 1;
-  padding: 8px 12px;
-  border: none;
-  background: #fff;
-  color: #007983;
-  font-weight: bold;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  cursor: pointer;
-  font-size: 13px;
-  border-radius: 4px;
-}
-
-
-/* --- SKELETON LOADING ANIMATION --- */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.skeleton {
-  background: #f3f4f6; /* Base gray */
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 6px;
-}
-
-/* Skeleton Specific Shapes */
-.skeletonImage {
-  width: 100%;
-  height: 200px; /* Matches your card image height */
-  border-radius: 12px 12px 0 0;
-}
-
-.skeletonText {
-  height: 16px;
-  margin-bottom: 8px;
-}
-
-.skeletonTitle {
-  height: 24px;
-  width: 70%;
-  margin-bottom: 12px;
-}
-
-.skeletonTag {
-  width: 60px;
-  height: 20px;
-  border-radius: 4px;
 }

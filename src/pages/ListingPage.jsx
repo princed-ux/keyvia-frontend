@@ -1,29 +1,25 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import client from "../api/axios"; 
-import { Search, Heart, ChevronDown, X, Maximize, AlertCircle, CheckCircle, MapPin, Globe } from "lucide-react"; 
+import { Search, Heart, ChevronDown, X, Maximize, AlertCircle, CheckCircle, Globe } from "lucide-react"; 
 import Navbar from "../layout/Navbar"; 
 import MapLibreMapViewer from "../components/MapLibreMapViewer";
 import ListingModal from "../components/ListingModal";
+import ListingModalSkeleton from "../components/ListingModalSkeleton"; 
+import AuthModal from "../components/AuthModal"; 
+import SwitchRoleModal from "../components/SwitchRoleModal"
 import { getCurrencySymbol, formatPrice } from "../utils/format";
 import style from "../styles/Buy.module.css"; 
 import Swal from "sweetalert2"; 
 import { useAuth } from "../context/AuthProvider"; 
 
-// --- 1. SKELETON COMPONENT (The Glancing Effect) ---
+// --- 1. SKELETON COMPONENT ---
 const ListingSkeleton = () => (
   <div className={style.card} style={{ pointerEvents: "none", cursor: "default" }}>
-    {/* Image Placeholder */}
     <div className={`${style.skeleton} ${style.skeletonImage}`} />
-    
     <div className={style.cardDetails}>
-      {/* Price Placeholder */}
       <div className={`${style.skeleton} ${style.skeletonTitle}`} style={{ width: "40%" }}></div>
-      
-      {/* Address Placeholder */}
       <div className={`${style.skeleton} ${style.skeletonText}`} style={{ width: "90%" }}></div>
-      
-      {/* Stats Row Placeholder */}
       <div style={{ display: "flex", gap: "12px", marginTop: "10px" }}>
         <div className={style.skeleton} style={{ height: "14px", width: "40px" }}></div>
         <div className={style.skeleton} style={{ height: "14px", width: "40px" }}></div>
@@ -33,41 +29,27 @@ const ListingSkeleton = () => (
   </div>
 );
 
-// --- 2. CUSTOM TOAST COMPONENT ---
+// --- 2. TOAST COMPONENT ---
 const Toast = ({ message, type, onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 4000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
+  useEffect(() => { const timer = setTimeout(onClose, 4000); return () => clearTimeout(timer); }, [onClose]);
   return (
     <div style={{
-      position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)",
-      zIndex: 9999, display: "flex", alignItems: "center", gap: "10px",
-      backgroundColor: type === "error" ? "#FEF2F2" : "#ECFDF5",
-      border: `1px solid ${type === "error" ? "#FCA5A5" : "#6EE7B7"}`,
-      padding: "12px 20px", borderRadius: "50px",
-      boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-      animation: "slideDown 0.4s ease-out forwards",
-      minWidth: "300px", maxWidth: "90%"
+      position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)", zIndex: 9999, display: "flex", alignItems: "center", gap: "10px",
+      backgroundColor: type === "error" ? "#FEF2F2" : "#ECFDF5", border: `1px solid ${type === "error" ? "#FCA5A5" : "#6EE7B7"}`,
+      padding: "12px 20px", borderRadius: "50px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", animation: "slideDown 0.4s ease-out forwards", minWidth: "300px"
     }}>
       {type === "error" ? <AlertCircle size={20} color="#DC2626" /> : <CheckCircle size={20} color="#059669" />}
-      <span style={{ fontSize: "14px", fontWeight: "600", color: type === "error" ? "#B91C1C" : "#065F46", flex: 1 }}>
-        {message}
-      </span>
-      <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#666" }}>
-        <X size={16} />
-      </button>
+      <span style={{ fontSize: "14px", fontWeight: "600", color: type === "error" ? "#B91C1C" : "#065F46", flex: 1 }}>{message}</span>
+      <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#666" }}><X size={16} /></button>
       <style>{`@keyframes slideDown { from { opacity: 0; transform: translate(-50%, -20px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
     </div>
   );
 };
 
-// --- HELPER: Dropdown Container ---
+// --- 3. FILTER DROPDOWN HELPER ---
 const FilterDropdown = ({ title, onClose, children, onApply, width = "300px" }) => (
   <div style={{
-    position: "absolute", top: "100%", left: 0, marginTop: "8px",
-    background: "white", border: "1px solid #ddd", borderRadius: "8px",
+    position: "absolute", top: "100%", left: 0, marginTop: "8px", background: "white", border: "1px solid #ddd", borderRadius: "8px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.15)", zIndex: 1000, padding: "20px", width: width
   }}>
     <h4 style={{margin: "0 0 15px", fontSize:"14px", fontWeight:"700"}}>{title}</h4>
@@ -87,13 +69,16 @@ const ListingPage = ({ pageType }) => {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hoveredId, setHoveredId] = useState(null);
-  
-  // --- FILTERS ---
+  const [isModalLoading, setIsModalLoading] = useState(false);
+
+  // ✅ Store drawn polygon geometry
+  const [searchPolygon, setSearchPolygon] = useState(null);
+
+  // Filters State
   const [locationQuery, setLocationQuery] = useState("");
   const [countryQuery, setCountryQuery] = useState(""); 
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [toast, setToast] = useState(null); 
-
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
   const [beds, setBeds] = useState("any");
   const [baths, setBaths] = useState("any");
@@ -101,50 +86,64 @@ const ListingPage = ({ pageType }) => {
   const [sqftRange, setSqftRange] = useState({ min: "", max: "" });
   const [sortOption, setSortOption] = useState("newest");
   const [flyToCoords, setFlyToCoords] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [switchRoleModal, setSwitchRoleModal] = useState(false)
 
   const selectedProductId = searchParams.get("listing");
   const selectedListing = useMemo(() => properties.find(p => p.product_id === selectedProductId), [properties, selectedProductId]);
 
-  // --- 1. INITIALIZE LOCATION ---
+  // --- INIT LOCATION ---
   useEffect(() => {
     const savedLoc = localStorage.getItem("lastMapLocation");
-    if (savedLoc) {
-        setFlyToCoords(JSON.parse(savedLoc));
-    } else if ("geolocation" in navigator) {
+    if (savedLoc) { setFlyToCoords(JSON.parse(savedLoc)); } 
+    else if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(async (position) => {
             const { latitude, longitude } = position.coords;
             setFlyToCoords({ lat: latitude, lng: longitude });
-        }, () => console.log("Geo-location denied."));
+        }, () => {});
     }
   }, []);
 
-  // --- 2. FETCH LISTINGS ---
+  // --- FETCH LISTINGS ---
   const fetchListings = useCallback(async (params = {}) => {
-    // Basic optimization: don't fetch if we know we are offline
     if (!navigator.onLine) return; 
-
     try {
       setLoading(true);
       const category = pageType === 'buy' ? 'Sale' : 'Rent';
       const queryParams = { category, ...params };
-      const res = await client.get("/api/listings/public", { params: queryParams }); 
-      setProperties(res.data || []);
-    } catch (err) {
-      console.error("Error fetching listings:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [pageType]);
 
+      // LOGGING
+      console.log("--------------------------------------");
+      console.log("🚀 STARTING FETCH");
+
+      // ✅ Add Polygon to params if it exists in state
+      if (searchPolygon && !params.minLat && !params.search) {
+          console.log("✅ POLYGON FOUND IN STATE:", searchPolygon);
+          queryParams.polygon = JSON.stringify(searchPolygon);
+      } else {
+          console.log("❌ NO POLYGON (or overwritten by search/bounds)");
+      }
+
+      console.log("📡 SENDING TO BACKEND:", queryParams);
+
+      const res = await client.get("/api/listings/public", { params: queryParams });
+      
+      console.log("📥 RECEIVED LISTINGS:", res.data.length);
+      console.log("--------------------------------------");
+      
+      setProperties(res.data || []);
+    } catch (err) { console.error("Fetch error:", err); } 
+    finally { setLoading(false); }
+  }, [pageType, searchPolygon]); 
+
+  // ✅ Trigger Fetch when searchPolygon changes (Automatic)
   useEffect(() => { fetchListings(); }, [fetchListings]);
 
-  // --- 3. FILTER LOGIC ---
+  // --- FILTER LOGIC (Client Side Refinement) ---
   const filteredProperties = useMemo(() => {
     return properties.filter(p => {
-      const matchLoc = !locationQuery || 
-        (p.city + " " + p.address + " " + p.zip + " " + (p.country || "")).toLowerCase().includes(locationQuery.toLowerCase());
-      const pCountry = p.country || "";
-      const matchCountry = !countryQuery || pCountry.toLowerCase().includes(countryQuery.toLowerCase());
+      const matchLoc = !locationQuery || (p.city + " " + p.address + " " + p.zip + " " + (p.country || "")).toLowerCase().includes(locationQuery.toLowerCase());
+      const matchCountry = !countryQuery || (p.country || "").toLowerCase().includes(countryQuery.toLowerCase());
       const price = parseFloat(p.price);
       const minP = priceRange.min ? parseFloat(priceRange.min) : 0;
       const maxP = priceRange.max ? parseFloat(priceRange.max) : Infinity;
@@ -167,80 +166,90 @@ const ListingPage = ({ pageType }) => {
     });
   }, [properties, locationQuery, countryQuery, priceRange, beds, baths, homeTypes, sqftRange, sortOption]);
 
-  useEffect(() => {
-    if (hoveredId && !filteredProperties.find(p => p.product_id === hoveredId)) {
-      setHoveredId(null);
-    }
-  }, [filteredProperties, hoveredId]);
+  // --- ACTION HANDLERS ---
 
-  // --- 4. SMART SEARCH ---
+  // ✅ 1. OPTIMIZED MAP SEARCH (No Double Fetch)
+  const handleMapSearch = (searchData) => {
+    if (!searchData) {
+        setSearchPolygon(null);
+        return;
+    }
+
+    if (searchData.type === 'polygon') {
+        // Just set state; useEffect triggers the fetch automatically
+        setSearchPolygon(searchData.geometry);
+    } else if (searchData.type === 'bounds') {
+        setSearchPolygon(null); 
+        fetchListings({ 
+            minLat: searchData.minLat, 
+            maxLat: searchData.maxLat, 
+            minLng: searchData.minLng, 
+            maxLng: searchData.maxLng 
+        });
+    }
+  };
+
+  // ✅ 2. HANDLE ADDRESS SEARCH
   const handleAddressSearch = async () => {
     setToast(null);
     let query = locationQuery;
     if (countryQuery) query = query ? `${query}, ${countryQuery}` : countryQuery;
     if (!query) return;
 
+    setSearchPolygon(null); // Clear polygon on text search
     fetchListings({ search: query });
 
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1`);
       const data = await res.json();
-      
       if (data && data.length > 0) {
         const result = data[0];
-        const resultName = result.display_name.toLowerCase();
-        
-        const missingAddress = locationQuery && !resultName.includes(locationQuery.toLowerCase());
-        const missingCountry = countryQuery && !resultName.includes(countryQuery.toLowerCase());
-
-        if (missingAddress || missingCountry) {
-            setToast({
-                type: "error",
-                message: `Could not find "${locationQuery}" in ${countryQuery || "the specified area"}.`
-            });
-            return;
-        }
-
         const newCoords = { lat: parseFloat(result.lat), lng: parseFloat(result.lon) };
         localStorage.setItem("lastMapLocation", JSON.stringify(newCoords));
         setFlyToCoords(newCoords);
-        
       } else {
-        setToast({ type: "error", message: "Location not found. Please check spelling." });
+        setToast({ type: "error", message: "Location not found." });
       }
     } catch (error) { 
         console.error("Geocoding failed:", error);
-        setToast({ type: "error", message: "Unable to search map location." });
     }
-  };
-
-  const handleMapSearch = (bounds) => {
-    fetchListings({ minLat: bounds.south, maxLat: bounds.north, minLng: bounds.west, maxLng: bounds.east });
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') handleAddressSearch();
   };
 
+  const openModal = (id) => {
+    setIsModalLoading(true); 
+    setSearchParams({ listing: id }); 
+    setTimeout(() => { setIsModalLoading(false); }, 600);
+  };
+
+  const closeModal = () => {
+    setSearchParams({});
+    setIsModalLoading(false);
+  };
+
+  // ✅ 3. AUTH GUARD
   const handleAuthAction = (actionCallback) => {
     if (!user) {
-        Swal.fire({
-            title: "Join Keyvia!",
-            text: "Sign up to favorite homes, contact agents, and get the full experience.",
-            icon: "info",
-            showCancelButton: true,
-            confirmButtonColor: "#09707D",
-            cancelButtonColor: "#d33",
-            confirmButtonText: "Sign Up Now",
-            cancelButtonText: "Not now"
-        }).then((result) => {
-            if (result.isConfirmed) {
-                navigate("/signup"); 
-            }
-        });
+        setShowAuthModal(true); 
         return;
     }
-    actionCallback();
+    if (['agent', 'landlord', 'owner'].includes(user.role)) {
+        // Swal.fire({
+        //     title: "Switch Role?",
+        //     text: "Switch to a Buyer profile to perform this action.",
+        //     icon: "info",
+        //     confirmButtonColor: "#09707D",
+        //     confirmButtonText: "Go to Settings"
+        // }).then((result) => {
+        //     if (result.isConfirmed) navigate("/settings");
+        // });
+        setSwitchRoleModal(true);
+        return;
+    }
+    actionCallback(); 
   };
 
   const toggleFavorite = async (e, listingId) => {
@@ -252,30 +261,33 @@ const ListingPage = ({ pageType }) => {
     });
   };
 
-  const openModal = (id) => setSearchParams({ listing: id });
-  const closeModal = () => setSearchParams({});
+  const handleSaveSearch = () => {
+    handleAuthAction(() => {
+        setToast({ type: 'success', message: "Search saved!" });
+    });
+  };
+
   const toggleDropdown = (name) => setActiveDropdown(activeDropdown === name ? null : name);
 
-  // --- RENDER ---
   return (
     <div className={style.pageWrapper}>
       <Navbar />
-      
+      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      {switchRoleModal && <SwitchRoleModal onClose={() => setSwitchRoleModal(false)}/>}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
+      {/* FILTER BAR */}
       <div className={style.filterBar} style={{zIndex: 20}}>
         <div className={style.searchGroup}>
           <div className={style.searchContainer}>
             <Search size={16} className={style.searchIcon} />
             <input 
               type="text" placeholder="Address, City, ZIP" className={style.searchInput}
-              value={locationQuery} 
-              onChange={(e) => setLocationQuery(e.target.value)}
+              value={locationQuery} onChange={(e) => setLocationQuery(e.target.value)}
               onKeyDown={handleKeyDown} 
             />
             {locationQuery && <button onClick={()=>setLocationQuery("")} style={{border:"none",background:"transparent",cursor:"pointer"}}><X size={14}/></button>}
           </div>
-
           <div className={style.searchContainer} style={{width: '160px'}}>
               <Globe size={16} className={style.searchIcon} />
               <input 
@@ -302,7 +314,7 @@ const ListingPage = ({ pageType }) => {
           </div>
 
           <div style={{position: "relative"}}>
-            <button className={`${style.filterBtn} ${beds !== "any" || baths !== "any" ? style.active : ""}`} onClick={() => toggleDropdown("beds")}>Beds & Baths <ChevronDown size={14}/></button>
+            <button className={`${style.filterBtn} ${beds !== "any" ? style.active : ""}`} onClick={() => toggleDropdown("beds")}>Beds & Baths <ChevronDown size={14}/></button>
             {activeDropdown === "beds" && (
               <FilterDropdown title="Bedrooms & Bathrooms" onClose={() => setActiveDropdown(null)} onApply={() => setActiveDropdown(null)}>
                 <div style={{marginBottom: "15px"}}>
@@ -345,119 +357,117 @@ const ListingPage = ({ pageType }) => {
           </div>
 
           <div style={{position: "relative"}}>
-              <button className={`${style.filterBtn} ${sqftRange.min || sqftRange.max ? style.active : ""}`} onClick={() => toggleDropdown("more")}>More <ChevronDown size={14}/></button>
+              <button className={`${style.filterBtn} ${sqftRange.min ? style.active : ""}`} onClick={() => toggleDropdown("more")}>More <ChevronDown size={14}/></button>
               {activeDropdown === "more" && (
                 <FilterDropdown title="More Filters" onClose={() => setActiveDropdown(null)} onApply={() => setActiveDropdown(null)}>
                    <div>
                       <label style={{display:"flex", alignItems:"center", gap: "6px", fontSize:"13px", fontWeight:"600", marginBottom: "8px"}}><Maximize size={14}/> Square Footage</label>
                       <div style={{display: "flex", gap: "10px", alignItems: "center"}}>
-                          <input type="number" placeholder="Min SqFt" className={style.inputSmall} value={sqftRange.min} onChange={(e)=>setSqftRange({...sqftRange, min: e.target.value})} />
+                          <input type="number" placeholder="Min" className={style.inputSmall} value={sqftRange.min} onChange={(e)=>setSqftRange({...sqftRange, min: e.target.value})} />
                           <span>-</span>
-                          <input type="number" placeholder="Max SqFt" className={style.inputSmall} value={sqftRange.max} onChange={(e)=>setSqftRange({...sqftRange, max: e.target.value})} />
+                          <input type="number" placeholder="Max" className={style.inputSmall} value={sqftRange.max} onChange={(e)=>setSqftRange({...sqftRange, max: e.target.value})} />
                       </div>
                    </div>
                 </FilterDropdown>
               )}
           </div>
 
-          <button className={style.saveSearchBtn}>Save Search</button>
+          <button className={style.saveSearchBtn} onClick={handleSaveSearch}>Save Search</button>
         </div>
       </div>
 
       <div className={style.contentContainer}>
-        <div className={style.mapSection}>
-          <MapLibreMapViewer
-            properties={filteredProperties} 
-            hoveredId={hoveredId}
-            onMarkerClick={openModal}
-            onSearchArea={handleMapSearch} 
-            flyToCoords={flyToCoords} 
-          />
-        </div>
-
-        <div className={style.listSection}>
-          <div className={style.listHeader}>
-            <div>
-              <h1>{pageType === 'buy' ? 'Real Estate & Homes For Sale' : 'Apartments For Rent'}</h1>
-              <p className={style.metaText}>
-                {loading ? "Scanning market..." : `${filteredProperties.length} listings found`}
-              </p>
+         {/* MAP SECTION */}
+         <div className={style.mapSection}>
+            <MapLibreMapViewer 
+                properties={filteredProperties} 
+                hoveredId={hoveredId} 
+                onMarkerClick={openModal} 
+                flyToCoords={flyToCoords}
+                onSearchArea={handleMapSearch} // ✅ Connected
+            />
+         </div>
+         
+         {/* LIST SECTION */}
+         <div className={style.listSection}>
+            <div className={style.listHeader}>
+                <div>
+                  <h1>{pageType === 'buy' ? 'Real Estate & Homes For Sale' : 'Apartments For Rent'}</h1>
+                  <p className={style.metaText}>
+                    {loading ? "Scanning market..." : `${filteredProperties.length} listings found`}
+                  </p>
+                </div>
+                <div style={{position:"relative"}}>
+                   <button className={style.sortBtn} onClick={() => toggleDropdown("sort")}>
+                     Sort: {sortOption === "newest" ? "Newest" : sortOption === "price_asc" ? "Price (Low)" : "Price (High)"} <ChevronDown size={14}/>
+                   </button>
+                   {activeDropdown === "sort" && (
+                     <div style={{ position:"absolute", top:"100%", right:0, marginTop:"5px", background:"white", border:"1px solid #ddd", borderRadius:"8px", boxShadow:"0 5px 15px rgba(0,0,0,0.1)", zIndex:100, width:"150px" }}>
+                        {[{l: "Newest", v: "newest"}, {l: "Price (High to Low)", v: "price_desc"}, {l: "Price (Low to High)", v: "price_asc"}].map(opt => (
+                          <div key={opt.v} onClick={()=>{ setSortOption(opt.v); setActiveDropdown(null); }} style={{padding:"10px", cursor:"pointer", fontSize:"13px", borderBottom:"1px solid #eee"}}>{opt.l}</div>
+                        ))}
+                     </div>
+                   )}
+                </div>
             </div>
             
-            <div style={{position:"relative"}}>
-               <button className={style.sortBtn} onClick={() => toggleDropdown("sort")}>
-                 Sort: {sortOption === "newest" ? "Newest" : sortOption === "price_asc" ? "Price (Low)" : "Price (High)"} <ChevronDown size={14}/>
-               </button>
-               {activeDropdown === "sort" && (
-                 <div style={{ position:"absolute", top:"100%", right:0, marginTop:"5px", background:"white", border:"1px solid #ddd", borderRadius:"8px", boxShadow:"0 5px 15px rgba(0,0,0,0.1)", zIndex:100, width:"150px" }}>
-                    {[{l: "Newest", v: "newest"}, {l: "Price (High to Low)", v: "price_desc"}, {l: "Price (Low to High)", v: "price_asc"}].map(opt => (
-                      <div key={opt.v} onClick={()=>{ setSortOption(opt.v); setActiveDropdown(null); }} style={{padding:"10px", cursor:"pointer", fontSize:"13px", borderBottom:"1px solid #eee"}}>{opt.l}</div>
-                    ))}
-                 </div>
-               )}
-            </div>
-          </div>
-
-          {/* SKELETONS & GRID */}
-          {loading ? (
-            <div className={style.cardGrid}>
-                {/* Render 8 Skeletons while loading */}
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                    <ListingSkeleton key={n} />
-                ))}
-            </div>
-          ) : filteredProperties.length === 0 ? (
-            <div className={style.empty}>
-              <h3>No properties match your filters</h3>
-              <button onClick={() => { setPriceRange({min:"", max:""}); setBeds("any"); setBaths("any"); setHomeTypes([]); setLocationQuery(""); setCountryQuery(""); setSqftRange({min:"", max:""}); }} style={{color: "#007983", textDecoration: "underline", background: "none", border: "none", cursor: "pointer"}}>Clear all filters</button>
-            </div>
-          ) : (
-            <div className={style.cardGrid}>
-              {filteredProperties.map((prop) => (
-                <div 
-                  key={prop.product_id} 
-                  className={`${style.card} ${hoveredId === prop.product_id ? style.cardHovered : ""}`}
-                  onMouseEnter={() => setHoveredId(prop.product_id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                  onClick={() => openModal(prop.product_id)}
-                >
-                  <div className={style.cardImageWrapper}>
-                    <img src={prop.photos?.[0]?.url || "/placeholder.png"} alt={prop.title} />
-                    <div className={style.cardOverlay}>
-                        <span className={style.badge} title={prop.title}>
-                            {prop.title.length > 25 ? prop.title.substring(0, 25) + "..." : prop.title}
-                        </span>
-
-                        <button className={style.favBtn} onClick={(e) => toggleFavorite(e, prop.product_id)}>
-                            <Heart size={18} fill={prop.is_favorited ? "#09707d" : "none"} color={prop.is_favorited ? "#09707d" : "#666"} />
-                        </button>
-                    </div>
-                  </div>
-                  <div className={style.cardDetails}>
-                    <div className={style.priceRow}>
-                      <span className={style.price}>{getCurrencySymbol(prop.price_currency)}{formatPrice(prop.price)}{pageType === 'rent' && <span className={style.period}>/mo</span>}</span>
-                    </div>
-                    <div className={style.subTitle}>{prop.address || "Address Hidden"}, {prop.city}</div>
-                    <div className={style.statsRow}>
-                      <span className={style.statItem}><strong>{prop.bedrooms}</strong> bds</span>
-                      <span className={style.statItem}><strong>{prop.bathrooms}</strong> ba</span>
-                      <span className={style.statItem}><strong>{formatPrice(prop.square_footage)}</strong> sqft</span>
-                    </div>
-                  </div>
+            {loading ? (
+                <div className={style.cardGrid}>{[1,2,3,4,5,6].map(n=><ListingSkeleton key={n}/>)}</div>
+            ) : filteredProperties.length === 0 ? (
+                <div className={style.empty}>
+                  <h3>No properties match your filters</h3>
+                  <button onClick={() => { setPriceRange({min:"", max:""}); setBeds("any"); setBaths("any"); setHomeTypes([]); setLocationQuery(""); setCountryQuery(""); setSqftRange({min:"",max:""}); setSearchPolygon(null); }} style={{color: "#007983", textDecoration: "underline", background: "none", border: "none", cursor: "pointer"}}>Clear all filters</button>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+            ) : (
+                <div className={style.cardGrid}>
+                    {filteredProperties.map((prop) => (
+                        <div key={prop.product_id} className={`${style.card} ${hoveredId === prop.product_id ? style.cardHovered : ""}`}
+                             onMouseEnter={() => setHoveredId(prop.product_id)} onMouseLeave={() => setHoveredId(null)}
+                             onClick={() => openModal(prop.product_id)}>
+                            <div className={style.cardImageWrapper}>
+                                <img src={prop.photos?.[0]?.url || "/placeholder.png"} alt={prop.title} />
+                                <div className={style.cardOverlay}>
+                                    <span className={style.badge}>{prop.title.length > 25 ? prop.title.substring(0, 25) + "..." : prop.title}</span>
+                                    <button className={style.favBtn} onClick={(e) => toggleFavorite(e, prop.product_id)}>
+                                        <Heart size={18} fill={prop.is_favorited ? "#09707d" : "none"} color={prop.is_favorited ? "#09707d" : "#666"} />
+                                    </button>
+                                </div>
+                            </div>
+                            <div className={style.cardDetails}>
+                                <div className={style.priceRow}>
+                                    <span className={style.price}>{getCurrencySymbol(prop.price_currency)}{formatPrice(prop.price)}{pageType === 'rent' && <span className={style.period}>/mo</span>}</span>
+                                </div>
+                                <div className={style.subTitle}>{prop.address || "Address Hidden"}, {prop.city}</div>
+                                <div className={style.statsRow}>
+                                    <span className={style.statItem}><strong>{prop.bedrooms}</strong> bds</span>
+                                    <span className={style.statItem}><strong>{prop.bathrooms}</strong> ba</span>
+                                    <span className={style.statItem}><strong>{formatPrice(prop.square_footage)}</strong> sqft</span>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+         </div>
       </div>
       
-      {selectedListing && (
-        <ListingModal 
-            listing={selectedListing} 
-            onClose={closeModal} 
-            currentUser={user} 
-            onActionAttempt={handleAuthAction} 
-        />
+      {/* MODAL */}
+      {selectedProductId && (
+         <>
+            {isModalLoading ? (
+                <ListingModalSkeleton onClose={closeModal} />
+            ) : (
+                selectedListing && (
+                    <ListingModal 
+                        listing={selectedListing} 
+                        onClose={closeModal} 
+                        currentUser={user}
+                        isOwner={user && (user.unique_id === (selectedListing.agent?.unique_id || selectedListing.agent_unique_id))} 
+                        onActionAttempt={handleAuthAction} 
+                    />
+                )
+            )}
+         </>
       )}
       
       <style>{`.active { background-color: #e6f7f8 !important; color: #007983 !important; border-color: #007983 !important; }`}</style>

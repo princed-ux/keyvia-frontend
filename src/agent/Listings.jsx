@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; 
 import Swal from "sweetalert2";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
@@ -14,16 +14,19 @@ import PropertyForm from "../common/PropertyForm";
 import style from "../styles/Listings.module.css"; 
 import dayjs from "dayjs"; 
 
+// ✅ 1. Import Hook
+import useAutoFetch from '../hooks/useAutoFetch';
+
 export default function Listings() {
   const { user, updateUser } = useAuth(); 
   const navigate = useNavigate(); 
 
-  // ✅ LOCAL STATUS: Ensures the UI unlocks INSTANTLY after refresh
+  // ✅ LOCAL STATUS
   const [localStatus, setLocalStatus] = useState(user?.verification_status || 'pending');
 
   // State
   const [listings, setListings] = useState([]);
-  const [loading, setLoading] = useState(true); // Start loading immediately
+  const [loading, setLoading] = useState(true); 
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState(null); 
   
@@ -37,10 +40,11 @@ export default function Listings() {
 
   const lottieUrl = "https://lottie.host/37a0df00-47f6-43d0-873c-01acfb5d1e7d/wvtiKE3P1d.lottie";
 
-  // -------------------- Fetch Listings & Status --------------------
+  // -------------------- Fetch Listings & Status (Updated) --------------------
   const fetchListings = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    // Only show full loader on initial load
+    else if(listings.length === 0) setLoading(true);
 
     try {
       const [listingsRes, profileRes] = await Promise.all([
@@ -53,14 +57,13 @@ export default function Listings() {
       const serverData = profileRes.data;
       setLocalStatus(serverData.verification_status);
 
-      // ✅ KEY FIX: Preserve existing user data (Role, Token, etc.)
+      // ✅ KEY FIX: Preserve existing user data
       if (updateUser && serverData) {
           updateUser({ 
-              ...user, // 👈 Keep existing state (role, token, id)
+              ...user, 
               verification_status: serverData.verification_status,
               full_name: serverData.full_name || user.full_name,
               avatar_url: serverData.avatar_url || user.avatar_url,
-              // Explicitly ensure role doesn't get overwritten unless server sends it
               role: serverData.role || user.role 
           }); 
       }
@@ -73,7 +76,8 @@ export default function Listings() {
     }
   };
 
-  useEffect(() => { fetchListings(); }, []);
+  // ✅ 2. Use Hook
+  useAutoFetch(fetchListings);
 
   // -------------------- Actions --------------------
   
@@ -218,7 +222,7 @@ export default function Listings() {
       }
       if (editingListing?.photos?.length) formData.append("existingPhotos", JSON.stringify(editingListing.photos));
       
-      // ✅ Force status to 'pending' on update (handled by backend too, but safe here)
+      // ✅ Force status to 'pending' on update
       if (product_id) {
           formData.append('status', 'pending');
       }
@@ -226,14 +230,14 @@ export default function Listings() {
       const url = product_id ? `/api/listings/${product_id}` : `/api/listings`;
       const method = product_id ? "put" : "post";
       
-      // 🚀 ASYNC SUBMIT (Returns immediately while processing happens on server)
+      // 🚀 ASYNC SUBMIT
       const res = await client[method](url, formData, { headers: { "Content-Type": "multipart/form-data" } });
       const data = res.data.listing || res.data;
 
       // ⚡ Optimistic UI Update
       setListings((prev) => {
           if (product_id) return prev.map(l => l.product_id === product_id ? { ...data, status: 'pending' } : l);
-          return [data, ...prev]; // Add new listing to top immediately
+          return [data, ...prev]; 
       });
       
       setShowForm(false);
@@ -323,9 +327,8 @@ export default function Listings() {
                 let badgeClass = style.pending;
                 let statusText = "Pending Review";
                 
-                // Show 'Processing' if status is processing
                 if (listing.status === 'processing') {
-                    badgeClass = style.pending; // Use pending style or add a new one
+                    badgeClass = style.pending;
                     statusText = "Processing Media...";
                 } else if (listing.status === 'rejected') { 
                     badgeClass = style.rejected; 
@@ -335,7 +338,6 @@ export default function Listings() {
                     statusText = listing.is_active ? "Active" : "Approved (Unpaid)"; 
                 }
 
-                // ✅ Payment Logic: Approved + Not Active + Not Paid
                 const needsPayment = listing.status === 'approved' && !listing.is_active && listing.payment_status !== 'paid';
                 const isProcessing = listing.status === 'processing';
 

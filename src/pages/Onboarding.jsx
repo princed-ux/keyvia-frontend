@@ -17,11 +17,11 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import style from "../styles/Onboarding.module.css";
 
-// ✅ FIREBASE
+// ✅ FIREBASE IMPORTS
 import { auth } from "../firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 
-// --- HELPERS ---
+// ================= HELPERS =================
 const formatPhoneNumber = (value, dialCode) => {
   const clean = value.replace(/\D/g, "");
   if (dialCode === "+1") {
@@ -36,28 +36,24 @@ const formatPhoneNumber = (value, dialCode) => {
 const getLicenseLabel = (countryName) => {
   const c = countryName?.toLowerCase() || "";
   if (c.includes("india")) return "RERA Registration ID";
-  if (c.includes("united kingdom") || c.includes("uk"))
-    return "Redress Scheme / TPO Number";
-  if (
-    c.includes("australia") ||
-    c.includes("canada") ||
-    c.includes("united states")
-  )
-    return "State/Provincial License Number";
+  if (c.includes("united kingdom") || c.includes("uk")) return "Redress Scheme / TPO Number";
+  if (c.includes("australia") || c.includes("canada") || c.includes("united states")) return "State/Provincial License Number";
   if (c.includes("new zealand")) return "REA License Number";
   if (c.includes("nigeria")) return "LASRERA / NIESV ID";
   return "Real Estate License Number";
 };
 
+// ================= COMPONENT =================
 const Onboarding = () => {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const countryDropdownRef = useRef(null);
 
+  // State
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Phone State
+  // Phone Auth State
   const [isCountryOpen, setIsCountryOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [tempCountry, setTempCountry] = useState(null);
@@ -65,11 +61,12 @@ const Onboarding = () => {
   const [otpInput, setOtpInput] = useState("");
   const [confirmationResult, setConfirmationResult] = useState(null);
 
-  // Profile State
+  // Profile Details State
   const [agencyName, setAgencyName] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
   const [experience, setExperience] = useState("");
 
+  // Filter Countries
   const filteredCountries = useMemo(() => {
     if (!searchQuery) return COUNTRIES;
     return COUNTRIES.filter(
@@ -79,7 +76,7 @@ const Onboarding = () => {
     );
   }, [searchQuery]);
 
-  // ✅ FIX: Hydrate state from user context on mount
+  // Hydrate Country from User Context
   useEffect(() => {
     if (user?.country) {
       const found = COUNTRIES.find((c) => c.name === user.country);
@@ -87,44 +84,51 @@ const Onboarding = () => {
     }
   }, [user]);
 
+  // ✅ REDIRECT LOGIC (Clean & Conflict-Free)
   useEffect(() => {
-    if (user?.phone_verified) {
-      if (
-        user.role === "agent" &&
-        (!user.license_number || !user.agency_name)
-      ) {
-        setStep(3);
-      } else if (
-        user.role === "owner" &&
-        user.verification_status === "pending"
-      ) {
-        if (!user.country) setStep(3);
-        else navigate("/owner/dashboard");
-      } else {
+    if (!user) return;
+
+    // 1. BUYERS: Should not be here. Send to Dashboard.
+    if (user.role === 'buyer') {
+        navigate("/buyer/dashboard", { replace: true });
+        return;
+    }
+
+    // 2. COMPLETED AGENTS/OWNERS: Send to Dashboard.
+    if (user.phone_verified && user.special_id) {
         const dash = user.role === "owner" ? "/owner/dashboard" : "/dashboard";
-        navigate(dash);
-      }
+        navigate(dash, { replace: true });
+        return;
+    }
+
+    // 3. INCOMPLETE AGENTS/OWNERS: If phone is verified but no ID, go to Step 3.
+    if (user.phone_verified && !user.special_id) {
+        setStep(3);
     }
   }, [user, navigate]);
 
-  // --- HANDLERS ---
+
+  // ================= HANDLERS =================
+
+  // 1. Initialize ReCaptcha
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(
         auth,
         "recaptcha-container",
-        {
-          size: "invisible",
-          callback: () => console.log("Recaptcha Verified"),
+        { 
+            size: "invisible", 
+            callback: () => console.log("Recaptcha Verified") 
         }
       );
     }
   };
 
+  // 2. Send SMS
   const handleSendOtp = async () => {
     if (!tempCountry) return toast.warning("Select a country.");
     const rawPhone = tempPhone.replace(/\D/g, "");
-    if (rawPhone.length < 6) return toast.error("Invalid phone.");
+    if (rawPhone.length < 6) return toast.error("Invalid phone number.");
 
     setLoading(true);
     setupRecaptcha();
@@ -140,27 +144,30 @@ const Onboarding = () => {
       toast.success(`Code sent to ${fullPhone}`);
       setStep(2);
     } catch (err) {
-      console.error(err);
-      toast.error("SMS Failed. Try again.");
+      console.error("SMS Error:", err);
+      toast.error("SMS Failed. Please try again.");
       if (window.recaptchaVerifier) window.recaptchaVerifier.clear();
     } finally {
       setLoading(false);
     }
   };
 
+  // 3. Verify OTP
   const handleVerifyOtp = async () => {
-    if (otpInput.length < 6) return toast.warning("Enter 6-digit code.");
+    if (otpInput.length < 6) return toast.warning("Enter the 6-digit code.");
     setLoading(true);
     try {
       const result = await confirmationResult.confirm(otpInput);
       const firebaseToken = await result.user.getIdToken();
+      
+      // Verify token with backend
       await client.post("/api/auth/phone/verify-firebase", {
         token: firebaseToken,
       });
 
       toast.success("Phone Verified!");
 
-      // ✅ Update Context immediately so Step 3 has access to verified phone
+      // Update Context immediately
       const rawPhone = tempPhone.replace(/\D/g, "");
       const fullPhone = `${tempCountry.code}${rawPhone}`;
 
@@ -172,21 +179,23 @@ const Onboarding = () => {
 
       setStep(3);
     } catch (err) {
-      console.error(err);
-      toast.error("Invalid Code.");
+      console.error("OTP Error:", err);
+      toast.error("Invalid Code or Expired.");
     } finally {
       setLoading(false);
     }
   };
 
+  // 4. Finish Setup (Save Profile)
   const handleCompleteSetup = async () => {
+    // Validation for Agents
     if (user.role === "agent") {
       if (!agencyName) return toast.warning("Agency Name is required.");
       if (!licenseNumber) return toast.warning("License Number is required.");
     }
+
     setLoading(true);
     try {
-      // 1. Construct the data
       const rawPhone = tempPhone.replace(/\D/g, "");
       const computedPhone =
         tempCountry && rawPhone
@@ -195,17 +204,24 @@ const Onboarding = () => {
 
       const computedCountry = tempCountry?.name || user?.country || "Unknown";
 
+      // Fallback role logic if context is pending
+      let finalRole = user.role;
+      if (finalRole === 'pending' || !finalRole) {
+          finalRole = (agencyName || licenseNumber) ? 'agent' : 'owner';
+      }
+
       const payload = {
-        role: user.role,
+        role: finalRole,
         country: computedCountry,
         phone: computedPhone,
         agency_name: agencyName,
         license_number: licenseNumber,
         experience: experience,
-      }; // 2. Send to Backend
+      };
 
-      const res = await client.put("/api/auth/onboarding/complete", payload); // 3. Update Local Context
+      const res = await client.put("/api/auth/onboarding/complete", payload);
 
+      // Final Context Update with new Special ID
       updateUser({
         ...payload,
         special_id: res.data.special_id,
@@ -215,21 +231,12 @@ const Onboarding = () => {
 
       toast.success("Welcome to Keyvia!");
       const dash = user.role === "owner" ? "/owner/dashboard" : "/dashboard";
-      navigate(dash);
-    } catch (err) {
-      console.error("Onboarding Error:", err); // ✅ FIX: Catch the 409 Conflict specifically
+      navigate(dash, { replace: true });
 
+    } catch (err) {
+      console.error("Onboarding Error:", err);
       if (err.response && err.response.status === 409) {
-        toast.error(
-          err.response.data.message ||
-            "Identity Conflict: Phone or License already in use."
-        );
-      } else if (
-        err.response &&
-        err.response.data &&
-        err.response.data.message
-      ) {
-        toast.error(err.response.data.message);
+        toast.error(err.response.data.message || "Identity Conflict");
       } else {
         toast.error("Setup failed. Please try again.");
       }
@@ -238,6 +245,7 @@ const Onboarding = () => {
     }
   };
 
+  // ================= RENDER =================
   return (
     <div className={style.container}>
       <ToastContainer position="top-center" />
@@ -246,17 +254,11 @@ const Onboarding = () => {
       <div className={style.onboardingCard}>
         {/* PROGRESS BAR */}
         <div className={style.progressRow}>
-          <div className={`${style.step} ${step >= 1 ? style.activeStep : ""}`}>
-            1
-          </div>
+          <div className={`${style.step} ${step >= 1 ? style.activeStep : ""}`}>1</div>
           <div className={style.line}></div>
-          <div className={`${style.step} ${step >= 2 ? style.activeStep : ""}`}>
-            2
-          </div>
+          <div className={`${style.step} ${step >= 2 ? style.activeStep : ""}`}>2</div>
           <div className={style.line}></div>
-          <div className={`${style.step} ${step >= 3 ? style.activeStep : ""}`}>
-            3
-          </div>
+          <div className={`${style.step} ${step >= 3 ? style.activeStep : ""}`}>3</div>
         </div>
 
         {/* STEP 1: PHONE */}
@@ -382,18 +384,12 @@ const Onboarding = () => {
             <h2>
               {user?.role === "agent"
                 ? "Professional Details"
-                : "You're Verified!"}
+                : "Almost Done!"}
             </h2>
-            <p
-              style={{
-                fontSize: "14px",
-                color: "#64748b",
-                marginBottom: "20px",
-              }}
-            >
+            <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "20px" }}>
               {user?.role === "agent"
                 ? "Enter your license details to build trust with clients."
-                : "Your phone number is verified. You can now post listings."}
+                : "Your phone is verified. Click below to finish setup."}
             </p>
 
             {user?.role === "agent" ? (
@@ -431,6 +427,7 @@ const Onboarding = () => {
               </>
             ) : (
               <>
+                {/* OWNER VIEW: Just confirmation */}
                 <div className={style.infoBox}>
                   <CheckCircle size={24} className={style.greenIcon} />
                   <div>
@@ -442,7 +439,6 @@ const Onboarding = () => {
                 <div className={style.inputGroup} style={{ marginTop: 20 }}>
                   <label>Your Region</label>
                   <div className={style.readOnlyField}>
-                    {/* ✅ FIX: Show user country if tempCountry is null */}
                     <Globe size={16} />{" "}
                     {tempCountry?.name || user?.country || "Global"}
                   </div>

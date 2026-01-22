@@ -1,0 +1,15 @@
+/* 
+.mapboxgl-ctrl-group {
+    opacity: 1 !important;
+    z-index: 9999 !important; 
+    background-color: white !important;
+    border: 2px solid #09707D !important; 
+    margin: 10px !important;
+}
+
+.mapbox-gl-draw_ctrl-draw-btn {
+    width: 30px !important;
+    height: 30px !important;
+    background-color: white !important;
+    cursor: pointer !important;
+} */

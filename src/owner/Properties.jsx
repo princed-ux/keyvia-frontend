@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom"; 
 import Swal from "sweetalert2";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
@@ -14,11 +14,14 @@ import PropertyForm from "../common/PropertyForm";
 import style from "../styles/OwnerProperties.module.css"; 
 import dayjs from "dayjs"; 
 
+// ✅ 1. Import Hook
+import useAutoFetch from '../hooks/useAutoFetch';
+
 export default function Properties() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth(); 
 
-  // ✅ LOCAL STATUS: Ensures the UI unlocks INSTANTLY after refresh
+  // ✅ LOCAL STATUS
   const [localStatus, setLocalStatus] = useState(user?.verification_status || 'pending');
   
   const [listings, setListings] = useState([]);
@@ -40,12 +43,15 @@ export default function Properties() {
 
   const lottieUrl = "https://lottie.host/37a0df00-47f6-43d0-873c-01acfb5d1e7d/wvtiKE3P1d.lottie";
 
-  // --- Fetch Data ---
+  // --- Fetch Data (Updated) ---
   const fetchListings = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    // Don't show full loader if auto-refreshing
+    else if(listings.length === 0) setLoading(true);
 
     try {
+      // ✅ Using Agent endpoint for Owner too (Assuming backend handles role filter or endpoint logic is shared)
+      // If Owner has a specific endpoint like /api/listings/owner, use that instead.
       const [listingsRes, profileRes] = await Promise.all([
           client.get("/api/listings/agent"), 
           client.get("/api/profile") 
@@ -56,14 +62,14 @@ export default function Properties() {
       const serverData = profileRes.data;
       setLocalStatus(serverData.verification_status);
 
-      // ✅ SAFE STATE UPDATE: Preserves Role & Token
+      // ✅ SAFE STATE UPDATE
       if (updateUser && serverData) {
           updateUser((prevUser) => ({ 
-              ...prevUser, // Keep existing token, id, role
+              ...prevUser, 
               verification_status: serverData.verification_status,
               full_name: serverData.full_name || prevUser.full_name,
               avatar_url: serverData.avatar_url || prevUser.avatar_url,
-              role: serverData.role || prevUser.role // Ensure role stays correct
+              role: serverData.role || prevUser.role 
           })); 
       }
 
@@ -75,7 +81,8 @@ export default function Properties() {
     }
   };
 
-  useEffect(() => { fetchListings(); }, []);
+  // ✅ 2. Use Hook
+  useAutoFetch(fetchListings);
 
   // --- Filter Logic ---
   const filteredListings = useMemo(() => {
@@ -178,7 +185,7 @@ export default function Properties() {
       const url = product_id ? `/api/listings/${product_id}` : `/api/listings`;
       const method = product_id ? "put" : "post";
       
-      // 🚀 ASYNC SUBMIT (Returns immediately while processing happens on server)
+      // 🚀 ASYNC SUBMIT
       const res = await client[method](url, formData, { headers: { "Content-Type": "multipart/form-data" } });
       const data = res.data.listing || res.data;
 
@@ -515,6 +522,11 @@ export default function Properties() {
                             <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600}}>BATHS</p>
                             <p style={{margin:0, fontSize:'1.2rem', fontWeight:700, display:'flex', alignItems:'center', gap:5}}><Bath size={18}/> {previewListing.bathrooms}</p>
                         </div>
+                        <div style={{width:1, height:30, background:'#cbd5e1'}}></div>
+                        <div>
+                            <p style={{margin:0, color:'#64748b', fontSize:'0.85rem', fontWeight:600}}>SQFT</p>
+                            <p style={{margin:0, fontSize:'1.2rem', fontWeight:700, display:'flex', alignItems:'center', gap:5}}><Square size={18}/> {previewListing.square_footage}</p>
+                        </div>
                     </div>
                 </div>
 
@@ -557,7 +569,6 @@ export default function Properties() {
           </div>
         </div>
       )}
-
     </div>
   );
-}
+};

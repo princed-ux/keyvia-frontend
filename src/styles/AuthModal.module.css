@@ -133,6 +133,29 @@
   border-top: 1px solid #f1f5f9;
   padding-top: 15px;
 }
+.settingsBtn{
+  background: #175961;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  text-decoration: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: transform all 0.6s;
+}
+.settingsBtn:hover{
+  background-color: #09707D;
+}
+
+.settingsBtn:active {
+  transform: scale(0.98);
+}
 
 /* Animations */
 @keyframes fadeIn {

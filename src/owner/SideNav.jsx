@@ -2,12 +2,21 @@ import React, { useRef, useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import style from "../styles/SideNav.module.css";
 import { useAuth } from "../context/AuthProvider.jsx";
+import { useSocket } from "../context/SocketProvider.jsx"; 
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { 
   LayoutDashboard, User, Building, Wallet, MessageSquare, 
-  FileText, Bell, Settings, LogOut, ChevronDown, ChevronUp, Eye, EyeOff, Copy
+  FileText, Bell, Settings, LogOut, ChevronDown, ChevronUp, Eye, EyeOff, Copy, X, Trash2
 } from "lucide-react";
+import client from "../api/axios"; 
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+
+// ✅ 1. Import Hook
+import useAutoFetch from '../hooks/useAutoFetch';
+
+dayjs.extend(relativeTime);
 
 const getAvatarColor = (name) => {
   if (!name) return "#09707D";
@@ -19,43 +28,157 @@ const getAvatarColor = (name) => {
 
 const OwnerSideNav = () => {
   const dropdownRef = useRef(null);
+  const notifRef = useRef(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { socket } = useSocket(); 
   const location = useLocation();
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showSpecialId, setShowSpecialId] = useState(false);
 
-  // ✅ REDIRECT IF NOT VERIFIED
-  useEffect(() => {
+  // ✅ STRICTLY SEPARATED COUNTS
+  const [counts, setCounts] = useState({
+    notifications: 0, // Bell (System Alerts)
+    applications: 0,  // Sidebar Applications
+    messages: 0       // Sidebar Messages
+  });
+
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [notifications, setNotifications] = useState([]); 
+
+  // ✅ 2. SECURITY CHECK (Owners MUST be verified)
+  useEffect(() => { 
     if (user && !user.phone_verified) {
-      navigate("/onboarding");
+        navigate("/onboarding");
     }
   }, [user, navigate]);
 
+  // ✅ HELPER: Get Token Safely
+  const getAuthHeader = () => {
+      let token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      if (!token) return {};
+      token = token.replace(/^"|"$/g, '');
+      return { headers: { Authorization: `Bearer ${token}` } };
+  };
+
+  // ✅ 3. AUTO-FETCH COUNTS
+  const fetchCounts = async () => {
+    try {
+      const config = getAuthHeader();
+      if (!config.headers) return;
+
+      const res = await client.get("/api/notifications/counts", config);
+      setCounts(res.data);
+    } catch (err) {
+      console.error("Failed to fetch counts");
+    }
+  };
+
+  // Apply Hook
+  useAutoFetch(fetchCounts);
+
+  // 4. Real-Time Logic (Sound & Toasts)
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNotification = (data) => {
+        const audio = new Audio("/assets/notification.mp3"); 
+        audio.play().catch(() => {});
+        toast.info(data.message || "New Notification");
+
+        if (showNotifDropdown) {
+            setNotifications(prev => [data, ...prev]);
+        }
+    };
+
+    socket.on("notification", handleNotification);
+    
+    return () => {
+      socket.off("notification", handleNotification);
+    };
+  }, [socket, showNotifDropdown]);
+
+  // Click Outside Logic
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setShowDropdown(false);
+      if (notifRef.current && !notifRef.current.contains(event.target)) setShowNotifDropdown(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Handlers
+  const toggleNotifications = async () => {
+    if (!showNotifDropdown) {
+        try {
+            const config = getAuthHeader();
+            const res = await client.get("/api/notifications", config);
+            setNotifications(res.data);
+            
+            await client.patch("/api/notifications/mark-read", {}, config);
+            setCounts(prev => ({ ...prev, notifications: 0 }));
+
+        } catch (err) {
+            if (err.response && err.response.status === 401) {
+                toast.error("Session expired.");
+            }
+        }
+    }
+    setShowNotifDropdown(!showNotifDropdown);
+  };
+
+  const handleNotifClick = (link) => { setShowNotifDropdown(false); if (link) navigate(link); };
+  
+  const handleDeleteNotif = async (e, id) => {
+    e.preventDefault();
+    try {
+        const config = getAuthHeader();
+        await client.delete(`/api/notifications/${id}`, config);
+        setNotifications(prev => prev.filter(n => n.id !== id));
+        toast.success("Notification deleted");
+    } catch (err) { toast.error("Could not delete"); }
+  };
+
+  const handleClearAll = async () => {
+    try {
+        const config = getAuthHeader();
+        await client.delete("/api/notifications", config);
+        setNotifications([]);
+        toast.success("All cleared!");
+    } catch (err) { toast.error("Failed to clear"); }
+  };
+
   const confirmLogout = async () => { try { await logout(); setShowLogoutModal(false); navigate("/"); } catch (err) {} };
   const copySpecialId = async () => { try { await navigator.clipboard.writeText(user?.special_id || ""); toast.success("ID Copied!"); } catch (err) {} };
 
-  const pathTitles = {
-    "/owner/dashboard": "Dashboard",
-    "/owner/profile": "My Profile",
-    "/owner/properties": "My Properties",
-    "/owner/payments": "Payments & Finance",
-    "/owner/messages": "Messages",
-    "/owner/applications": "Applications",
-    "/owner/notifications": "Notifications",
-    "/owner/settings": "Settings",
-  };
-  const currentTitle = pathTitles[location.pathname] || "Owner Dashboard";
+  // --- OWNER NAVIGATION LINKS ---
+  const navLinks = [
+    { to: "/owner/dashboard", icon: <LayoutDashboard size={18} />, label: "Dashboard", end: true },
+    { to: "/owner/profile", icon: <User size={18} />, label: "Profile" },
+    { to: "/owner/properties", icon: <Building size={18} />, label: "Properties" },
+    { to: "/owner/payments", icon: <Wallet size={18} />, label: "Payments" },
+    
+    // Auto-updating badges
+    { 
+        to: "/owner/messages", 
+        icon: <MessageSquare size={18} />, 
+        label: "Messages", 
+        badge: counts.messages > 0 
+    },
+    { 
+        to: "/owner/applications", 
+        icon: <FileText size={18} />, 
+        label: "Applications", 
+        badge: counts.applications > 0 
+    },
+    
+    { to: "/owner/settings", icon: <Settings size={18} />, label: "Settings" },
+  ];
+
+  const currentTitle = navLinks.find(l => location.pathname.includes(l.to.replace('/owner', '')))?.label || "Owner Dashboard";
 
   return (
     <div className={style.allcontainer}>
@@ -79,30 +202,27 @@ const OwnerSideNav = () => {
         </div>
 
         <nav className={style.nav}>
-          <NavLink to="/owner/dashboard" end className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
-            <LayoutDashboard size={18} /> <span>Dashboard</span>
-          </NavLink>
-          <NavLink to="/owner/profile" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
-            <User size={18} /> <span>Profile</span>
-          </NavLink>
-          <NavLink to="/owner/properties" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
-            <Building size={18} /> <span>Properties</span>
-          </NavLink>
-          <NavLink to="/owner/payments" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
-            <Wallet size={18} /> <span>Payments</span>
-          </NavLink>
-          <NavLink to="/owner/messages" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
-            <MessageSquare size={18} /> <span>Messages</span>
-          </NavLink>
-          <NavLink to="/owner/applications" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
-            <FileText size={18} /> <span>Applications</span>
-          </NavLink>
-          <NavLink to="/owner/notifications" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
-            <Bell size={18} /> <span>Notifications</span>
-          </NavLink>
-          <NavLink to="/owner/settings" className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}>
-            <Settings size={18} /> <span>Settings</span>
-          </NavLink>
+          {navLinks.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) => isActive ? `${style.link} ${style.active}` : style.link}
+              onClick={() => {
+                  // Optimistic reset on click
+                  if(link.label === "Applications") setCounts(p => ({...p, applications: 0}));
+                  if(link.label === "Messages") setCounts(p => ({...p, messages: 0}));
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                  {link.icon} 
+                  <span style={{ marginLeft: '10px' }}>{link.label}</span>
+                  {link.badge && (
+                      <span className={style.sidebarDot} style={{ marginLeft: 'auto', width: '8px', height: '8px', background: '#ef4444', borderRadius: '50%' }}></span>
+                  )}
+              </div>
+            </NavLink>
+          ))}
         </nav>
 
         <div className={style.footer}>
@@ -115,30 +235,80 @@ const OwnerSideNav = () => {
       <div className={style.mainContainer}>
         <div className={style.topnav}>
           <div className={style.topTitle}>{currentTitle}</div>
-          <div className={style.userSection} ref={dropdownRef}>
-            <div className={style.userEmail} onClick={() => setShowDropdown(!showDropdown)}>
-              {user?.email} 
-              {showDropdown ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </div>
-            
-            {showDropdown && (
-              <div className={style.dropdown}>
-                <div className={style.dropdownItem}><strong>Role:</strong> Owner</div>
-                <div className={style.dropdownItem}>
-                  <strong>ID:</strong>
-                  <div className={style.uniqueBox}>
-                    <span className={style.uniqueValue}>{showSpecialId ? user?.special_id : "••••••••"}</span>
-                    <button onClick={() => setShowSpecialId(!showSpecialId)} className={style.eyeBtn}>
-                        {showSpecialId ? <EyeOff size={14}/> : <Eye size={14}/>}
-                    </button>
-                    <button onClick={copySpecialId} className={style.copyBtn}><Copy size={14}/></button>
-                  </div>
+          
+          <div className={style.topRightSection}>
+            <div className={style.notifWrapper} ref={notifRef}>
+                <div className={style.bellContainer} onClick={toggleNotifications}>
+                    <Bell size={20} className={style.bellIcon} /> 
+                    {counts.notifications > 0 && (
+                        <span className={style.redDot}>
+                            {counts.notifications > 9 ? "9+" : counts.notifications}
+                        </span>
+                    )}
                 </div>
-              </div>
-            )}
+
+                {showNotifDropdown && (
+                    <div className={style.notifDropdown}>
+                        <div className={style.notifHeader}>
+                            <h4>Notifications</h4>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button onClick={handleClearAll} title="Clear All" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
+                                    <Trash2 size={16} />
+                                </button>
+                                <button onClick={() => setShowNotifDropdown(false)}><X size={16}/></button>
+                            </div>
+                        </div>
+                        <div className={style.notifList}>
+                            {notifications.length === 0 ? <div className={style.emptyNotif}>No new notifications</div> : notifications.map((notif, index) => (
+                                <div 
+                                    key={index} 
+                                    className={style.notifItem} 
+                                    onClick={() => handleNotifClick(notif.link)}
+                                    onContextMenu={(e) => handleDeleteNotif(e, notif.id)}
+                                >
+                                    <div className={style.notifContent}>
+                                        <strong>{notif.title || "Alert"}</strong>
+                                        <p>{notif.message}</p>
+                                        <span>{dayjs(notif.created_at).fromNow()}</span>
+                                    </div>
+                                    {!notif.is_read && <div className={style.unreadIndicator} />}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className={style.userSection} ref={dropdownRef}>
+                <div className={style.userEmail} onClick={() => setShowDropdown(!showDropdown)}>
+                {user?.email} 
+                {showDropdown ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </div>
+                
+                {showDropdown && (
+                <div className={style.dropdown}>
+                    <div className={style.dropdownItem}><strong>Role:</strong> Owner</div>
+                    <div className={style.dropdownItem}>
+                    <strong>ID:</strong>
+                    <div className={style.uniqueBox}>
+                        <span className={style.uniqueValue}>{showSpecialId ? user?.special_id : "••••••••"}</span>
+                        <button onClick={() => setShowSpecialId(!showSpecialId)} className={style.eyeBtn}>
+                            {showSpecialId ? <EyeOff size={14}/> : <Eye size={14}/>}
+                        </button>
+                        <button onClick={copySpecialId} className={style.copyBtn}><Copy size={14}/></button>
+                    </div>
+                    </div>
+                </div>
+                )}
+            </div>
           </div>
         </div>
-        <div className={style.main}><div className={style.pageWrapper}><Outlet /></div></div>
+        
+        <div className={style.main}>
+            <div className={style.pageWrapper}>
+                <Outlet />
+            </div>
+        </div>
       </div>
 
       {showLogoutModal && (

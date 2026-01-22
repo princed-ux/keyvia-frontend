@@ -1,3 +1,4 @@
+// ../components/AuthModal.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { X, LogIn, UserPlus, ShieldCheck } from "lucide-react";

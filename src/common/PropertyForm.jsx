@@ -62,14 +62,12 @@ const SearchableSelect = ({ label, options, value, onChange, placeholder, disabl
   const [search, setSearch] = useState("");
   const wrapperRef = useRef(null);
 
+  // Sync internal search state with external value prop
   useEffect(() => {
-    if (value) {
-      const selected = options.find(o => String(o.value) === String(value));
-      setSearch(selected ? selected.label : value);
-    } else {
-      setSearch("");
-    }
-  }, [value]); 
+    // If value matches an option, use the label. Otherwise use the raw value.
+    const selectedOption = options.find(o => String(o.value).toLowerCase() === String(value).toLowerCase());
+    setSearch(selectedOption ? selectedOption.label : value || "");
+  }, [value, options]);
 
   const filteredOptions = options.filter(o => 
     String(o.label).toLowerCase().includes(search.toLowerCase())
@@ -79,20 +77,24 @@ const SearchableSelect = ({ label, options, value, onChange, placeholder, disabl
     const handleClickOutside = (event) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
         setIsOpen(false);
-        // ✅ CRITICAL: If custom value typed, save it on blur
-        if (allowCustom && search && !filteredOptions.find(o => o.label === search)) {
-             onChange(search); 
-        } else if (value) {
+        // ✅ CRITICAL FIX: If allowCustom is true, commit the typed value on blur
+        if (allowCustom && search) {
+             const match = options.find(o => o.label.toLowerCase() === search.toLowerCase());
+             if (match) {
+                 onChange(match.value); // Use found value
+             } else {
+                 onChange(search); // Use custom typed value
+             }
+        } else if (!allowCustom && value) {
+             // Revert to last valid value if custom not allowed
              const selected = options.find(o => String(o.value) === String(value));
-             setSearch(selected ? selected.label : value);
-        } else {
-             setSearch("");
+             setSearch(selected ? selected.label : "");
         }
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [wrapperRef, value, search, allowCustom]);
+  }, [wrapperRef, value, search, allowCustom, options, onChange]);
 
   const handleSelect = (optionValue, optionLabel) => {
     onChange(optionValue);
@@ -115,8 +117,9 @@ const SearchableSelect = ({ label, options, value, onChange, placeholder, disabl
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            setIsOpen(true);
-            if (allowCustom) onChange(e.target.value); 
+            if (!isOpen) setIsOpen(true);
+            // ✅ Immediate update for custom fields so typing "Atlanta" works instantly
+            if (allowCustom) onChange(e.target.value);
           }}
           onFocus={() => !disabled && setIsOpen(true)}
           disabled={disabled}
@@ -348,8 +351,9 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
   // --- MEMOS ---
 
   const currentCountryIso = useMemo(() => {
-    const c = COUNTRIES.find(x => x.name === form.country);
-    return c ? c.iso.toUpperCase() : "US"; 
+    if (!form.country) return null;
+    const c = COUNTRIES.find(x => x.name.toLowerCase() === form.country.toLowerCase());
+    return c ? c.iso : null; // Return null if no match found
   }, [form.country]);
 
   const countryFlagUrl = useMemo(() => {
@@ -373,7 +377,7 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
   const priceSymbol = getCurrencyTextSymbol(form.priceCurrency);
 
   const stateOptions = useMemo(() => {
-    if (!currentCountryIso) return [];
+    if (!currentCountryIso) return []; // Don't show US states if country is unknown
     const states = State.getStatesOfCountry(currentCountryIso);
     return states.map(s => ({ value: s.name, label: s.name, isoCode: s.isoCode }));
   }, [currentCountryIso]);
@@ -666,7 +670,7 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
 
             {/* LOCATION ROW */}
             <div className={style.locationRow}>
-                {/* Country */}
+                {/* Country (Read-Only) */}
                 <div style={{position:'relative'}}>
                    <label className={style.label}>Country</label>
                    <div className={`${style.inputWrapper} ${style.disabledWrapper}`}>
@@ -683,37 +687,42 @@ const PropertyForm = ({ closeBtn, initialData, submitListing }) => {
                    </div>
                 </div>
 
-                {/* State */}
+                {/* State - Allows Custom Typing */}
                 <SearchableSelect
-                  id="state" label="State" 
-                  placeholder={hasStates ? "Select State" : "N/A"}
+                  id="state" label="State / Province" 
+                  placeholder="Select or Type State"
                   options={stateOptions} value={form.state}
-                  onChange={(val) => { update("state", val); update("city", ""); }}
+                  onChange={(val) => { 
+                      update("state", val); 
+                      // Only clear city if state changed drastically, optional
+                      // update("city", ""); 
+                  }}
                   error={errors.state} 
-                  disabled={loading || !hasStates}
-                  allowCustom={true} 
+                  disabled={loading}
+                  allowCustom={true} // ✅ Allow typing "Atlanta" or anything
                 />
                 
-                {/* City */}
+                {/* City - Allows Custom Typing */}
                 <SearchableSelect
                   id="city" label="City"
-                  placeholder={(!form.state && hasStates) ? "Select State First" : "Type City Name"}
+                  placeholder="Select or Type City"
                   options={cityOptions} value={form.city}
                   onChange={(val) => update("city", val)}
                   error={errors.city}
-                  disabled={ (hasStates && !form.state) || loading }
-                  allowCustom={true} 
+                  disabled={loading} // ✅ Always enabled so they can type
+                  allowCustom={true} // ✅ Allow typing custom cities
                 />
                 
                 <InputGroup id="zipCode" label="Zip Code" optional value={form.zipCode} onChange={(e) => update("zipCode", e.target.value)} disabled={loading} />
             </div>
 
             <div className={style.fullWidth}>
+               {/* Address - Unlocks if City has ANY value */}
                <OSMAddressAutocomplete 
                   value={form.address} 
                   onChange={(val) => update("address", val)} 
                   onSelectAddress={handleOSMSelect} 
-                  disabled={!form.city || loading} 
+                  disabled={!form.city || loading} // ✅ Unlocks as soon as they type in City
                   error={errors.address}
                   context={{ city: form.city, country: form.country }}
                />

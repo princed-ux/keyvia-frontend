@@ -1,0 +1,253 @@
+/* --- SHARED MODAL OVERLAY --- */
+.overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+
+.modal {
+    background: white;
+    width: 100%;
+    max-width: 400px; /* Mobile-friendly narrow width like screenshot */
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    animation: slideUp 0.3s ease;
+    overflow: hidden;
+    max-height: 90vh;
+}
+
+/* --- HEADER --- */
+.header {
+    padding: 16px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.header h3 { margin: 0; font-size: 1.1rem; font-weight: 700; color: #1a1a1a; }
+.closeBtn { background: none; border: none; cursor: pointer; color: #555; }
+
+/* --- BODY SCROLL --- */
+.body { padding: 16px; overflow-y: auto; }
+
+/* --- PROPERTY SUMMARY (Thumbnail) --- */
+.propertySummary {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.propThumb {
+    width: 80px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+.propInfo h4 { margin: 0 0 4px 0; font-size: 0.95rem; color: #333; }
+.propStats { font-size: 0.85rem; color: #555; }
+.propStats b { color: #222; }
+
+/* --- TOUR SPECIFIC STYLES --- */
+.tipBox {
+    display: flex;
+    gap: 12px;
+    background-color: #f5f5f5; /* Light gray like screenshot */
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 24px;
+    align-items: flex-start;
+}
+.bulbIcon { color: #09707d; margin-top: 2px; }
+.tipBox p { margin: 0; font-size: 0.85rem; color: #444; line-height: 1.4; }
+
+.sectionTitle {
+    font-size: 0.95rem; font-weight: 700; color: #222; margin-bottom: 12px;
+}
+
+/* DATE SCROLLER */
+.dateScrollerContainer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.scrollBtn {
+    background: white; border: none; color: #09707d; cursor: pointer; padding: 0;
+}
+.dateTrack {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    scrollbar-width: none;
+}
+.dateTrack::-webkit-scrollbar { display: none; }
+
+.dateCard {
+    min-width: 80px;
+    height: 70px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: white;
+}
+.dateCard.selected {
+    border: 2px solid #09707d;
+    background-color: #f0fdfe;
+    color: #09707d;
+}
+.dayName { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+.dayNum { font-size: 0.9rem; font-weight: 600; }
+
+.timeSelect {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+    margin-bottom: 16px;
+    background: white;
+}
+
+.addTimeBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #09707d;
+    background: none;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* --- FORM INPUTS (Application/Message) --- */
+.inputWrapper {
+    margin-bottom: 16px;
+}
+.label {
+    display: block;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: #222;
+}
+.required { color: #d32f2f; margin-left: 2px; }
+
+.inputContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.inputField, .textArea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+    color: #333;
+}
+.inputField:focus, .textArea:focus {
+    outline: 2px solid #09707d;
+    border-color: transparent;
+}
+
+/* Icons inside input */
+.inputIconRight {
+    position: absolute;
+    right: 12px;
+    color: #888;
+    pointer-events: none;
+}
+
+/* --- FOOTER --- */
+.footer {
+    padding: 16px;
+    border-top: 1px solid #eee;
+}
+.nextBtn {
+    width: 100%;
+    background-color: #09707d; /* Brand Color */
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.nextBtn:hover { background-color: #075a64; }
+
+.disclaimer {
+    font-size: 0.65rem;
+    color: #666;
+    margin-top: 10px;
+    line-height: 1.4;
+}
+.disclaimer a { color: #09707d; text-decoration: none; }
+
+/* --- SUCCESS STATE --- */
+.successContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+.checkIcon { margin-bottom: 20px; color: #10b981; }
+.successContainer h3 { margin-bottom: 8px; color: #1a1a1a; }
+.successContainer p { color: #666; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+
+/* ... existing styles ... */
+
+.userInfoBar {
+    background: #f9fafb;
+    padding: 10px 14px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #e5e7eb;
+}
+
+.userAvatar {
+    width: 32px; height: 32px; background: #09707d; color: white;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+}
+
+.userDetails { flex: 1; display: flex; flex-direction: column; }
+.userName { font-size: 13px; color: #1f2937; }
+.userEmail { font-size: 11px; color: #6b7280; }
+.lockIcon { color: #9ca3af; }
+
+.gridRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.inputIconRight {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    color: #9ca3af; pointer-events: none;
+}
+
+.inputContainer { position: relative; }
+.inputField { padding-right: 35px; } /* Space for icon */

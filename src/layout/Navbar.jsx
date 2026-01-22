@@ -66,7 +66,7 @@ const Navbar = () => {
   const getPublicProfileLink = () => {
     if (!user) return "/";
     if (user.username) return `/user/@${user.username}`;
-    return `/user/${user.unique_id}`;
+    return `/user/${user.name}`;
   };
 
   // ✅ Close dropdowns on click outside
